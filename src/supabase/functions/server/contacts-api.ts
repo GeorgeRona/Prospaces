@@ -328,6 +328,7 @@ export function contactsAPI(app: Hono) {
       const hasAOCol = await hasAccountOwnerColumn(supabase);
       const hasLNCol = await hasLegacyNumberColumn(supabase);
       const hasFinCols = await hasFinancialColumns(supabase);
+      const hasPLCol = await hasPriceLevelColumn(supabase);
 
       // Build the update payload with only columns that exist
       const updatePayload: any = {};
@@ -342,17 +343,14 @@ export function contactsAPI(app: Hono) {
       if (body.notes !== undefined) updatePayload.notes = body.notes;
       if (body.tags !== undefined) updatePayload.tags = body.tags;
 
-      // ── price_level: ALWAYS try to include in DB update ──────────────
-      // Previous approach checked hasPriceLevelColumn() first, but the
-      // column-detection cache could go stale and silently route writes to
-      // KV while reads came from the DB column — causing "lost" updates.
-      // New approach: optimistically include price_level in the payload and
-      // only fall back to KV if the DB update actually fails with 42703.
+      // ── price_level: check column existence FIRST, then either DB or KV ──
       const priceLevelValue = body.price_level;
       const hasPriceLevelInBody = priceLevelValue !== undefined;
-      if (hasPriceLevelInBody) {
+      if (hasPriceLevelInBody && hasPLCol) {
         updatePayload.price_level = priceLevelValue;
-        console.log(`[contacts-api] Including price_level in DB update payload: "${priceLevelValue}"`);
+        console.log(`[contacts-api] price_level column exists — including in DB update: "${priceLevelValue}"`);
+      } else if (hasPriceLevelInBody) {
+        console.log(`[contacts-api] price_level column missing — will save "${priceLevelValue}" to KV after DB update`);
       }
 
       // Conditional columns (non-price_level)
@@ -375,28 +373,25 @@ export function contactsAPI(app: Hono) {
       let updatedContact: any = null;
       let priceLevelSavedToKV = false;
 
-      const { data: firstTry, error: firstError } = await supabase
+      const { data: updateData, error: updateError } = await supabase
         .from('contacts')
         .update(updatePayload)
         .eq('id', contactId)
         .select('*')
         .single();
 
-      if (firstError) {
-        // Detect column-not-found: PostgreSQL returns code 42703,
-        // but PostgREST may return its own code (e.g. PGRST204) with
-        // "Could not find the … column … in the schema cache".
-        const isPriceLevelColumnError = hasPriceLevelInBody && (
-          firstError.code === '42703' ||
-          (firstError.message && firstError.message.includes('price_level') && firstError.message.includes('schema cache'))
+      if (updateError) {
+        // If the error mentions price_level in schema cache despite our probe,
+        // retry once without it (column may have been dropped since the probe)
+        const isPriceLevelColumnError = hasPriceLevelInBody && hasPLCol && (
+          updateError.code === '42703' ||
+          (updateError.message && updateError.message.includes('price_level') && updateError.message.includes('schema cache'))
         );
 
         if (isPriceLevelColumnError) {
-          console.warn(`[contacts-api] Column error with price_level in payload (code=${firstError.code}) — retrying without it`);
-          // Bust the column cache so future probes re-check
+          console.warn(`[contacts-api] Stale cache — price_level column gone. Retrying without it.`);
           _hasPriceLevelCol = false;
           _plcolCheckTime = 0;
-
           delete updatePayload.price_level;
 
           const { data: retryData, error: retryError } = await supabase
@@ -410,45 +405,43 @@ export function contactsAPI(app: Hono) {
             console.error('[contacts-api] Retry update error:', retryError);
             return c.json({ error: 'Failed to update contact on retry: ' + retryError.message }, 500);
           }
-
           updatedContact = retryData;
-
-          // Save price_level to KV as fallback
-          try {
-            await kv.set(`contact_price_level:${contactId}`, priceLevelValue);
-            priceLevelSavedToKV = true;
-            console.log(`[contacts-api] price_level column missing — saved "${priceLevelValue}" to KV for contact ${contactId}`);
-          } catch (kvErr: any) {
-            console.error(`[contacts-api] Failed to save price_level to KV:`, kvErr.message);
-          }
         } else {
-          console.error('[contacts-api] Update error:', firstError);
-          return c.json({ error: 'Failed to update contact: ' + firstError.message }, 500);
+          console.error('[contacts-api] Update error:', updateError);
+          return c.json({ error: 'Failed to update contact: ' + updateError.message }, 500);
         }
       } else {
-        updatedContact = firstTry;
-        // Column exists and update succeeded — make sure cache reflects that
-        if (hasPriceLevelInBody && !_hasPriceLevelCol) {
+        updatedContact = updateData;
+        // If the update succeeded WITH price_level, confirm the cache
+        if (hasPriceLevelInBody && hasPLCol && !_hasPriceLevelCol) {
           _hasPriceLevelCol = true;
           _plcolCheckTime = Date.now();
-          console.log(`[contacts-api] price_level column confirmed via successful update — cache refreshed`);
         }
       }
 
-      console.log(`[contacts-api] Contact updated successfully. price_level in DB response: "${updatedContact?.price_level}"`);
+      // ── Save price_level to KV if the DB column doesn't exist ────────
+      if (hasPriceLevelInBody && !hasPLCol) {
+        try {
+          await kv.set(`contact_price_level:${contactId}`, priceLevelValue);
+          priceLevelSavedToKV = true;
+          console.log(`[contacts-api] price_level saved to KV: "${priceLevelValue}" for contact ${contactId}`);
+        } catch (kvErr: any) {
+          console.error(`[contacts-api] Failed to save price_level to KV:`, kvErr.message);
+        }
+      }
 
-      // Enrich the response if price_level was persisted in KV
+      console.log(`[contacts-api] Contact updated. DB price_level="${updatedContact?.price_level}", KV=${priceLevelSavedToKV}`);
+
+      // Enrich the response with the price_level from KV if needed
       const enrichedContact = { ...updatedContact };
       if (priceLevelSavedToKV) {
         enrichedContact.price_level = priceLevelValue;
       } else if (!updatedContact?.price_level && hasPriceLevelInBody) {
-        // Edge case: column existed but DB returned null — use the sent value
-        // (could happen if the column is nullable and the value was somehow lost)
+        // DB column exists but returned null — try KV as secondary source
         try {
           const kvPriceLevel = await kv.get(`contact_price_level:${contactId}`);
           if (kvPriceLevel) {
             enrichedContact.price_level = kvPriceLevel;
-            console.log(`[contacts-api] Enriched contact with KV price_level: "${kvPriceLevel}"`);
           }
         } catch (kvErr: any) {
           console.error(`[contacts-api] Failed to read price_level from KV:`, kvErr.message);
@@ -502,6 +495,7 @@ export function contactsAPI(app: Hono) {
       const hasAOCol = await hasAccountOwnerColumn(supabase);
       const hasLNCol = await hasLegacyNumberColumn(supabase);
       const hasFinCols = await hasFinancialColumns(supabase);
+      const hasPLCol = await hasPriceLevelColumn(supabase);
 
       // Build the insert payload with only columns that exist
       const insertPayload: any = {
@@ -521,11 +515,14 @@ export function contactsAPI(app: Hono) {
       if (body.notes !== undefined) insertPayload.notes = body.notes;
       if (body.tags !== undefined) insertPayload.tags = body.tags;
 
-      // ── price_level: optimistic include (same pattern as PATCH) ──
+      // ── price_level: check column existence FIRST ──
       const priceLevelValue = body.price_level;
       const hasPriceLevelInBody = priceLevelValue !== undefined;
-      if (hasPriceLevelInBody) {
+      if (hasPriceLevelInBody && hasPLCol) {
         insertPayload.price_level = priceLevelValue;
+        console.log(`[contacts-api] price_level column exists — including in insert: "${priceLevelValue}"`);
+      } else if (hasPriceLevelInBody) {
+        console.log(`[contacts-api] price_level column missing — will save "${priceLevelValue}" to KV after insert`);
       }
 
       // Conditional columns
@@ -542,30 +539,27 @@ export function contactsAPI(app: Hono) {
 
       console.log(`[contacts-api] Insert payload keys:`, Object.keys(insertPayload));
 
-      // ── Attempt the insert (optimistic — includes price_level) ──
+      // ── Attempt the insert ──
       let newContact: any = null;
       let priceLevelSavedToKV = false;
 
-      const { data: firstTry, error: firstError } = await supabase
+      const { data: insertData, error: insertError } = await supabase
         .from('contacts')
         .insert([insertPayload])
         .select('*')
         .single();
 
-      if (firstError) {
-        // Detect column-not-found: PostgreSQL returns code 42703,
-        // but PostgREST may return its own code (e.g. PGRST204) with
-        // "Could not find the … column … in the schema cache".
-        const isPriceLevelInsertError = hasPriceLevelInBody && (
-          firstError.code === '42703' ||
-          (firstError.message && firstError.message.includes('price_level') && firstError.message.includes('schema cache'))
+      if (insertError) {
+        // Safety net: if column detection was stale and price_level is in payload
+        const isPriceLevelInsertError = hasPriceLevelInBody && hasPLCol && (
+          insertError.code === '42703' ||
+          (insertError.message && insertError.message.includes('price_level') && insertError.message.includes('schema cache'))
         );
 
         if (isPriceLevelInsertError) {
-          console.warn(`[contacts-api] Column error on insert with price_level (code=${firstError.code}) — retrying without it`);
+          console.warn(`[contacts-api] Stale cache — price_level column gone on insert. Retrying without it.`);
           _hasPriceLevelCol = false;
           _plcolCheckTime = 0;
-
           delete insertPayload.price_level;
 
           const { data: retryData, error: retryError } = await supabase
@@ -578,29 +572,27 @@ export function contactsAPI(app: Hono) {
             console.error('[contacts-api] Retry insert error:', retryError);
             return c.json({ error: 'Failed to create contact on retry: ' + retryError.message }, 500);
           }
-
           newContact = retryData;
-
-          // Save price_level to KV
-          if (newContact?.id) {
-            try {
-              await kv.set(`contact_price_level:${newContact.id}`, priceLevelValue);
-              priceLevelSavedToKV = true;
-              console.log(`[contacts-api] price_level saved to KV for new contact ${newContact.id}`);
-            } catch (kvErr: any) {
-              console.error(`[contacts-api] Failed to save price_level to KV:`, kvErr.message);
-            }
-          }
         } else {
-          console.error('[contacts-api] Insert error:', firstError);
-          return c.json({ error: 'Failed to create contact: ' + firstError.message }, 500);
+          console.error('[contacts-api] Insert error:', insertError);
+          return c.json({ error: 'Failed to create contact: ' + insertError.message }, 500);
         }
       } else {
-        newContact = firstTry;
-        // Column confirmed to exist
-        if (hasPriceLevelInBody && !_hasPriceLevelCol) {
+        newContact = insertData;
+        if (hasPriceLevelInBody && hasPLCol && !_hasPriceLevelCol) {
           _hasPriceLevelCol = true;
           _plcolCheckTime = Date.now();
+        }
+      }
+
+      // ── Save price_level to KV if the DB column doesn't exist ────────
+      if (hasPriceLevelInBody && !hasPLCol && newContact?.id) {
+        try {
+          await kv.set(`contact_price_level:${newContact.id}`, priceLevelValue);
+          priceLevelSavedToKV = true;
+          console.log(`[contacts-api] price_level saved to KV for new contact ${newContact.id}`);
+        } catch (kvErr: any) {
+          console.error(`[contacts-api] Failed to save price_level to KV:`, kvErr.message);
         }
       }
 

@@ -8,6 +8,7 @@ import { subscriptions } from './subscriptions.ts';
 import { apiKeys } from './api-keys.ts';
 import { publicApi } from './public-api.ts';
 import { designsApi } from './designs-api.ts';
+import { contactsAPI } from './contacts-api.ts';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ProSpaces CRM — Consolidated Edge Function (v5 — 2025-02-21)
@@ -105,65 +106,8 @@ app.get(`${PREFIX}/permissions/audit-logs`, async (c) => {
   } catch (err: any) { return c.json({ error: err.message }, 500); }
 });
 
-// ── CONTACTS ────────────────────────────────────────────────────────────
-app.get(`${PREFIX}/contacts`, async (c) => {
-  try {
-    const auth = await authenticateUser(c);
-    if (auth.error) return c.json({ error: auth.error }, auth.status);
-    const scope = c.req.query('scope') || 'personal';
-    let query = auth.supabase.from('contacts').select('*');
-    if (auth.profile.role !== 'super_admin') {
-      if (scope === 'personal') {
-        query = query.eq('organization_id', auth.profile.organization_id).eq('owner_id', auth.user.id);
-      } else if (['admin', 'manager', 'director', 'marketing'].includes(auth.profile.role)) {
-        query = query.eq('organization_id', auth.profile.organization_id);
-      } else {
-        query = query.eq('organization_id', auth.profile.organization_id).eq('owner_id', auth.user.id);
-      }
-    }
-    const { data, error } = await query.order('created_at', { ascending: false });
-    if (error) return c.json({ error: error.message }, 500);
-    return c.json({ contacts: data || [], meta: { count: data?.length || 0, role: auth.profile.role } });
-  } catch (err: any) { return c.json({ error: err.message }, 500); }
-});
-
-app.patch(`${PREFIX}/contacts/:id`, async (c) => {
-  try {
-    const auth = await authenticateUser(c);
-    if (auth.error) return c.json({ error: auth.error }, auth.status);
-    const id = c.req.param('id');
-    const body = await c.req.json();
-    body.updated_at = new Date().toISOString();
-    const { data, error } = await auth.supabase.from('contacts').update(body).eq('id', id).select('*').single();
-    if (error) return c.json({ error: error.message }, 500);
-    return c.json({ contact: data });
-  } catch (err: any) { return c.json({ error: err.message }, 500); }
-});
-
-app.post(`${PREFIX}/contacts`, async (c) => {
-  try {
-    const auth = await authenticateUser(c);
-    if (auth.error) return c.json({ error: auth.error }, auth.status);
-    const body = await c.req.json();
-    body.organization_id = auth.profile.organization_id;
-    body.owner_id = auth.user.id;
-    body.created_at = new Date().toISOString();
-    body.updated_at = new Date().toISOString();
-    const { data, error } = await auth.supabase.from('contacts').insert([body]).select('*').single();
-    if (error) return c.json({ error: error.message }, 500);
-    return c.json({ contact: data }, 201);
-  } catch (err: any) { return c.json({ error: err.message }, 500); }
-});
-
-app.delete(`${PREFIX}/contacts/:id`, async (c) => {
-  try {
-    const auth = await authenticateUser(c);
-    if (auth.error) return c.json({ error: auth.error }, auth.status);
-    const { error } = await auth.supabase.from('contacts').delete().eq('id', c.req.param('id'));
-    if (error) return c.json({ error: error.message }, 500);
-    return c.json({ success: true });
-  } catch (err: any) { return c.json({ error: err.message }, 500); }
-});
+// ── CONTACTS (delegated to contacts-api.ts — column detection + KV fallback for price_level) ──
+contactsAPI(app);
 
 // ── ORG STATS (for Tenants / Organizations module) ─────────────────────
 // Returns user counts and contact counts per organization, bypassing RLS
