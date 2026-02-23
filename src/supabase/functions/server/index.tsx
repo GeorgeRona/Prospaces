@@ -955,7 +955,26 @@ app.post(`${PREFIX}/email-send`, async (c) => {
       if (cc) message.ccRecipients = (Array.isArray(cc) ? cc : [cc]).map((e: string) => ({ emailAddress: { address: e } }));
       if (bcc) message.bccRecipients = (Array.isArray(bcc) ? bcc : [bcc]).map((e: string) => ({ emailAddress: { address: e } }));
       const gRes = await fetch('https://graph.microsoft.com/v1.0/me/sendMail', { method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ message }) });
-      if (!gRes.ok) return c.json({ error: 'Graph send error: ' + await gRes.text() }, 502);
+      if (!gRes.ok) {
+        const errText = await gRes.text();
+        console.log(`[email-send] Graph API error (${gRes.status}): ${errText}`);
+        try {
+          const errJson = JSON.parse(errText);
+          const code = errJson?.error?.code || '';
+          if (code === 'ErrorAccountSuspend' || code.includes('Suspend')) {
+            return c.json({ error: `Your Microsoft account (${kvAccount.email}) has been suspended. Please sign in to outlook.com and follow the verification steps to reactivate it, then try again.` }, 502);
+          }
+          if (code === 'InvalidAuthenticationToken' || code === 'TokenExpired') {
+            return c.json({ error: `Your Microsoft account token has expired. Please reconnect your Outlook account in Settings → Email Accounts.` }, 401);
+          }
+          if (code === 'MailboxNotEnabledForRESTAPI') {
+            return c.json({ error: `This Microsoft account (${kvAccount.email}) does not have a mailbox enabled. Please use a different account.` }, 502);
+          }
+          return c.json({ error: `Microsoft Graph error: ${errJson?.error?.message || errText}` }, 502);
+        } catch (_) {
+          return c.json({ error: 'Outlook send failed: ' + errText }, 502);
+        }
+      }
       await auth.supabase.from('emails').insert({ id: crypto.randomUUID(), user_id: auth.user.id, organization_id: orgId, account_id: accountId, message_id: crypto.randomUUID(), from_email: kvAccount.email, to_email: Array.isArray(to) ? to[0] : to, cc_email: cc ? (Array.isArray(cc) ? cc.join(', ') : cc) : null, subject, body: emailBody, folder: 'sent', is_read: true, is_starred: false, received_at: new Date().toISOString() });
       return c.json({ success: true, message: 'Email sent via Outlook' });
     } else if (kvAccount.provider === 'gmail') {

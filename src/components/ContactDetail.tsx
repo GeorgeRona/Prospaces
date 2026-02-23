@@ -1554,45 +1554,43 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-6">
+          <div className="grid md:grid-cols-2 gap-4">
             {/* Basic Information */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="min-w-0">
-                <Label>Deal Title *</Label>
-                <Input
-                  value={dealFormData.title}
-                  onChange={(e) => setDealFormData({ ...dealFormData, title: e.target.value })}
-                  placeholder="Enter deal title"
-                />
-              </div>
-              <div className="min-w-0">
-                <Label>Valid Until</Label>
-                <Input
-                  type="date"
-                  value={dealFormData.validUntil}
-                  onChange={(e) => setDealFormData({ ...dealFormData, validUntil: e.target.value })}
-                />
-              </div>
-              <div className="min-w-0">
-                <Label>Contact</Label>
-                <Input
-                  value={contact.name}
-                  disabled
-                  className="bg-gray-50"
-                />
-              </div>
-              <div className="min-w-0">
-                <Label>Price Level</Label>
-                <Input
-                  value={contact.priceLevel || getPriceTierLabel(1)}
-                  disabled
-                  className="bg-gray-50"
-                />
-              </div>
+            <div className="space-y-2">
+              <Label>Deal Title *</Label>
+              <Input
+                value={dealFormData.title}
+                onChange={(e) => setDealFormData({ ...dealFormData, title: e.target.value })}
+                placeholder="Enter deal title"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Valid Until</Label>
+              <Input
+                type="date"
+                value={dealFormData.validUntil}
+                onChange={(e) => setDealFormData({ ...dealFormData, validUntil: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Contact</Label>
+              <Input
+                value={contact.name}
+                disabled
+                className="bg-gray-50"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Price Level</Label>
+              <Input
+                value={contact.priceLevel || getPriceTierLabel(1)}
+                disabled
+                className="bg-gray-50"
+              />
             </div>
 
             {/* Line Items */}
-            <div className="space-y-4">
+            <div className="md:col-span-2 space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="text-sm text-gray-900">Line Items</h3>
                 <div className="flex flex-wrap gap-2">
@@ -1692,10 +1690,10 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
 
             {/* Pricing */}
             {currentLineItems.length > 0 && (
-              <div className="space-y-4">
+              <div className="md:col-span-2 space-y-4">
                 <h3 className="text-sm text-gray-900">Pricing</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="min-w-0">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
                     <Label>Quote Discount (%)</Label>
                     <Input
                       type="number"
@@ -1704,7 +1702,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                       onChange={(e) => setDealFormData({ ...dealFormData, discountPercent: Number(e.target.value) })}
                     />
                   </div>
-                  <div className="min-w-0">
+                  <div className="space-y-2">
                     <Label>Tax Rate 1 (%)</Label>
                     <Input
                       type="number"
@@ -1712,17 +1710,17 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                       value={dealFormData.taxPercent}
                       onChange={(e) => setDealFormData({ ...dealFormData, taxPercent: Number(e.target.value) })}
                     />
-                    <p className="text-xs text-gray-500 mt-1">Primary tax rate</p>
+                    <p className="text-xs text-gray-500">Primary tax rate</p>
                   </div>
-                  <div className="min-w-0">
-                    <Label className="whitespace-nowrap">Tax Rate 2 (%) - Optional</Label>
+                  <div className="space-y-2">
+                    <Label>Tax Rate 2 (%) - Optional</Label>
                     <Input
                       type="number"
                       step="0.01"
                       value={dealFormData.taxPercent2 || 0}
                       onChange={(e) => setDealFormData({ ...dealFormData, taxPercent2: Number(e.target.value) })}
                     />
-                    <p className="text-xs text-gray-500 mt-1">Secondary tax rate</p>
+                    <p className="text-xs text-gray-500">Secondary tax rate</p>
                   </div>
                 </div>
 
@@ -1768,42 +1766,40 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
             )}
 
             {/* Additional Information */}
-            <div className="space-y-4">
-              <div>
-                <Label>Notes (Internal)</Label>
-                <Textarea
-                  value={dealFormData.notes}
-                  onChange={(e) => setDealFormData({ ...dealFormData, notes: e.target.value })}
-                  placeholder="Internal notes (not visible to client)"
-                  rows={2}
-                />
-              </div>
-              <div>
-                <Label>Terms & Conditions</Label>
-                <Textarea
-                  value={dealFormData.terms}
-                  onChange={(e) => setDealFormData({ ...dealFormData, terms: e.target.value })}
-                  placeholder="Payment terms and conditions"
-                  rows={3}
-                />
-              </div>
+            <div className="space-y-2">
+              <Label>Notes (Internal)</Label>
+              <Textarea
+                value={dealFormData.notes}
+                onChange={(e) => setDealFormData({ ...dealFormData, notes: e.target.value })}
+                placeholder="Internal notes (not visible to client)"
+                rows={3}
+              />
             </div>
-          </div>
+            <div className="space-y-2">
+              <Label>Terms & Conditions</Label>
+              <Textarea
+                value={dealFormData.terms}
+                onChange={(e) => setDealFormData({ ...dealFormData, terms: e.target.value })}
+                placeholder="Payment terms and conditions"
+                rows={3}
+              />
+            </div>
 
-          <div className="flex justify-end gap-2 mt-6 pt-6 border-t">
-            <Button variant="outline" onClick={() => setIsAddBidDialogOpen(false)} disabled={isSaving}>
-              Cancel
-            </Button>
-            <Button onClick={handleSaveDeal} disabled={isSaving || !dealFormData.title}>
-              {isSaving ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                'Create Quote'
-              )}
-            </Button>
+            <div className="flex gap-2 pt-4 md:col-span-2">
+              <Button type="button" variant="outline" onClick={() => setIsAddBidDialogOpen(false)} className="flex-1" disabled={isSaving}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveDeal} className="flex-1" disabled={isSaving || !dealFormData.title}>
+                {isSaving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  'Create Quote'
+                )}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -1963,9 +1959,8 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
               Update the deal's information and line items
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleEditBid} className="space-y-6">
+          <form onSubmit={handleEditBid} className="grid md:grid-cols-2 gap-4">
             {/* Basic Information */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="edit-bid-title">Title *</Label>
                 <Input
@@ -2040,10 +2035,9 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                   Bids and quotes will be emailed to this person
                 </p>
               </div>
-            </div>
 
             {/* Line Items Section */}
-            <div className="space-y-4">
+            <div className="md:col-span-2 space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm text-gray-900">Line Items</h3>
                 <Button
@@ -2106,10 +2100,10 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
 
             {/* Pricing */}
             {editingBidLineItems.length > 0 && (
-              <div className="space-y-4">
+              <div className="md:col-span-2 space-y-4">
                 <h3 className="text-sm text-gray-900">Pricing</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
                     <Label>Bid Discount (%)</Label>
                     <Input
                       type="number"
@@ -2118,7 +2112,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                       onChange={(e) => setBidDiscountPercent(Number(e.target.value))}
                     />
                   </div>
-                  <div>
+                  <div className="space-y-2">
                     <Label>Tax Rate 1 (%)</Label>
                     <Input
                       type="number"
@@ -2126,11 +2120,11 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                       value={bidTaxRate}
                       onChange={(e) => setBidTaxRate(e.target.value)}
                     />
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-gray-500">
                       Primary tax rate
                     </p>
                   </div>
-                  <div>
+                  <div className="space-y-2">
                     <Label>Tax Rate 2 (%) - Optional</Label>
                     <Input
                       type="number"
@@ -2138,7 +2132,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                       value={bidTaxRate2}
                       onChange={(e) => setBidTaxRate2(e.target.value)}
                     />
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-gray-500">
                       Secondary tax rate
                     </p>
                   </div>
@@ -2194,7 +2188,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
             )}
 
             {/* Notes */}
-            <div className="space-y-2">
+            <div className="md:col-span-2 space-y-2">
               <Label htmlFor="edit-bid-notes">Notes</Label>
               <Textarea
                 id="edit-bid-notes"
@@ -2204,7 +2198,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
               />
             </div>
 
-            <div className="flex gap-2 pt-4 border-t">
+            <div className="flex gap-2 pt-4 md:col-span-2">
               <Button
                 type="button"
                 variant="outline"

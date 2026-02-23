@@ -1435,52 +1435,50 @@ export function Bids({ user }: BidsProps) {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-6">
+          <div className="grid md:grid-cols-2 gap-4">
             {/* Basic Information */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="min-w-0">
-                <Label>Deal Title *</Label>
-                <Input
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  placeholder="Enter deal title"
-                />
-              </div>
-              <div className="min-w-0">
-                <Label>Contact *</Label>
-                <Select value={formData.contactId} onValueChange={handleContactChange}>
-                  <SelectTrigger className="w-full truncate">
-                    <SelectValue placeholder="Select contact" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {contacts.map(contact => (
-                      <SelectItem key={contact.id} value={contact.id}>
-                        {contact.name} {contact.priceLevel ? `(${contact.priceLevel})` : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="min-w-0">
-                <Label>Valid Until</Label>
-                <Input
-                  type="date"
-                  value={formData.validUntil}
-                  onChange={(e) => setFormData({ ...formData, validUntil: e.target.value })}
-                />
-              </div>
-              <div className="min-w-0">
-                <Label>Selected Contact Price Level</Label>
-                <Input
-                  value={formData.contactId ? (contacts.find(c => c.id === formData.contactId)?.priceLevel || getPriceTierLabel(1)) : 'Select a contact'}
-                  disabled
-                  className="bg-gray-50"
-                />
-              </div>
+            <div className="space-y-2">
+              <Label>Deal Title *</Label>
+              <Input
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                placeholder="Enter deal title"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Contact *</Label>
+              <Select value={formData.contactId} onValueChange={handleContactChange}>
+                <SelectTrigger className="w-full truncate">
+                  <SelectValue placeholder="Select contact" />
+                </SelectTrigger>
+                <SelectContent>
+                  {contacts.map(contact => (
+                    <SelectItem key={contact.id} value={contact.id}>
+                      {contact.name} {contact.priceLevel ? `(${contact.priceLevel})` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Valid Until</Label>
+              <Input
+                type="date"
+                value={formData.validUntil}
+                onChange={(e) => setFormData({ ...formData, validUntil: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Selected Contact Price Level</Label>
+              <Input
+                value={formData.contactId ? (contacts.find(c => c.id === formData.contactId)?.priceLevel || getPriceTierLabel(1)) : 'Select a contact'}
+                disabled
+                className="bg-gray-50"
+              />
             </div>
 
             {/* Line Items */}
-            <div className="space-y-4">
+            <div className="md:col-span-2 space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="text-sm text-gray-900">Line Items</h3>
                 <div className="flex flex-wrap gap-2">
@@ -1587,10 +1585,10 @@ export function Bids({ user }: BidsProps) {
 
             {/* Pricing */}
             {currentLineItems.length > 0 && (
-              <div className="space-y-4">
+              <div className="md:col-span-2 space-y-4">
                 <h3 className="text-sm text-gray-900">Pricing</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="min-w-0">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
                     <Label>Quote Discount (%)</Label>
                     <Input
                       type="number"
@@ -1599,7 +1597,7 @@ export function Bids({ user }: BidsProps) {
                       onChange={(e) => setFormData({ ...formData, discountPercent: Number(e.target.value) })}
                     />
                   </div>
-                  <div className="min-w-0">
+                  <div className="space-y-2">
                     <Label>Tax Rate 1 (%)</Label>
                     <Input
                       type="number"
@@ -1607,19 +1605,19 @@ export function Bids({ user }: BidsProps) {
                       value={formData.taxPercent}
                       onChange={(e) => setFormData({ ...formData, taxPercent: Number(e.target.value) })}
                     />
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-gray-500">
                       Primary tax rate
                     </p>
                   </div>
-                  <div className="min-w-0">
-                    <Label className="whitespace-nowrap">Tax Rate 2 (%) - Optional</Label>
+                  <div className="space-y-2">
+                    <Label>Tax Rate 2 (%) - Optional</Label>
                     <Input
                       type="number"
                       step="0.01"
                       value={formData.taxPercent2 || 0}
                       onChange={(e) => setFormData({ ...formData, taxPercent2: Number(e.target.value) })}
                     />
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-gray-500">
                       Secondary tax rate
                     </p>
                   </div>
@@ -1670,35 +1668,33 @@ export function Bids({ user }: BidsProps) {
             )}
 
             {/* Additional Information */}
-            <div className="space-y-4">
-              <div>
-                <Label>Notes (Internal)</Label>
-                <Textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  placeholder="Internal notes (not visible to client)"
-                  rows={2}
-                />
-              </div>
-              <div>
-                <Label>Terms & Conditions</Label>
-                <Textarea
-                  value={formData.terms}
-                  onChange={(e) => setFormData({ ...formData, terms: e.target.value })}
-                  placeholder="Payment terms and conditions"
-                  rows={3}
-                />
-              </div>
+            <div className="space-y-2">
+              <Label>Notes (Internal)</Label>
+              <Textarea
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                placeholder="Internal notes (not visible to client)"
+                rows={3}
+              />
             </div>
-          </div>
+            <div className="space-y-2">
+              <Label>Terms & Conditions</Label>
+              <Textarea
+                value={formData.terms}
+                onChange={(e) => setFormData({ ...formData, terms: e.target.value })}
+                placeholder="Payment terms and conditions"
+                rows={3}
+              />
+            </div>
 
-          <div className="flex justify-end gap-2 mt-6 pt-6 border-t">
-            <Button variant="outline" onClick={() => setShowDialog(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave}>
-              {editingQuote ? 'Update Deal' : 'Create Quote'}
-            </Button>
+            <div className="flex gap-2 pt-4 md:col-span-2">
+              <Button type="button" variant="outline" onClick={() => setShowDialog(false)} className="flex-1">
+                Cancel
+              </Button>
+              <Button onClick={handleSave} className="flex-1">
+                {editingQuote ? 'Update Deal' : 'Create Quote'}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
