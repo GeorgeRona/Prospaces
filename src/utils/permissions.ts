@@ -163,6 +163,12 @@ export async function initializePermissions(role: UserRole) {
 
     const headers = await getServerHeaders();
 
+    // If there's no user token, skip the server fetch — it will 401 anyway
+    if (!headers['X-User-Token']) {
+      console.log('[permissions] No user token available yet, using defaults + localStorage (skipping server fetch)');
+      return;
+    }
+
     const timeoutPromise = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error('Permissions fetch timeout')), 3000)
     );

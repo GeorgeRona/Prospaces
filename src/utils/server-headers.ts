@@ -51,23 +51,30 @@ export async function getUserAccessToken(): Promise<string | null> {
   await _authReadyPromise;
 
   // Always get the latest session from the Supabase client.
-  // The _cachedToken from onAuthStateChange can be stale if the client
-  // internally refreshed the token between listener events.
   try {
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.access_token) {
-      // Proactively refresh if token is about to expire (within 60s)
-      if (session.expires_at && session.expires_at * 1000 <= Date.now() + 60_000) {
+      // Check if the token is expired or about to expire (within 5 minutes).
+      // getSession() returns the cached session without auto-refreshing in v2,
+      // so we must explicitly refresh stale tokens to prevent server-side 401s.
+      const isExpiredOrStale = session.expires_at
+        && session.expires_at * 1000 <= Date.now() + 5 * 60_000;
+
+      if (isExpiredOrStale) {
         try {
+          console.log('[server-headers] Token expired or about to expire — refreshing session...');
           const { data: { session: refreshed } } = await supabase.auth.refreshSession();
           if (refreshed?.access_token) {
             _cachedToken = refreshed.access_token;
             return refreshed.access_token;
           }
+          console.warn('[server-headers] Session refresh returned no session — user may need to re-login');
         } catch {
-          // Refresh failed — use current session token
+          // Refresh failed — fall through; the old token might still work for a few seconds
+          console.warn('[server-headers] Session refresh failed — using existing token');
         }
       }
+
       _cachedToken = session.access_token;
       return session.access_token;
     }

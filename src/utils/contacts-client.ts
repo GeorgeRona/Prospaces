@@ -340,6 +340,13 @@ export async function getAllContactsClient(filterByAccountOwner?: string, scope:
     console.log(`[contacts-client] Fetching contacts via server endpoint (scope=${scope})...`);
     
     const headers = await getServerHeaders();
+
+    // Skip server call if no user token — it will 401 anyway
+    if (!headers['X-User-Token']) {
+      console.log('[contacts-client] No user token yet, skipping server endpoint');
+      return await getAllContactsClientDirect(scope);
+    }
+
     const response = await fetch(
       `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/contacts?scope=${scope}`,
       {

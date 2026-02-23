@@ -50,6 +50,11 @@ export async function getUserPreferencesClient(userId: string, organizationId: s
   // Try server endpoint first (bypasses RLS)
   try {
     const headers = await getServerHeaders();
+    // Skip server call if no user token — it will 401 anyway
+    if (!headers['X-User-Token']) {
+      console.log('[settings-client] No user token yet, skipping server endpoint for user preferences');
+      throw new Error('No user token');
+    }
     const res = await fetch(
       `${SERVER_BASE}/settings/user-preferences?user_id=${encodeURIComponent(userId)}&organization_id=${encodeURIComponent(organizationId)}`,
       { headers }
@@ -161,6 +166,11 @@ export async function getOrganizationSettingsClient(organizationId: string): Pro
   // Try server endpoint first (bypasses RLS)
   try {
     const headers = await getServerHeaders();
+    // Skip server call if no user token — it will 401 anyway
+    if (!headers['X-User-Token']) {
+      console.log('[settings-client] No user token yet, skipping server endpoint for org settings');
+      throw new Error('No user token');
+    }
     const res = await fetch(
       `${SERVER_BASE}/settings/organization?organization_id=${encodeURIComponent(organizationId)}`,
       { headers }

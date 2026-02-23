@@ -1306,14 +1306,14 @@ export function Contacts({ user }: ContactsProps) {
 
       {/* Edit Contact Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto bg-white">
+        <DialogContent className="max-h-[90vh] overflow-y-auto bg-white" style={{ maxWidth: 700 }}>
           <DialogHeader>
             <DialogTitle>Edit Contact</DialogTitle>
             <DialogDescription>
               Update the contact's information and settings.
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleEditContact} className="space-y-4">
+          <form onSubmit={handleEditContact} className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="edit-name">Name</Label>
               <Input
@@ -1406,7 +1406,7 @@ export function Contacts({ user }: ContactsProps) {
                 placeholder="Optional"
               />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 col-span-2">
               <Label htmlFor="edit-notes">Notes</Label>
               <Textarea
                 id="edit-notes"
@@ -1415,13 +1415,15 @@ export function Contacts({ user }: ContactsProps) {
                 placeholder="Optional"
               />
             </div>
-            <TagSelector
-              label="Tags (for segmentation)"
-              tags={editingContact?.tags || []}
-              availableTags={audienceSegments}
-              onTagsChange={(tags) => setEditingContact(editingContact ? { ...editingContact, tags } : null)}
-              htmlFor="edit-tags-2"
-            />
+            <div className="col-span-2">
+              <TagSelector
+                label="Tags (for segmentation)"
+                tags={editingContact?.tags || []}
+                availableTags={audienceSegments}
+                onTagsChange={(tags) => setEditingContact(editingContact ? { ...editingContact, tags } : null)}
+                htmlFor="edit-tags-2"
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="edit-ptdSales">PTD Sales</Label>
               <Input
@@ -1488,7 +1490,7 @@ export function Contacts({ user }: ContactsProps) {
                 placeholder="Optional"
               />
             </div>
-            <div className="flex gap-2 pt-4">
+            <div className="flex gap-2 pt-4 col-span-2">
               <Button 
                 type="button" 
                 variant="outline" 
