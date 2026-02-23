@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { RoofConfig, MaterialItem } from '../../types/roof';
 import { createClient } from '../../utils/supabase/client';
+import { listDesigns, saveDesign as saveDesignApi, deleteDesign as deleteDesignApi } from '../../utils/designs-client';
 import { CustomerSelector } from '../project-wizard/CustomerSelector';
 import { OpportunitySelector } from '../project-wizard/OpportunitySelector';
 import { Save, Trash2, Download, FileText, AlertCircle, User } from 'lucide-react';
@@ -41,18 +42,8 @@ export function SavedRoofDesigns({ user, currentConfig, materials, totalCost, on
   const loadSavedDesigns = async () => {
     try {
       setIsLoading(true);
-      const supabase = createClient();
-      
-      const { data, error } = await supabase
-        .from('saved_designs')
-        .select('*')
-        .eq('organization_id', user.organizationId)
-        .eq('design_type', 'roof')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      setSavedDesigns(data || []);
+      const data = await listDesigns('roof');
+      setSavedDesigns(data);
     } catch (error) {
       console.error('Error loading saved designs:', error);
     } finally {
@@ -69,28 +60,16 @@ export function SavedRoofDesigns({ user, currentConfig, materials, totalCost, on
     try {
       setIsSaving(true);
       setSaveError('');
-      const supabase = createClient();
 
-      const designData = {
-        organization_id: user.organizationId,
-        design_type: 'roof',
+      await saveDesignApi('roof', {
         name: designName,
         description: designDescription,
-        customer_name: selectedCustomer?.name,
-        customer_company: selectedCustomer?.company,
+        customer_id: selectedCustomer?.id || null,
         config: currentConfig,
-        materials: materials,
         total_cost: totalCost,
-        created_by: user.id,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-
-      const { error } = await supabase
-        .from('saved_designs')
-        .insert([designData]);
-
-      if (error) throw error;
+        materials: materials,
+        price_tier: selectedCustomer?.price_level || 't1',
+      });
 
       // Reset form and reload designs
       setDesignName('');
@@ -111,14 +90,7 @@ export function SavedRoofDesigns({ user, currentConfig, materials, totalCost, on
     if (!confirm('Are you sure you want to delete this design?')) return;
 
     try {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from('saved_designs')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
+      await deleteDesignApi('roof', id);
       await loadSavedDesigns();
     } catch (error) {
       console.error('Error deleting design:', error);

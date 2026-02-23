@@ -4,10 +4,14 @@ import * as kv from './kv_store.tsx';
 import { extractUserToken } from './auth-helper.ts';
 
 /**
- * Marketing routes for Journeys and Landing Pages.
- * Data is stored in the KV store with key patterns:
+ * Marketing routes – ALL KV-backed (v2).
+ * Key patterns:
+ *   campaign:{orgId}:{campaignId}
+ *   scoring_rule:{orgId}:{ruleId}
+ *   lead_score:{orgId}:{contactId}
  *   journey:{orgId}:{journeyId}
  *   landing_page:{orgId}:{pageId}
+ *   marketing_event:{orgId}:{eventId}
  */
 export function marketing(app: Hono) {
 
@@ -55,6 +59,200 @@ export function marketing(app: Hono) {
     if (!orgId) return null;
     return { userId: user.id, orgId };
   }
+
+  // ============== CAMPAIGNS (KV-backed) ==============
+
+  // GET all campaigns for the user's org
+  app.get('/make-server-8405be07/marketing/campaigns', async (c) => {
+    console.log('GET /marketing/campaigns');
+    try {
+      const auth = await authenticateAndGetOrg(c);
+      if (!auth) return c.json({ error: 'Unauthorized' }, 401);
+
+      const campaigns = await kv.getByPrefix(`campaign:${auth.orgId}:`);
+      campaigns.sort((a: any, b: any) => {
+        const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return dateB - dateA;
+      });
+
+      return c.json({ campaigns });
+    } catch (error: any) {
+      console.error('Error fetching campaigns:', error);
+      return c.json({ error: 'Failed to fetch campaigns', message: error.message }, 500);
+    }
+  });
+
+  // POST create a new campaign
+  app.post('/make-server-8405be07/marketing/campaigns', async (c) => {
+    console.log('POST /marketing/campaigns');
+    try {
+      const auth = await authenticateAndGetOrg(c);
+      if (!auth) return c.json({ error: 'Unauthorized' }, 401);
+
+      const body = await c.req.json();
+      const id = body.id || crypto.randomUUID();
+      const now = new Date().toISOString();
+
+      const campaign = {
+        ...body,
+        id,
+        organization_id: auth.orgId,
+        created_by: auth.userId,
+        created_at: body.created_at || now,
+        updated_at: now,
+      };
+
+      await kv.set(`campaign:${auth.orgId}:${id}`, campaign);
+      console.log(`Created campaign ${id} for org ${auth.orgId}`);
+
+      return c.json({ campaign });
+    } catch (error: any) {
+      console.error('Error creating campaign:', error);
+      return c.json({ error: 'Failed to create campaign', message: error.message }, 500);
+    }
+  });
+
+  // PUT update a campaign
+  app.put('/make-server-8405be07/marketing/campaigns/:id', async (c) => {
+    const id = c.req.param('id');
+    console.log(`PUT /marketing/campaigns/${id}`);
+    try {
+      const auth = await authenticateAndGetOrg(c);
+      if (!auth) return c.json({ error: 'Unauthorized' }, 401);
+
+      const existing = await kv.get(`campaign:${auth.orgId}:${id}`);
+      if (!existing) return c.json({ error: 'Campaign not found' }, 404);
+
+      const updates = await c.req.json();
+      const campaign = {
+        ...existing,
+        ...updates,
+        id,
+        organization_id: auth.orgId,
+        updated_at: new Date().toISOString(),
+      };
+
+      await kv.set(`campaign:${auth.orgId}:${id}`, campaign);
+      console.log(`Updated campaign ${id}`);
+
+      return c.json({ campaign });
+    } catch (error: any) {
+      console.error('Error updating campaign:', error);
+      return c.json({ error: 'Failed to update campaign', message: error.message }, 500);
+    }
+  });
+
+  // DELETE a campaign
+  app.delete('/make-server-8405be07/marketing/campaigns/:id', async (c) => {
+    const id = c.req.param('id');
+    console.log(`DELETE /marketing/campaigns/${id}`);
+    try {
+      const auth = await authenticateAndGetOrg(c);
+      if (!auth) return c.json({ error: 'Unauthorized' }, 401);
+
+      await kv.del(`campaign:${auth.orgId}:${id}`);
+      console.log(`Deleted campaign ${id}`);
+
+      return c.json({ success: true });
+    } catch (error: any) {
+      console.error('Error deleting campaign:', error);
+      return c.json({ error: 'Failed to delete campaign', message: error.message }, 500);
+    }
+  });
+
+  // POST duplicate a campaign
+  app.post('/make-server-8405be07/marketing/campaigns/:id/duplicate', async (c) => {
+    const id = c.req.param('id');
+    console.log(`POST /marketing/campaigns/${id}/duplicate`);
+    try {
+      const auth = await authenticateAndGetOrg(c);
+      if (!auth) return c.json({ error: 'Unauthorized' }, 401);
+
+      const existing = await kv.get(`campaign:${auth.orgId}:${id}`);
+      if (!existing) return c.json({ error: 'Campaign not found' }, 404);
+
+      const newId = crypto.randomUUID();
+      const now = new Date().toISOString();
+
+      const { id: _oldId, created_at: _ca, updated_at: _ua, ...rest } = existing;
+      const campaign = {
+        ...rest,
+        id: newId,
+        name: `${existing.name} (Copy)`,
+        status: 'draft',
+        organization_id: auth.orgId,
+        created_by: auth.userId,
+        created_at: now,
+        updated_at: now,
+      };
+
+      await kv.set(`campaign:${auth.orgId}:${newId}`, campaign);
+      console.log(`Duplicated campaign ${id} → ${newId}`);
+
+      return c.json({ campaign });
+    } catch (error: any) {
+      console.error('Error duplicating campaign:', error);
+      return c.json({ error: 'Failed to duplicate campaign', message: error.message }, 500);
+    }
+  });
+
+  // GET campaign stats (computed from KV campaigns)
+  app.get('/make-server-8405be07/marketing/campaign-stats', async (c) => {
+    console.log('GET /marketing/campaign-stats');
+    try {
+      const auth = await authenticateAndGetOrg(c);
+      if (!auth) return c.json({ error: 'Unauthorized' }, 401);
+
+      const campaigns = await kv.getByPrefix(`campaign:${auth.orgId}:`);
+
+      const activeCampaigns = campaigns.filter((c: any) => c.status === 'active').length;
+      const totalSent = campaigns.reduce((s: number, c: any) => s + (c.sent_count || 0), 0);
+      const totalOpened = campaigns.reduce((s: number, c: any) => s + (c.opened_count || 0), 0);
+      const totalClicked = campaigns.reduce((s: number, c: any) => s + (c.clicked_count || 0), 0);
+      const totalConverted = campaigns.reduce((s: number, c: any) => s + (c.converted_count || 0), 0);
+      const totalRevenue = campaigns.reduce((s: number, c: any) => s + (c.revenue || 0), 0);
+      const openRate = totalSent > 0 ? ((totalOpened / totalSent) * 100).toFixed(1) : '0';
+      const conversionRate = totalSent > 0 ? ((totalConverted / totalSent) * 100).toFixed(1) : '0';
+
+      return c.json({
+        activeCampaigns, totalSent, totalOpened, totalClicked,
+        totalConverted, totalRevenue, openRate, conversionRate,
+      });
+    } catch (error: any) {
+      console.error('Error computing campaign stats:', error);
+      return c.json({ error: 'Failed to compute campaign stats', message: error.message }, 500);
+    }
+  });
+
+  // ============== MARKETING EVENTS (KV-backed) ==============
+
+  app.post('/make-server-8405be07/marketing/events', async (c) => {
+    console.log('POST /marketing/events');
+    try {
+      const auth = await authenticateAndGetOrg(c);
+      if (!auth) return c.json({ error: 'Unauthorized' }, 401);
+
+      const body = await c.req.json();
+      const id = crypto.randomUUID();
+      const now = new Date().toISOString();
+
+      const event = {
+        id,
+        organization_id: auth.orgId,
+        event_type: body.event_type,
+        properties: body.properties || {},
+        campaign_id: body.campaign_id || null,
+        created_at: now,
+      };
+
+      await kv.set(`marketing_event:${auth.orgId}:${id}`, event);
+      return c.json({ event });
+    } catch (error: any) {
+      console.error('Error tracking marketing event:', error);
+      return c.json({ error: 'Failed to track event', message: error.message }, 500);
+    }
+  });
 
   // ============== JOURNEYS ==============
 

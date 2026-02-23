@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createClient } from '../../utils/supabase/client';
+import { listDesigns, saveDesign as saveDesignApi, deleteDesign as deleteDesignApi } from '../../utils/designs-client';
 import { GarageConfig, SavedGarageDesign } from '../../types/garage';
 import { CustomerSelector } from '../project-wizard/CustomerSelector';
 import { OpportunitySelector } from '../project-wizard/OpportunitySelector';
@@ -75,7 +76,6 @@ export function SavedGarageDesigns({
   }, [user.organizationId]);
 
   const loadDesigns = async () => {
-    // Guard against undefined organizationId
     if (!user.organizationId) {
       console.error('[SavedGarageDesigns] Cannot load designs - organizationId is undefined');
       setSaveMessage('Unable to load designs. Please refresh the page.');
@@ -84,71 +84,13 @@ export function SavedGarageDesigns({
     }
 
     setIsLoading(true);
-    setSaveMessage(''); // Clear any previous messages
+    setSaveMessage('');
     console.log('[SavedGarageDesigns] Loading designs for org:', user.organizationId);
     
     try {
-      const { data, error } = await createClient()
-        .from('saved_garage_designs')
-        .select(`
-          id,
-          name,
-          description,
-          config,
-          customer_id,
-          price_tier,
-          total_cost,
-          materials,
-          created_at,
-          updated_at
-        `)
-        .eq('organization_id', user.organizationId)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('[SavedGarageDesigns] Error loading designs:', error);
-        throw error;
-      }
-
-      console.log('[SavedGarageDesigns] Loaded designs:', data?.length || 0);
-
-      // Fetch customer details separately for designs that have a customer_id
-      const designsWithCustomers = await Promise.all(
-        (data || []).map(async (design: any) => {
-          let customerName = null;
-          let customerCompany = null;
-
-          if (design.customer_id) {
-            const { data: contact } = await createClient()
-              .from('contacts')
-              .select('name, company')
-              .eq('id', design.customer_id)
-              .single();
-            
-            if (contact) {
-              customerName = contact.name;
-              customerCompany = contact.company;
-            }
-          }
-
-          return {
-            id: design.id,
-            name: design.name,
-            description: design.description,
-            config: design.config,
-            customer_id: design.customer_id,
-            customer_name: customerName,
-            customer_company: customerCompany,
-            price_tier: design.price_tier,
-            total_cost: design.total_cost,
-            materials: design.materials,
-            created_at: design.created_at,
-            updated_at: design.updated_at,
-          };
-        })
-      );
-
-      setDesigns(designsWithCustomers);
+      const data = await listDesigns('garage');
+      console.log('[SavedGarageDesigns] Loaded designs:', data.length);
+      setDesigns(data as SavedDesign[]);
     } catch (error) {
       console.error('Error loading saved designs:', error);
       setSaveMessage('Error loading designs. Please try again.');
@@ -157,7 +99,7 @@ export function SavedGarageDesigns({
     }
   };
 
-  const saveDesign = async () => {
+  const handleSaveDesign = async () => {
     if (!saveName.trim()) {
       setSaveMessage('Please enter a name for your design');
       return;
@@ -165,29 +107,18 @@ export function SavedGarageDesigns({
 
     setIsSaving(true);
     try {
-      const { data, error } = await createClient()
-        .from('saved_garage_designs')
-        .insert({
-          organization_id: user.organizationId,
-          user_id: user.id,
-          customer_id: selectedCustomer?.id || null,
-          opportunity_id: selectedOpportunityId,
-          name: saveName.trim(),
-          description: saveDescription.trim() || null,
-          config: currentConfig,
-          price_tier: selectedCustomer?.price_level || 't1',
-          total_cost: totalCost,
-          materials: materials,
-        })
-        .select()
-        .single();
+      const data = await saveDesignApi('garage', {
+        customer_id: selectedCustomer?.id || null,
+        opportunity_id: selectedOpportunityId,
+        name: saveName.trim(),
+        description: saveDescription.trim() || null,
+        config: currentConfig,
+        price_tier: selectedCustomer?.price_level || 't1',
+        total_cost: totalCost,
+        materials: materials,
+      });
 
-      if (error) {
-        console.error('Supabase error details:', error);
-        throw new Error(`Database error: ${error.message}`);
-      }
-
-      console.log('✓ Design saved to Supabase successfully:', data);
+      console.log('✓ Design saved via server successfully:', data);
       setSaveName('');
       setSaveDescription('');
       setSelectedCustomer(null);
@@ -205,17 +136,11 @@ export function SavedGarageDesigns({
     }
   };
 
-  const deleteDesign = async (id: string) => {
+  const handleDeleteDesign = async (id: string) => {
     if (!confirm('Are you sure you want to delete this design?')) return;
 
     try {
-      const { error } = await createClient()
-        .from('saved_garage_designs')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
+      await deleteDesignApi('garage', id);
       await loadDesigns();
     } catch (error) {
       console.error('Error deleting design:', error);
@@ -261,7 +186,7 @@ export function SavedGarageDesigns({
               placeholder="e.g., Client Smith - 24x24 Double Garage"
               value={saveName}
               onChange={(e) => setSaveName(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && saveDesign()}
+              onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSaveDesign()}
             />
           </div>
 
@@ -298,7 +223,7 @@ export function SavedGarageDesigns({
           )}
           
           <Button 
-            onClick={saveDesign} 
+            onClick={handleSaveDesign} 
             className="w-full"
             disabled={isSaving}
           >
@@ -394,7 +319,7 @@ export function SavedGarageDesigns({
                       size="sm"
                       variant="outline"
                       className="text-red-600 hover:bg-red-50"
-                      onClick={() => deleteDesign(design.id)}
+                      onClick={() => handleDeleteDesign(design.id)}
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>

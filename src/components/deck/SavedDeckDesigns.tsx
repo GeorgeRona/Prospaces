@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { createClient } from '../../utils/supabase/client';
+import { listDesigns, saveDesign, deleteDesign as deleteDesignApi, createDeal as createDealAPI, createQuote as createQuoteAPI } from '../../utils/designs-client';
 import { DeckConfig } from '../../types/deck';
 import { CustomerSelector } from '../project-wizard/CustomerSelector';
-import { OpportunitySelector } from '../project-wizard/OpportunitySelector';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
-import { FileText, Trash2, Download, Save, User, FileCheck } from 'lucide-react';
+import { FileText, Trash2, Download, Save, User, FileCheck, Handshake, DollarSign } from 'lucide-react';
 import { Alert, AlertDescription } from '../ui/alert';
 import { Checkbox } from '../ui/checkbox';
 import type { User as AppUser } from '../../App';
@@ -35,14 +34,6 @@ interface Customer {
   price_level: string;
 }
 
-interface Opportunity {
-  id: string;
-  title: string;
-  customer_id: string;
-  status: string;
-  value: number;
-}
-
 interface SavedDesign {
   id: string;
   name: string;
@@ -51,8 +42,8 @@ interface SavedDesign {
   customer_id: string | null;
   customer_name: string | null;
   customer_company: string | null;
-  opportunity_id: string | null;
-  opportunity_title: string | null;
+  deal_id: string | null;
+  deal_title: string | null;
   price_tier: string;
   total_cost: number;
   materials: any[];
@@ -71,16 +62,28 @@ export function SavedDeckDesigns({
   const [saveName, setSaveName] = useState('');
   const [saveDescription, setSaveDescription] = useState('');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
   const [createQuote, setCreateQuote] = useState(false);
+  const [createDeal, setCreateDeal] = useState(false);
+  const [dealTitle, setDealTitle] = useState('');
+  const [dealValue, setDealValue] = useState('');
+  const [dealDescription, setDealDescription] = useState('');
   const [saveMessage, setSaveMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Reset opportunity when customer changes
+  // Auto-populate deal title when design name changes
   useEffect(() => {
-    setSelectedOpportunity(null);
-  }, [selectedCustomer]);
+    if (saveName.trim() && selectedCustomer) {
+      setDealTitle(`Deck Project - ${saveName.trim()}`);
+    }
+  }, [saveName, selectedCustomer]);
+
+  // Auto-populate deal value when total cost changes
+  useEffect(() => {
+    if (totalCost > 0) {
+      setDealValue(totalCost.toFixed(2));
+    }
+  }, [totalCost]);
 
   useEffect(() => {
     // Only load if we have a valid organization ID
@@ -105,67 +108,9 @@ export function SavedDeckDesigns({
     console.log('[SavedDeckDesigns] Loading designs for org:', user.organizationId);
     
     try {
-      const { data, error } = await createClient()
-        .from('saved_deck_designs')
-        .select(`
-          id,
-          name,
-          description,
-          config,
-          customer_id,
-          price_tier,
-          total_cost,
-          materials,
-          created_at,
-          updated_at
-        `)
-        .eq('organization_id', user.organizationId)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('[SavedDeckDesigns] Error loading designs:', error);
-        throw error;
-      }
-
-      console.log('[SavedDeckDesigns] Loaded designs:', data?.length || 0);
-
-      // Fetch customer details separately for designs that have a customer_id
-      const designsWithCustomers = await Promise.all(
-        (data || []).map(async (design: any) => {
-          let customerName = null;
-          let customerCompany = null;
-
-          if (design.customer_id) {
-            const { data: contact } = await createClient()
-              .from('contacts')
-              .select('name, company')
-              .eq('id', design.customer_id)
-              .single();
-            
-            if (contact) {
-              customerName = contact.name;
-              customerCompany = contact.company;
-            }
-          }
-
-          return {
-            id: design.id,
-            name: design.name,
-            description: design.description,
-            config: design.config,
-            customer_id: design.customer_id,
-            customer_name: customerName,
-            customer_company: customerCompany,
-            price_tier: design.price_tier,
-            total_cost: design.total_cost,
-            materials: design.materials,
-            created_at: design.created_at,
-            updated_at: design.updated_at,
-          };
-        })
-      );
-
-      setDesigns(designsWithCustomers);
+      const data = await listDesigns('deck');
+      console.log('[SavedDeckDesigns] Loaded designs:', data.length);
+      setDesigns(data as SavedDesign[]);
     } catch (error) {
       console.error('Error loading saved designs:', error);
       setSaveMessage('Error loading designs. Please try again.');
@@ -174,7 +119,7 @@ export function SavedDeckDesigns({
     }
   };
 
-  const saveDesign = async () => {
+  const handleSaveDesign = async () => {
     if (!saveName.trim()) {
       setSaveMessage('Please enter a name for your design');
       return;
@@ -185,87 +130,105 @@ export function SavedDeckDesigns({
       return;
     }
 
+    if (createDeal && !selectedCustomer) {
+      setSaveMessage('Please select a customer to create a deal');
+      return;
+    }
+
+    if (createDeal && !dealTitle.trim()) {
+      setSaveMessage('Please enter a deal title');
+      return;
+    }
+
     setIsSaving(true);
     try {
-      // 1. Save the design
-      const { data: savedDesign, error } = await createClient()
-        .from('saved_deck_designs')
-        .insert({
-          organization_id: user.organizationId,
-          user_id: user.id,
-          customer_id: selectedCustomer?.id || null,
-          name: saveName.trim(),
-          description: saveDescription.trim() || null,
-          config: currentConfig,
-          price_tier: selectedCustomer?.price_level || 't1',
-          total_cost: totalCost,
-          materials: materials,
-        })
-        .select()
-        .single();
+      // 1. Save the design via server API (bypasses RLS)
+      const savedDesign = await saveDesign('deck', {
+        customer_id: selectedCustomer?.id || null,
+        name: saveName.trim(),
+        description: saveDescription.trim() || null,
+        config: currentConfig,
+        price_tier: selectedCustomer?.price_level || 't1',
+        total_cost: totalCost,
+        materials: materials,
+      });
 
-      if (error) {
-        console.error('Supabase error details:', error);
-        throw new Error(`Database error: ${error.message}`);
+      console.log('✓ Design saved via server successfully:', savedDesign);
+      
+      let successParts: string[] = ['Design saved'];
+
+      // 2. Create deal (opportunity) if requested
+      if (createDeal && selectedCustomer) {
+        try {
+          const dealData = await createDealAPI({
+            customer_id: selectedCustomer.id,
+            title: dealTitle.trim(),
+            description: dealDescription.trim() || `${currentConfig.width}' x ${currentConfig.length}' ${currentConfig.shape} deck design`,
+            value: parseFloat(dealValue) || totalCost || 0,
+            status: 'open',
+          });
+
+          console.log('✓ Deal created successfully:', dealData);
+          successParts.push('deal created');
+        } catch (dealErr: any) {
+          console.error('Error creating deal:', dealErr);
+          setSaveMessage(`Design saved, but error creating deal: ${dealErr.message}`);
+          setTimeout(() => setSaveMessage(''), 5000);
+        }
       }
 
-      console.log('✓ Design saved to Supabase successfully:', savedDesign);
-      
-      // 2. Create quote if requested
+      // 3. Create quote if requested
       if (createQuote && selectedCustomer) {
-        // Generate quote number
-        const date = new Date();
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-        const quoteNumber = `QT-${year}${month}-${random}`;
+        try {
+          const date = new Date();
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+          const quoteNumber = `QT-${year}${month}-${random}`;
 
-        const quoteData = {
-          quote_number: quoteNumber,
-          organization_id: user.organizationId,
-          contact_id: selectedCustomer.id,
-          title: `Deck Design - ${saveName.trim()}`,
-          // description: saveDescription.trim() || `${currentConfig.width}' × ${currentConfig.length}' ${currentConfig.shape} deck`, // Removed as column doesn't exist
-          line_items: materials.map(item => ({
-            id: `line-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            description: item.description,
-            quantity: item.quantity,
-            unit: item.unit,
-            unit_price: item.price || 0,
-            total: (item.price || 0) * item.quantity, // Use 'total' instead of 'total_price' to match schema
-          })),
-          subtotal: totalCost,
-          total: totalCost,
-          status: 'draft',
-          valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
-          created_by: user.id,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
+          const quoteResult = await createQuoteAPI({
+            quote_number: quoteNumber,
+            contact_id: selectedCustomer.id,
+            title: `Deck Design - ${saveName.trim()}`,
+            line_items: materials.map(item => ({
+              id: `line-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              description: item.description,
+              quantity: item.quantity,
+              unit: item.unit,
+              unit_price: item.price || 0,
+              total: (item.price || 0) * item.quantity,
+            })),
+            subtotal: totalCost,
+            total: totalCost,
+            status: 'draft',
+            valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          });
 
-        const { error: quoteError } = await createClient()
-          .from('quotes')
-          .insert([quoteData]);
-
-        if (quoteError) {
-          console.error('Error creating quote:', quoteError);
-          setSaveMessage(`Design saved, but error creating quote: ${quoteError.message}`);
+          console.log('✓ Quote created successfully:', quoteResult);
+          successParts.push('quote created');
+        } catch (quoteErr: any) {
+          console.error('Error creating quote:', quoteErr);
+          setSaveMessage(`Design saved, but error creating quote: ${quoteErr.message}`);
           setTimeout(() => setSaveMessage(''), 5000);
-        } else {
-          console.log('✓ Quote created successfully');
-          setSaveMessage('Design saved and quote created successfully!');
-          setTimeout(() => setSaveMessage(''), 3000);
         }
-      } else {
-        setSaveMessage('Design saved successfully to database!');
+      }
+
+      // Set final success message
+      if (!saveMessage || saveMessage.includes('success') || !saveMessage.includes('error')) {
+        const finalMsg = successParts.join(', ') + ' successfully!';
+        setSaveMessage(finalMsg.charAt(0).toUpperCase() + finalMsg.slice(1));
         setTimeout(() => setSaveMessage(''), 3000);
       }
 
-      // 3. Reset form
+      // 4. Reset form
       setSaveName('');
       setSaveDescription('');
       setSelectedCustomer(null);
       setCreateQuote(false);
+      setCreateDeal(false);
+      setDealTitle('');
+      setDealValue('');
+      setDealDescription('');
       
       await loadDesigns();
     } catch (error: any) {
@@ -277,17 +240,11 @@ export function SavedDeckDesigns({
     }
   };
 
-  const deleteDesign = async (id: string) => {
+  const handleDeleteDesign = async (id: string) => {
     if (!confirm('Are you sure you want to delete this design?')) return;
 
     try {
-      const { error } = await createClient()
-        .from('saved_deck_designs')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
+      await deleteDesignApi('deck', id);
       await loadDesigns();
     } catch (error) {
       console.error('Error deleting design:', error);
@@ -333,7 +290,7 @@ export function SavedDeckDesigns({
               placeholder="e.g., Johnson Residence - 14x18 Deck"
               value={saveName}
               onChange={(e) => setSaveName(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && saveDesign()}
+              onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSaveDesign()}
             />
           </div>
 
@@ -353,13 +310,6 @@ export function SavedDeckDesigns({
             selectedCustomer={selectedCustomer}
             onCustomerSelect={setSelectedCustomer}
             userId={user.id}
-          />
-          
-          <OpportunitySelector
-            organizationId={user.organizationId}
-            selectedOpportunity={selectedOpportunity}
-            onOpportunitySelect={setSelectedOpportunity}
-            customerId={selectedCustomer?.id}
           />
           
           {/* Option to create quote */}
@@ -387,6 +337,84 @@ export function SavedDeckDesigns({
             </div>
           )}
           
+          {/* Option to create deal */}
+          {selectedCustomer && (
+            <div className="space-y-3">
+              <div className="flex items-start space-x-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <Checkbox
+                  id="createDeal"
+                  checked={createDeal}
+                  onCheckedChange={(checked) => setCreateDeal(checked as boolean)}
+                />
+                <div className="flex-1">
+                  <Label 
+                    htmlFor="createDeal" 
+                    className="text-sm cursor-pointer text-blue-900"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Handshake className="w-4 h-4" />
+                      <span className="font-medium">Also create a deal for {selectedCustomer.name}</span>
+                    </div>
+                  </Label>
+                  <p className="text-xs text-blue-700 mt-1">
+                    Creates an open deal (opportunity) linked to this customer that you can track in the pipeline
+                  </p>
+                </div>
+              </div>
+
+              {/* Deal details form - shown when createDeal is checked */}
+              {createDeal && (
+                <div className="ml-6 p-3 bg-blue-50/50 border border-blue-100 rounded-lg space-y-3">
+                  <div>
+                    <Label htmlFor="dealTitle" className="text-xs text-blue-800">Deal Title *</Label>
+                    <Input
+                      id="dealTitle"
+                      placeholder="e.g., Deck Project - Smith Residence"
+                      value={dealTitle}
+                      onChange={(e) => setDealTitle(e.target.value)}
+                      className="mt-1 text-sm"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <Label htmlFor="dealValue" className="text-xs text-blue-800">
+                        <span className="flex items-center gap-1">
+                          <DollarSign className="w-3 h-3" />
+                          Estimated Value
+                        </span>
+                      </Label>
+                      <Input
+                        id="dealValue"
+                        type="number"
+                        placeholder="0.00"
+                        value={dealValue}
+                        onChange={(e) => setDealValue(e.target.value)}
+                        className="mt-1 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-blue-800">Status</Label>
+                      <div className="mt-1 px-3 py-2 bg-white border border-slate-200 rounded-md text-sm text-slate-600">
+                        Open
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="dealDescription" className="text-xs text-blue-800">Deal Notes (Optional)</Label>
+                    <Textarea
+                      id="dealDescription"
+                      placeholder="Additional deal notes..."
+                      value={dealDescription}
+                      onChange={(e) => setDealDescription(e.target.value)}
+                      rows={2}
+                      className="mt-1 text-sm"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          
           {saveMessage && (
             <Alert className={saveMessage.includes('success') ? 'border-green-200 bg-green-50' : 'border-yellow-200 bg-yellow-50'}>
               <AlertDescription className={saveMessage.includes('success') ? 'text-green-800' : 'text-yellow-800'}>
@@ -396,19 +424,19 @@ export function SavedDeckDesigns({
           )}
           
           <Button 
-            onClick={saveDesign} 
+            onClick={handleSaveDesign} 
             className="w-full"
             disabled={isSaving}
           >
             {isSaving ? (
               <>
                 <Save className="w-4 h-4 mr-2 animate-spin" />
-                {createQuote ? 'Saving Design & Creating Quote...' : 'Saving Design...'}
+                {(createQuote || createDeal) ? `Saving Design${createDeal ? ' & Creating Deal' : ''}${createQuote ? ' & Creating Quote' : ''}...` : 'Saving Design...'}
               </>
             ) : (
               <>
                 <Save className="w-4 h-4 mr-2" />
-                {createQuote ? 'Save Design & Create Quote' : 'Save Design'}
+                {(createQuote || createDeal) ? `Save Design${createDeal ? ' & Create Deal' : ''}${createQuote ? ' & Create Quote' : ''}` : 'Save Design'}
               </>
             )}
           </Button>
@@ -502,7 +530,7 @@ export function SavedDeckDesigns({
                       size="sm"
                       variant="outline"
                       className="text-red-600 hover:bg-red-50"
-                      onClick={() => deleteDesign(design.id)}
+                      onClick={() => handleDeleteDesign(design.id)}
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>

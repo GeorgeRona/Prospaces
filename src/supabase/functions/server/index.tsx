@@ -7,6 +7,7 @@ import { marketing } from './marketing.ts';
 import { subscriptions } from './subscriptions.ts';
 import { apiKeys } from './api-keys.ts';
 import { publicApi } from './public-api.ts';
+import { designsApi } from './designs-api.ts';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ProSpaces CRM — Consolidated Edge Function (v5 — 2025-02-21)
@@ -1238,6 +1239,9 @@ app.post(`${PREFIX}/public/events`, async (c) => {
 
 // ── MARKETING (journeys, landing pages, scoring rules) ──────────────────
 marketing(app);
+
+// ── SAVED DESIGNS (deck, garage, shed, roof, kitchen — service-role to bypass RLS) ──
+designsApi(app);
 
 // ── ORG USER MODE (KV-backed single/multi user toggle) ──────────────────
 app.get(`${PREFIX}/settings/org-mode`, async (c) => {

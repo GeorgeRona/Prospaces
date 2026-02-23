@@ -8,8 +8,6 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
   return await getServerHeaders();
 }
 
-const supabase = createClient();
-
 export interface Campaign {
   id?: string;
   organization_id?: string;
@@ -96,86 +94,83 @@ export interface LandingPage {
   updated_at?: string;
 }
 
-// Campaign Functions (Keep using Supabase Tables for now as they likely exist)
-export async function getCampaigns(organizationId: string): Promise<Campaign[]> {
-  const { data, error } = await supabase
-    .from('marketing_campaigns')
-    .select('*')
-    .eq('organization_id', organizationId)
-    .order('created_at', { ascending: false });
+// ============== CAMPAIGN FUNCTIONS (KV-backed via server) ==============
 
-  if (error) throw error;
-  return data || [];
+export async function getCampaigns(organizationId: string): Promise<Campaign[]> {
+  try {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${BASE_URL}/marketing/campaigns`, { headers });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      console.error('Error fetching campaigns:', err);
+      return [];
+    }
+    const data = await response.json();
+    return data.campaigns || [];
+  } catch (error) {
+    console.error('Error fetching campaigns:', error);
+    return [];
+  }
 }
 
 export async function createCampaign(campaign: Campaign, organizationId: string): Promise<Campaign> {
-  const { data: userData } = await supabase.auth.getUser();
-  
-  const { data, error } = await supabase
-    .from('marketing_campaigns')
-    .insert([{
-      ...campaign,
-      organization_id: organizationId,
-      created_by: userData?.user?.id
-    }])
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${BASE_URL}/marketing/campaigns`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(campaign),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || err.message || `Failed to create campaign (${response.status})`);
+  }
+  const data = await response.json();
+  return data.campaign;
 }
 
 export async function updateCampaign(id: string, updates: Partial<Campaign>): Promise<Campaign> {
-  const { data, error } = await supabase
-    .from('marketing_campaigns')
-    .update(updates)
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${BASE_URL}/marketing/campaigns/${id}`, {
+    method: 'PUT',
+    headers,
+    body: JSON.stringify(updates),
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || err.message || `Failed to update campaign (${response.status})`);
+  }
+  const data = await response.json();
+  return data.campaign;
 }
 
 export async function deleteCampaign(id: string): Promise<void> {
-  const { error } = await supabase
-    .from('marketing_campaigns')
-    .delete()
-    .eq('id', id);
-
-  if (error) throw error;
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${BASE_URL}/marketing/campaigns/${id}`, {
+    method: 'DELETE',
+    headers,
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || err.message || `Failed to delete campaign (${response.status})`);
+  }
 }
 
 export async function duplicateCampaign(id: string, organizationId: string): Promise<Campaign> {
-  const { data: original, error: fetchError } = await supabase
-    .from('marketing_campaigns')
-    .select('*')
-    .eq('id', id)
-    .single();
-
-  if (fetchError) throw fetchError;
-
-  const { data: userData } = await supabase.auth.getUser();
-  
-  const { id: _id, created_at, updated_at, ...campaignData } = original;
-  
-  const { data, error } = await supabase
-    .from('marketing_campaigns')
-    .insert([{
-      ...campaignData,
-      name: `${original.name} (Copy)`,
-      status: 'draft',
-      organization_id: organizationId,
-      created_by: userData?.user?.id
-    }])
-    .select()
-    .single();
-
-  if (error) throw error;
-  return data;
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${BASE_URL}/marketing/campaigns/${id}/duplicate`, {
+    method: 'POST',
+    headers,
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || err.message || `Failed to duplicate campaign (${response.status})`);
+  }
+  const data = await response.json();
+  return data.campaign;
 }
 
-// Lead Scoring Functions (Keep rules in tables if possible, but access scores via API)
+// ============== LEAD SCORING FUNCTIONS (KV-backed via server) ==============
+
 export async function getScoringRules(organizationId: string): Promise<ScoringRule[]> {
   try {
     const headers = await getAuthHeaders();
@@ -240,7 +235,6 @@ export async function deleteScoringRule(id: string): Promise<void> {
 }
 
 export async function getLeadScores(organizationId: string): Promise<LeadScore[]> {
-  // Use server endpoint to handle fallback
   try {
     const headers = await getAuthHeaders();
     const response = await fetch(`${BASE_URL}/marketing/lead-scores`, {
@@ -276,7 +270,8 @@ export async function updateLeadScore(contactId: string, organizationId: string,
   return data.score;
 }
 
-// Journey Functions - Using KV Store via Server
+// ============== JOURNEY FUNCTIONS (KV-backed via server) ==============
+
 export async function getJourneys(organizationId: string): Promise<Journey[]> {
   try {
     const headers = await getAuthHeaders();
@@ -333,7 +328,8 @@ export async function deleteJourney(id: string): Promise<void> {
   if (!response.ok) throw new Error('Failed to delete journey');
 }
 
-// Landing Page Functions - Using KV Store via Server
+// ============== LANDING PAGE FUNCTIONS (KV-backed via server) ==============
+
 export async function getLandingPages(organizationId: string): Promise<LandingPage[]> {
   try {
     const headers = await getAuthHeaders();
@@ -390,53 +386,62 @@ export async function deleteLandingPage(id: string): Promise<void> {
   if (!response.ok) throw new Error('Failed to delete landing page');
 }
 
-// Analytics Functions
+// ============== ANALYTICS / EVENTS (KV-backed via server) ==============
+
 export async function trackMarketingEvent(
   organizationId: string,
   eventType: string,
   properties: any
 ): Promise<void> {
-  const { error } = await supabase
-    .from('marketing_events')
-    .insert([{
-      organization_id: organizationId,
-      event_type: eventType,
-      properties
-    }]);
-
-  if (error) throw error;
+  try {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${BASE_URL}/marketing/events`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        event_type: eventType,
+        properties,
+      }),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      console.error('Error tracking marketing event:', err);
+    }
+  } catch (error) {
+    console.error('Error tracking marketing event:', error);
+  }
 }
 
 export async function getCampaignStats(organizationId: string) {
-  const { data: campaigns } = await supabase
-    .from('marketing_campaigns')
-    .select('*')
-    .eq('organization_id', organizationId);
+  try {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${BASE_URL}/marketing/campaign-stats`, { headers });
+    if (!response.ok) {
+      console.error('Error fetching campaign stats, using defaults');
+      return defaultCampaignStats();
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching campaign stats:', error);
+    return defaultCampaignStats();
+  }
+}
 
-  const activeCampaigns = campaigns?.filter(c => c.status === 'active').length || 0;
-  const totalSent = campaigns?.reduce((sum, c) => sum + (c.sent_count || 0), 0) || 0;
-  const totalOpened = campaigns?.reduce((sum, c) => sum + (c.opened_count || 0), 0) || 0;
-  const totalClicked = campaigns?.reduce((sum, c) => sum + (c.clicked_count || 0), 0) || 0;
-  const totalConverted = campaigns?.reduce((sum, c) => sum + (c.converted_count || 0), 0) || 0;
-  const totalRevenue = campaigns?.reduce((sum, c) => sum + (c.revenue || 0), 0) || 0;
-
-  const openRate = totalSent > 0 ? ((totalOpened / totalSent) * 100).toFixed(1) : '0';
-  const conversionRate = totalSent > 0 ? ((totalConverted / totalSent) * 100).toFixed(1) : '0';
-
+function defaultCampaignStats() {
   return {
-    activeCampaigns,
-    totalSent,
-    totalOpened,
-    totalClicked,
-    totalConverted,
-    totalRevenue,
-    openRate,
-    conversionRate
+    activeCampaigns: 0,
+    totalSent: 0,
+    totalOpened: 0,
+    totalClicked: 0,
+    totalConverted: 0,
+    totalRevenue: 0,
+    openRate: '0',
+    conversionRate: '0',
   };
 }
 
 export async function getLeadScoreStats(organizationId: string) {
-  // Use lead scores from API or DB
+  // Use lead scores from API
   const scores = await getLeadScores(organizationId);
 
   const totalLeads = scores?.length || 0;

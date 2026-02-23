@@ -50,27 +50,28 @@ export function CustomerSelector({
   const loadCustomers = async () => {
     setIsLoading(true);
     try {
-      // Filter customers to only show those owned by the current user OR unassigned
-      // Note: This matches the user's request to "only look at the Users Customers"
-      let query = createClient()
+      // Query contacts without price_level (column may not exist)
+      // and always default it to 't1'
+      let q = createClient()
         .from('contacts')
-        .select('id, name, email, phone, company, price_level')
+        .select('id, name, email, phone, company')
         .eq('organization_id', organizationId)
         .order('name');
 
       // If userId is provided, only show contacts owned by this user
       if (userId) {
-        query = query.eq('owner_id', userId);
+        q = q.eq('owner_id', userId);
       }
 
       if (searchQuery) {
-        query = query.or(`name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%,company.ilike.%${searchQuery}%`);
+        q = q.or(`name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%,company.ilike.%${searchQuery}%`);
       }
 
-      const { data, error } = await query.limit(50); // Increased limit slightly
+      const { data, error } = await q.limit(50);
 
       if (error) throw error;
-      setCustomers(data || []);
+      // Default price_level to 't1' for every customer
+      setCustomers((data || []).map((c: any) => ({ ...c, price_level: c.price_level || 't1' })));
     } catch (error) {
       console.error('Error loading customers:', error);
     } finally {
@@ -119,7 +120,7 @@ export function CustomerSelector({
           </button>
         </div>
       ) : (
-        <div className="relative">
+        <div className="relative" style={{ zIndex: 50 }}>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
@@ -138,10 +139,11 @@ export function CustomerSelector({
           {isDropdownOpen && (
             <>
               <div
-                className="fixed inset-0 z-10"
+                className="fixed inset-0"
+                style={{ zIndex: 40 }}
                 onClick={() => setIsDropdownOpen(false)}
               />
-              <div className="absolute z-20 w-full mt-1 bg-white border border-slate-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+              <div className="absolute w-full mt-1 bg-white border border-slate-300 rounded-lg shadow-lg max-h-60 overflow-y-auto" style={{ zIndex: 51 }}>
                 {isLoading ? (
                   <div className="p-4 text-center text-slate-500">
                     Loading customers...
