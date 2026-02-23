@@ -5,9 +5,9 @@
  * edge functions.  The user's session JWT is passed in a separate `X-User-Token`
  * header so the server handler can authenticate the caller.
  *
- * We subscribe to `onAuthStateChange` so the token is always ready — this avoids
- * the race condition where `getSession()` returns null before the auth layer has
- * finished hydrating from localStorage on page load.
+ * We gate all header-building behind an "auth ready" promise so that callers never
+ * fire requests before the Supabase auth layer has finished hydrating the session
+ * from localStorage on page load.
  */
 
 import { createClient } from './supabase/client';
@@ -15,47 +15,58 @@ import { publicAnonKey } from './supabase/info';
 
 const supabase = createClient();
 
+// ── Auth-ready gate ────────────────────────────────────────────────────
+// Resolves once the Supabase auth layer has delivered its first session
+// (the INITIAL_SESSION event).  Any code that calls `getServerHeaders()`
+// before this fires will wait instead of sending a tokenless request.
+let _authReady: (v?: unknown) => void;
+const _authReadyPromise = new Promise((resolve) => {
+  _authReady = resolve;
+});
+
 // ── Proactive token cache via auth state listener ──────────────────────
 let _cachedToken: string | null = null;
 
-// Fire-and-forget: prime the cache as soon as possible
-supabase.auth.getSession().then(({ data: { session } }) => {
-  if (session?.access_token) _cachedToken = session.access_token;
-});
+// Keep the cache fresh whenever auth state changes (login, logout, refresh).
+// The very first event Supabase fires is INITIAL_SESSION — resolve the gate.
+const { data: { subscription: _authSub } } = supabase.auth.onAuthStateChange(
+  (event, session) => {
+    _cachedToken = session?.access_token ?? null;
+    // Resolve the gate on any first event (INITIAL_SESSION, SIGNED_IN, etc.)
+    _authReady();
+  },
+);
 
-// Keep the cache fresh whenever auth state changes (login, logout, refresh)
-supabase.auth.onAuthStateChange((_event, session) => {
-  _cachedToken = session?.access_token ?? null;
-});
+// Safety net: if onAuthStateChange never fires (edge case), unblock after 2s
+setTimeout(() => _authReady(), 2000);
 
 /**
  * Get the current user's access token (session JWT).
  * Returns null if no session is available.
  */
 export async function getUserAccessToken(): Promise<string | null> {
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.access_token) {
-      // Check if token is about to expire (within 60s) and refresh proactively
-      if (session.expires_at && session.expires_at * 1000 <= Date.now() + 60_000) {
+  // Wait for the auth layer to have delivered at least one session event
+  await _authReadyPromise;
+
+  // Fast path: cached token from onAuthStateChange
+  if (_cachedToken) {
+    // Proactively refresh if token is about to expire (within 60s)
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.expires_at && session.expires_at * 1000 <= Date.now() + 60_000) {
         const { data: { session: refreshed } } = await supabase.auth.refreshSession();
         if (refreshed?.access_token) {
           _cachedToken = refreshed.access_token;
           return refreshed.access_token;
         }
       }
-      _cachedToken = session.access_token;
-      return session.access_token;
+    } catch {
+      // Refresh failed — return the cached token (still valid for a bit)
     }
-  } catch {
-    // getSession failed — fall through to cached token
+    return _cachedToken;
   }
 
-  // Fallback: return the token captured by onAuthStateChange / initial prime
-  if (_cachedToken) return _cachedToken;
-
-  // Last resort: wait briefly for the auth layer to finish hydrating, then retry
-  await new Promise((r) => setTimeout(r, 150));
+  // Slow path: explicitly ask for the session (shouldn't normally be needed)
   try {
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.access_token) {
@@ -63,10 +74,10 @@ export async function getUserAccessToken(): Promise<string | null> {
       return session.access_token;
     }
   } catch {
-    // still nothing
+    // getSession failed
   }
 
-  return _cachedToken; // may still be null if user truly isn't logged in
+  return null; // user truly isn't logged in
 }
 
 /**

@@ -87,7 +87,6 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './'),
     },
-    dedupe: ['three'], // Ensure only one instance of Three.js
   },
   server: {
     port: 5173,
@@ -97,7 +96,6 @@ export default defineConfig({
     historyApiFallback: true,
   },
   optimizeDeps: {
-    include: ['three'], // Pre-bundle Three.js for better performance
     exclude: [],
   },
   build: {
@@ -126,10 +124,6 @@ export default defineConfig({
         },
         chunkFileNames: 'assets/[name]-[hash].js',
         entryFileNames: 'assets/[name]-[hash].js',
-        manualChunks: {
-          // Force Three.js into its own chunk
-          'three': ['three'],
-        }
       },
     },
   },

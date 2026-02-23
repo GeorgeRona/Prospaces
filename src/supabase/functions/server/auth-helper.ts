@@ -20,10 +20,13 @@ export function extractUserToken(c: any): string | null {
   const userToken = c.req.header('X-User-Token');
   if (userToken) return userToken;
 
-  // Fallback: Authorization header (backward compat)
+  // Fallback: Authorization header — but ONLY if it does NOT look like the
+  // Supabase anon key (which the gateway requires but is not a user JWT).
+  // Anon keys are short JWTs (~200 chars); user access tokens are longer (~800+).
   const authHeader = c.req.header('Authorization');
   if (authHeader?.startsWith('Bearer ')) {
-    return authHeader.split(' ')[1] || null;
+    const token = authHeader.split(' ')[1] || null;
+    if (token && token.length > 300) return token; // likely a real user JWT
   }
 
   return null;
