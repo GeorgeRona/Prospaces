@@ -145,24 +145,50 @@ export const tenantsAPI = {
     
     console.log('[tenantsAPI] Fetched organizations:', data?.length);
     
-    // Get user counts, contact counts, and KV details for each organization
-    const tenantsWithCounts = await Promise.all((data || []).map(async (org) => {
-      // Count users in this organization
-      const { count: userCount, error: userError } = await supabase
-        .from('profiles')
-        .select('id', { count: 'exact', head: true })
-        .eq('organization_id', org.id);
-      
-      if (userError) console.error('[tenantsAPI] Error counting users for org', org.id, userError);
-      
-      // Count contacts in this organization
-      const { count: contactsCount, error: contactError } = await supabase
-        .from('contacts')
-        .select('id', { count: 'exact', head: true })
-        .eq('organization_id', org.id);
-      
-      if (contactError) console.error('[tenantsAPI] Error counting contacts for org', org.id, contactError);
-      
+    const orgs = data || [];
+
+    // Fetch user + contact counts from server (bypasses RLS via service role key)
+    let orgStats: Record<string, { userCount: number; contactsCount: number }> = {};
+    if (orgs.length > 0) {
+      try {
+        const hdrs = await getServerHeaders();
+        const orgIdList = orgs.map(o => o.id).join(',');
+        const statsResp = await fetch(`${BASE}/org-stats?org_ids=${encodeURIComponent(orgIdList)}`, { headers: hdrs });
+        if (statsResp.ok) {
+          const json = await statsResp.json();
+          orgStats = json.stats || {};
+          console.log('[tenantsAPI] Fetched org stats from server for', Object.keys(orgStats).length, 'orgs');
+        } else {
+          console.warn('[tenantsAPI] org-stats endpoint returned', statsResp.status, '— falling back to client counts');
+        }
+      } catch (statsErr) {
+        console.warn('[tenantsAPI] Failed to fetch org-stats from server — falling back to client counts:', statsErr);
+      }
+    }
+
+    // Build tenant objects, using server stats when available
+    const tenantsWithCounts = await Promise.all(orgs.map(async (org) => {
+      // Use server-side stats if available; fall back to client-side queries
+      let userCount = orgStats[org.id]?.userCount;
+      let contactsCount = orgStats[org.id]?.contactsCount;
+
+      if (userCount == null) {
+        const { count, error: ue } = await supabase
+          .from('profiles')
+          .select('id', { count: 'exact', head: true })
+          .eq('organization_id', org.id);
+        if (ue) console.error('[tenantsAPI] Error counting users for org', org.id, ue);
+        userCount = count ?? 0;
+      }
+      if (contactsCount == null) {
+        const { count, error: ce } = await supabase
+          .from('contacts')
+          .select('id', { count: 'exact', head: true })
+          .eq('organization_id', org.id);
+        if (ce) console.error('[tenantsAPI] Error counting contacts for org', org.id, ce);
+        contactsCount = count ?? 0;
+      }
+
       // Fetch extra org details from KV (domain, plan, billing_email, phone, address, notes, features)
       let kvDetails: any = {};
       try {

@@ -162,6 +162,57 @@ app.delete(`${PREFIX}/contacts/:id`, async (c) => {
   } catch (err: any) { return c.json({ error: err.message }, 500); }
 });
 
+// ── ORG STATS (for Tenants / Organizations module) ─────────────────────
+// Returns user counts and contact counts per organization, bypassing RLS
+// via the service role key. Only super_admin can call this.
+app.get(`${PREFIX}/org-stats`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+    if (auth.profile.role !== 'super_admin') {
+      return c.json({ error: 'Only super admins can access org stats' }, 403);
+    }
+
+    const supabase = getSupabase(); // service role — bypasses RLS
+
+    // Get all organization IDs from query param
+    const orgIds = c.req.query('org_ids');
+    const ids = orgIds ? orgIds.split(',').filter(Boolean) : [];
+
+    if (ids.length === 0) {
+      return c.json({ stats: {} });
+    }
+
+    // Count users and contacts per org in parallel
+    const statsEntries = await Promise.all(ids.map(async (orgId: string) => {
+      const [usersResult, contactsResult] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('id', { count: 'exact', head: true })
+          .eq('organization_id', orgId),
+        supabase
+          .from('contacts')
+          .select('id', { count: 'exact', head: true })
+          .eq('organization_id', orgId),
+      ]);
+
+      if (usersResult.error) console.log(`[org-stats] Error counting users for ${orgId}:`, usersResult.error.message);
+      if (contactsResult.error) console.log(`[org-stats] Error counting contacts for ${orgId}:`, contactsResult.error.message);
+
+      return [orgId, {
+        userCount: usersResult.count ?? 0,
+        contactsCount: contactsResult.count ?? 0,
+      }] as const;
+    }));
+
+    const stats = Object.fromEntries(statsEntries);
+    return c.json({ stats });
+  } catch (err: any) {
+    console.log('[org-stats] Error:', err.message);
+    return c.json({ error: err.message }, 500);
+  }
+});
+
 // ── QUOTES ──────────────────────────────────────────────────────────────
 app.get(`${PREFIX}/quotes`, async (c) => {
   try {
