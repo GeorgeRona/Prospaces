@@ -60,6 +60,7 @@ import type { User } from '../App';
 import { PermissionGate } from './PermissionGate';
 import { canAdd, canDelete } from '../utils/permissions';
 import { useDebounce } from '../utils/useDebounce';
+import { getPreloadedAccounts, clearPreloadedAccounts } from '../utils/email-preloader';
 
 // Cache backend availability check to avoid repeated failed requests
 // This prevents console spam from 404 errors when Edge Functions aren't deployed
@@ -195,9 +196,27 @@ export function Email({ user }: EmailProps) {
     };
   }, [selectedAccount]);
 
-  // Load data on mount from Supabase
+  // Load data on mount from Supabase — use preloaded accounts if available
   useEffect(() => {
-    loadAccountsFromSupabase();
+    const preloaded = getPreloadedAccounts();
+    if (preloaded && preloaded.length > 0) {
+      console.log(`[Email] Using ${preloaded.length} preloaded account(s) from login`);
+      const transformed: EmailAccount[] = preloaded.map(a => ({
+        id: a.id,
+        provider: a.provider,
+        email: a.email,
+        connected: a.connected,
+        lastSync: a.last_sync,
+        imapConfig: a.imap_host ? { host: a.imap_host, port: a.imap_port!, username: a.imap_username!, password: a.imap_password! } : undefined,
+        smtpConfig: a.smtp_host ? { host: a.smtp_host, port: a.smtp_port!, username: a.smtp_username!, password: a.smtp_password! } : undefined,
+        nylasGrantId: a.nylas_grant_id,
+      }));
+      setAccounts(transformed);
+      setIsLoading(false);
+      clearPreloadedAccounts();
+    } else {
+      loadAccountsFromSupabase();
+    }
     loadEmailsFromSupabase();
     loadCustomFolders();
     

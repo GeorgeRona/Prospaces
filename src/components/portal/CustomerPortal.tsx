@@ -14,6 +14,8 @@ import {
   LogOut,
   Loader2,
   Bell,
+  AlertTriangle,
+  RefreshCw,
 } from 'lucide-react';
 import {
   getPortalDashboard,
@@ -43,6 +45,7 @@ export function CustomerPortal() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState<any>(null);
+  const [dashboardError, setDashboardError] = useState<string | null>(null);
   const [quotes, setQuotes] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [documents, setDocuments] = useState<any[]>([]);
@@ -71,16 +74,20 @@ export function CustomerPortal() {
 
   const loadDashboard = async () => {
     setLoading(true);
+    setDashboardError(null);
     try {
       const data = await getPortalDashboard();
+      console.log('[portal] Dashboard data received:', JSON.stringify(data).slice(0, 500));
       setDashboardData(data);
       setQuotes(data.quotes || []);
       setMessages(data.messages || []);
     } catch (err: any) {
       console.error('[portal] Dashboard load error:', err);
-      if (err.message?.includes('Unauthorized')) {
+      if (err.message?.includes('Unauthorized') || err.message?.includes('401')) {
         clearPortalSession();
         setIsLoggedIn(false);
+      } else {
+        setDashboardError(err.message || 'Failed to load dashboard');
       }
     } finally {
       setLoading(false);
@@ -284,6 +291,26 @@ export function CustomerPortal() {
         {/* Main Content */}
         <main className="pt-14 max-w-7xl mx-auto px-4 py-6">
           <ErrorBoundary>
+          {/* Error state */}
+          {dashboardError && !dashboardData && (
+            <Card className="max-w-md mx-auto mt-12">
+              <CardContent className="p-6 text-center">
+                <AlertTriangle className="h-10 w-10 text-amber-500 mx-auto mb-3" />
+                <h2 className="text-lg font-semibold text-slate-900 mb-2">Unable to Load Portal</h2>
+                <p className="text-sm text-slate-500 mb-4">{dashboardError}</p>
+                <div className="flex gap-2 justify-center">
+                  <Button onClick={loadDashboard} variant="outline" className="gap-2">
+                    <RefreshCw className="h-4 w-4" />
+                    Retry
+                  </Button>
+                  <Button onClick={handleLogout} variant="ghost" className="gap-2 text-red-600">
+                    <LogOut className="h-4 w-4" />
+                    Sign Out
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
           {currentView === 'dashboard' && dashboardData && (
             <PortalDashboard data={dashboardData} onNavigate={(v) => navigate(v as PortalView)} />
           )}

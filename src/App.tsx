@@ -54,6 +54,7 @@ import { initializePermissions } from './utils/permissions';
 import type { Session, User as SupabaseUser } from '@supabase/supabase-js';
 
 import { AdminFixUsers } from './components/AdminFixUsers';
+import { preloadEmailAccounts, resetEmailPreloader } from './utils/email-preloader';
 
 export type UserRole = 'standard_user' | 'manager' | 'director' | 'admin' | 'super_admin' | 'marketing';
 
@@ -359,6 +360,10 @@ function App() {
             setCurrentView(profile.role === 'super_admin' ? 'tenants' : 'dashboard');
           }
         }
+
+        // Eagerly preload email accounts + trigger background sync so the
+        // Email tab is ready instantly when the user navigates to it.
+        preloadEmailAccounts();
       }
     } catch (error) {
       console.error('Error loading user data:', error);
@@ -379,6 +384,8 @@ function App() {
       setSession(null);
       // Clear persisted view so user doesn't land on a protected page after logout
       sessionStorage.removeItem('prospaces_current_view');
+      // Reset email preloader cache
+      resetEmailPreloader();
     }
   };
 

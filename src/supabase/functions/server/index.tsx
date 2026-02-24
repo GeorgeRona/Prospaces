@@ -440,9 +440,18 @@ app.post(`${P}/invite`, async (c) => {
   try {
     const auth = await authenticateUser(c);
     if (auth.error) return c.json({ error: auth.error }, auth.status);
-    const { contactId, email } = await c.req.json();
+    const body = await c.req.json();
+    const contactId = body.contactId;
+    if (!contactId) return c.json({ error: 'contactId is required' }, 400);
+    // Fetch contact details from DB
+    const supabase = getSupabase();
+    const { data: contact, error: cErr } = await supabase.from('contacts').select('name, email, company').eq('id', contactId).single();
+    if (cErr || !contact) return c.json({ error: 'Contact not found' }, 404);
+    const email = body.email || contact.email;
+    if (!email) return c.json({ error: 'Contact has no email address' }, 400);
+    const contactName = contact.name || contact.company || email;
     const code = genInvite();
-    await kv.set(`portal_invite:${code}`, { contactId, orgId: auth.profile.organization_id, email: email.toLowerCase().trim(), expiresAt: new Date(Date.now() + 7 * 86400000).toISOString(), createdBy: auth.user.id });
+    await kv.set(`portal_invite:${code}`, { contactId, orgId: auth.profile.organization_id, email: email.toLowerCase().trim(), contactName, expiresAt: new Date(Date.now() + 7 * 86400000).toISOString(), createdBy: auth.user.id });
     await kv.set(`portal_access_log:${auth.profile.organization_id}:${contactId}`, { enabled: true, enabledAt: new Date().toISOString(), enabledBy: auth.user.email || auth.user.id });
     return c.json({ success: true, inviteCode: code });
   } catch (err: any) { return c.json({ error: err.message }, 500); }
@@ -456,13 +465,15 @@ app.post(`${P}/register`, async (c) => {
     if (new Date(invite.expiresAt) < new Date()) return c.json({ error: 'Expired' }, 410);
     const eh = await hashEmail(invite.email);
     const existing = await kv.get(`portal_user:${eh}`);
-    if (existing) return c.json({ error: 'Account exists' }, 409);
-    await kv.set(`portal_user:${eh}`, { email: invite.email, contactId: invite.contactId, orgId: invite.orgId, passwordHash: await hashPassword(password), createdAt: new Date().toISOString() });
+    if (existing) return c.json({ error: 'Account exists — please sign in instead' }, 409);
+    const contactName = invite.contactName || invite.email;
+    await kv.set(`portal_user:${eh}`, { email: invite.email, contactId: invite.contactId, orgId: invite.orgId, passwordHash: await hashPassword(password), name: contactName, createdAt: new Date().toISOString() });
     const tok = genToken();
     await kv.set(`portal_session:${tok}`, { email: invite.email, contactId: invite.contactId, orgId: invite.orgId, expiresAt: new Date(Date.now() + 86400000).toISOString() });
     await kv.del(`portal_invite:${inviteCode}`);
-    return c.json({ success: true, sessionToken: tok, contactId: invite.contactId });
-  } catch (err: any) { return c.json({ error: err.message }, 500); }
+    console.log(`[portal] Registered: ${invite.email}, contactId=${invite.contactId}`);
+    return c.json({ success: true, token: tok, user: { email: invite.email, name: contactName, contactId: invite.contactId } });
+  } catch (err: any) { console.error('[portal] Register error:', err); return c.json({ error: err.message }, 500); }
 });
 
 app.post(`${P}/login`, async (c) => {
@@ -470,12 +481,13 @@ app.post(`${P}/login`, async (c) => {
     const { email, password } = await c.req.json();
     const eh = await hashEmail(email);
     const pu = await kv.get(`portal_user:${eh}`);
-    if (!pu) return c.json({ error: 'Not found' }, 404);
-    if (await hashPassword(password) !== pu.passwordHash) return c.json({ error: 'Wrong password' }, 401);
+    if (!pu) return c.json({ error: 'Invalid email or password' }, 401);
+    if (await hashPassword(password) !== pu.passwordHash) return c.json({ error: 'Invalid email or password' }, 401);
     const tok = genToken();
     await kv.set(`portal_session:${tok}`, { email: pu.email, contactId: pu.contactId, orgId: pu.orgId, expiresAt: new Date(Date.now() + 86400000).toISOString() });
-    return c.json({ success: true, sessionToken: tok, contactId: pu.contactId });
-  } catch (err: any) { return c.json({ error: err.message }, 500); }
+    console.log(`[portal] Login: ${pu.email}`);
+    return c.json({ success: true, token: tok, user: { email: pu.email, name: pu.name || pu.email, contactId: pu.contactId } });
+  } catch (err: any) { console.error('[portal] Login error:', err); return c.json({ error: err.message }, 500); }
 });
 
 app.get(`${P}/session`, async (c) => {
@@ -513,6 +525,23 @@ app.post(`${P}/messages`, async (c) => {
   } catch (err: any) { return c.json({ error: err.message }, 500); }
 });
 
+// ── POST /portal/messages/:id/read — mark message as read by customer ──
+app.post(`${P}/messages/:id/read`, async (c) => {
+  try {
+    const s = await portalSession(c);
+    if (!s) return c.json({ error: 'Unauthorized' }, 401);
+    const msgId = c.req.param('id');
+    const key = `portal_message:${s.orgId}:${s.contactId}:${msgId}`;
+    const msg = await kv.get(key);
+    if (msg) {
+      msg.read = true;
+      msg.customerUnread = false;
+      await kv.set(key, msg);
+    }
+    return c.json({ success: true });
+  } catch (err: any) { return c.json({ error: err.message }, 500); }
+});
+
 app.post(`${P}/reply`, async (c) => {
   try {
     const auth = await authenticateUser(c);
@@ -529,12 +558,200 @@ app.post(`${P}/reply`, async (c) => {
   } catch (err: any) { return c.json({ error: err.message }, 500); }
 });
 
-app.get(`${P}/users`, async (c) => {
+app.get(`${P}/portal-users`, async (c) => {
   try {
     const auth = await authenticateUser(c);
     if (auth.error) return c.json({ error: auth.error }, auth.status);
     const logs = await kv.getByPrefix(`portal_access_log:${auth.profile.organization_id}:`);
     return c.json({ portalUsers: logs || [] });
+  } catch (err: any) { return c.json({ error: err.message }, 500); }
+});
+
+// Portal session validator helper
+async function portalSession(c: any): Promise<{ contactId: string; orgId: string; email: string } | null> {
+  const tok = c.req.header('X-Portal-Token');
+  if (!tok) return null;
+  const s = await kv.get(`portal_session:${tok}`);
+  if (!s || new Date(s.expiresAt) < new Date()) return null;
+  return s;
+}
+
+// ── GET /portal/dashboard — main customer dashboard data ──
+app.get(`${P}/dashboard`, async (c) => {
+  try {
+    const s = await portalSession(c);
+    if (!s) return c.json({ error: 'Unauthorized' }, 401);
+    const supabase = getSupabase();
+
+    // Fetch contact
+    let contact = null;
+    try {
+      const { data } = await supabase.from('contacts').select('*').eq('id', s.contactId).single();
+      contact = data;
+    } catch (e: any) { console.warn('[portal] Contact query error:', e.message); }
+
+    // Fetch quotes
+    let quotes: any[] = [];
+    try {
+      const { data } = await supabase.from('quotes').select('*').eq('contact_id', s.contactId).order('created_at', { ascending: false }).limit(20);
+      quotes = data || [];
+    } catch (e: any) { console.warn('[portal] Quotes query error:', e.message); }
+
+    // Fetch bids/projects linked to this contact's opportunities
+    let bids: any[] = [];
+    try {
+      // Try via opportunities first
+      const { data: opps } = await supabase.from('opportunities').select('id').eq('contact_id', s.contactId);
+      if (opps && opps.length > 0) {
+        const oppIds = opps.map((o: any) => o.id);
+        const { data: bidsData } = await supabase.from('bids').select('*').in('opportunity_id', oppIds).order('created_at', { ascending: false }).limit(10);
+        bids = bidsData || [];
+      }
+    } catch (e: any) { console.warn('[portal] Bids query error:', e.message); }
+
+    // Fetch upcoming appointments
+    let appointments: any[] = [];
+    try {
+      const { data } = await supabase.from('appointments').select('*').eq('contact_id', s.contactId).gte('start_time', new Date().toISOString()).order('start_time', { ascending: true }).limit(5);
+      appointments = data || [];
+    } catch (e: any) { console.warn('[portal] Appointments query error:', e.message); }
+
+    // Fetch portal messages
+    let messages: any[] = [];
+    try {
+      messages = await kv.getByPrefix(`portal_message:${s.orgId}:${s.contactId}:`) || [];
+    } catch (e: any) { console.warn('[portal] Messages query error:', e.message); }
+
+    // Fetch organization
+    let org = null;
+    try {
+      const { data } = await supabase.from('organizations').select('id, name').eq('id', s.orgId).single();
+      org = data;
+    } catch (e: any) { console.warn('[portal] Org query error:', e.message); }
+
+    console.log(`[portal] Dashboard for ${s.email}: ${quotes.length} quotes, ${bids.length} bids, ${appointments.length} appts`);
+
+    return c.json({
+      contact,
+      quotes,
+      bids,
+      appointments,
+      messages,
+      organization: org,
+      unreadMessages: messages.filter((m: any) => m.customerUnread === true).length,
+    });
+  } catch (err: any) { console.error('[portal] Dashboard error:', err); return c.json({ error: 'Dashboard failed: ' + err.message }, 500); }
+});
+
+// ── GET /portal/quotes — all quotes for the customer ──
+app.get(`${P}/quotes`, async (c) => {
+  try {
+    const s = await portalSession(c);
+    if (!s) return c.json({ error: 'Unauthorized' }, 401);
+    const supabase = getSupabase();
+    const { data, error } = await supabase.from('quotes').select('*').eq('contact_id', s.contactId).order('created_at', { ascending: false });
+    if (error) { console.error('[portal] Quotes error:', error); return c.json({ quotes: [] }); }
+    return c.json({ quotes: data || [] });
+  } catch (err: any) { return c.json({ error: err.message }, 500); }
+});
+
+// ── GET /portal/projects — bids/projects for the customer ──
+app.get(`${P}/projects`, async (c) => {
+  try {
+    const s = await portalSession(c);
+    if (!s) return c.json({ error: 'Unauthorized' }, 401);
+    const supabase = getSupabase();
+    let projects: any[] = [];
+    try {
+      const { data: opps } = await supabase.from('opportunities').select('id').eq('contact_id', s.contactId);
+      if (opps && opps.length > 0) {
+        const { data } = await supabase.from('bids').select('*').in('opportunity_id', opps.map((o: any) => o.id)).order('created_at', { ascending: false });
+        projects = data || [];
+      }
+    } catch (e: any) { console.warn('[portal] Projects query:', e.message); }
+    return c.json({ projects });
+  } catch (err: any) { return c.json({ error: err.message }, 500); }
+});
+
+// ── GET /portal/documents — documents for the customer ──
+app.get(`${P}/documents`, async (c) => {
+  try {
+    const s = await portalSession(c);
+    if (!s) return c.json({ error: 'Unauthorized' }, 401);
+    const supabase = getSupabase();
+    let documents: any[] = [];
+    try {
+      const { data } = await supabase.from('documents').select('*').eq('contact_id', s.contactId).order('created_at', { ascending: false });
+      documents = data || [];
+    } catch (e: any) { console.warn('[portal] Documents query:', e.message); }
+    return c.json({ documents });
+  } catch (err: any) { return c.json({ error: err.message }, 500); }
+});
+
+// ── PUT /portal/profile — customer updates their contact info ──
+app.put(`${P}/profile`, async (c) => {
+  try {
+    const s = await portalSession(c);
+    if (!s) return c.json({ error: 'Unauthorized' }, 401);
+    const supabase = getSupabase();
+    const body = await c.req.json();
+    const allowed = ['phone', 'address', 'company'];
+    const updates: Record<string, any> = {};
+    for (const f of allowed) { if (body[f] !== undefined) updates[f] = body[f]; }
+    if (Object.keys(updates).length === 0) return c.json({ error: 'No valid fields' }, 400);
+    updates.updated_at = new Date().toISOString();
+    const { data, error } = await supabase.from('contacts').update(updates).eq('id', s.contactId).select().single();
+    if (error) return c.json({ error: 'Update failed: ' + error.message }, 500);
+    return c.json({ success: true, contact: data });
+  } catch (err: any) { return c.json({ error: err.message }, 500); }
+});
+
+// ── POST /portal/quotes/:id/accept ──
+app.post(`${P}/quotes/:id/accept`, async (c) => {
+  try {
+    const s = await portalSession(c);
+    if (!s) return c.json({ error: 'Unauthorized' }, 401);
+    const supabase = getSupabase();
+    const qid = c.req.param('id');
+    const { data, error } = await supabase.from('quotes').update({ status: 'accepted', updated_at: new Date().toISOString() }).eq('id', qid).eq('contact_id', s.contactId).select().single();
+    if (error) return c.json({ error: 'Accept failed: ' + error.message }, 500);
+    console.log(`[portal] Quote ${qid} accepted by ${s.email}`);
+    return c.json({ success: true, quote: data });
+  } catch (err: any) { return c.json({ error: err.message }, 500); }
+});
+
+// ── POST /portal/quotes/:id/reject ──
+app.post(`${P}/quotes/:id/reject`, async (c) => {
+  try {
+    const s = await portalSession(c);
+    if (!s) return c.json({ error: 'Unauthorized' }, 401);
+    const supabase = getSupabase();
+    const qid = c.req.param('id');
+    const { data, error } = await supabase.from('quotes').update({ status: 'rejected', updated_at: new Date().toISOString() }).eq('id', qid).eq('contact_id', s.contactId).select().single();
+    if (error) return c.json({ error: 'Reject failed: ' + error.message }, 500);
+    console.log(`[portal] Quote ${qid} rejected by ${s.email}`);
+    return c.json({ success: true, quote: data });
+  } catch (err: any) { return c.json({ error: err.message }, 500); }
+});
+
+// ── POST /portal/logout ──
+app.post(`${P}/logout`, async (c) => {
+  try {
+    const tok = c.req.header('X-Portal-Token');
+    if (tok) await kv.del(`portal_session:${tok}`);
+    return c.json({ success: true });
+  } catch (err: any) { return c.json({ error: err.message }, 500); }
+});
+
+// ── DELETE /portal/revoke/:contactId — CRM admin revokes portal access ──
+app.delete(`${P}/revoke/:contactId`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+    const contactId = c.req.param('contactId');
+    const orgId = auth.profile.organization_id;
+    await kv.del(`portal_access_log:${orgId}:${contactId}`);
+    return c.json({ success: true });
   } catch (err: any) { return c.json({ error: err.message }, 500); }
 });
 
