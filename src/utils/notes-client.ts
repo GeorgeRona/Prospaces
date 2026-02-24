@@ -123,9 +123,6 @@ export async function createNoteClient(noteData: any) {
       contact_id: noteData.contact_id || null,
       organization_id: organizationId,
       owner_id: user.id,
-      created_by: user.id, // Some tables use created_by, some owner_id. Notes usually uses owner_id but good to set created_by if column exists.
-                           // However, to be safe, we'll stick to what we know. 
-                           // But wait, if the table expects snake_case, let's include common fields.
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };

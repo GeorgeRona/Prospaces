@@ -111,7 +111,7 @@ export function Notes({ user }: NotesProps) {
     if (!contactId) return null;
     const contact = contacts.find(c => c.id === contactId);
     if (!contact) return contactId; // Fallback to ID if not found
-    return `${contact.first_name || ''} ${contact.last_name || ''}`.trim() || contact.email || 'Unknown Contact';
+    return contact.name || contact.company || contact.email || 'Unknown Contact';
   };
 
   const filteredNotes = notes.filter(note => {
@@ -237,7 +237,7 @@ export function Notes({ user }: NotesProps) {
                     <SelectItem value="none">None</SelectItem>
                     {contacts.map(contact => (
                       <SelectItem key={contact.id} value={contact.id}>
-                        {contact.first_name || contact.last_name ? `${contact.first_name || ''} ${contact.last_name || ''}`.trim() : contact.email}
+                        {contact.name || contact.company || contact.email || 'Unknown Contact'}
                       </SelectItem>
                     ))}
                   </SelectContent>
