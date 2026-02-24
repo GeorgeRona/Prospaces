@@ -6,7 +6,7 @@ import { getAllProjectManagersClient, getProjectManagersByCustomerClient, create
 import { getAllContactsClient, createContactClient, updateContactClient, deleteContactClient, claimUnassignedContactsClient, upsertContactByLegacyNumberClient, getSegmentsClient } from './contacts-client';
 import { diagnoseContactsRLS } from './contacts-diagnostic';
 import { getAllUsersClient, inviteUserClient, updateUserClient, deleteUserClient, resetPasswordClient } from './users-client';
-import { getAllAppointmentsClient, createAppointmentClient, deleteAppointmentClient } from './appointments-client';
+import { getAllAppointmentsClient, createAppointmentClient, updateAppointmentClient, deleteAppointmentClient } from './appointments-client';
 import { getAllBidsClient, getBidsByOpportunityClient, createBidClient, updateBidClient, deleteBidClient, fixBidOrganizationIds } from './bids-client';
 import { getAllTasksClient, createTaskClient, updateTaskClient, deleteTaskClient } from './tasks-client';
 import { getAllNotesClient, createNoteClient, deleteNoteClient, getNotesByContactClient } from './notes-client';
@@ -757,6 +757,7 @@ export const usersAPI = {
 export const appointmentsAPI = {
   getAll: (scope: 'personal' | 'team' = 'personal') => getAllAppointmentsClient(scope),
   create: (data: any) => createAppointmentClient(data),
+  update: (id: string, data: any) => updateAppointmentClient(id, data),
   delete: (id: string) => deleteAppointmentClient(id),
 };
 

@@ -104,6 +104,36 @@ export async function createAppointmentClient(appointmentData: any) {
   }
 }
 
+export async function updateAppointmentClient(id: string, appointmentData: any) {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) throw new Error('Not authenticated');
+
+    // Strip fields that shouldn't be updated directly
+    const { id: _id, created_at, organization_id, owner_id, created_by, ...updateFields } = appointmentData;
+
+    console.log('✏️ Updating appointment', id, 'with data:', updateFields);
+
+    const { data, error } = await supabase
+      .from('appointments')
+      .update(updateFields)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    console.log('✅ Appointment updated successfully:', data);
+
+    return { appointment: data };
+  } catch (error: any) {
+    console.error('Error updating appointment:', error);
+    throw error;
+  }
+}
+
 export async function deleteAppointmentClient(id: string) {
   try {
     const supabase = createClient();

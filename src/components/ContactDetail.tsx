@@ -61,6 +61,7 @@ import {
   type Document 
 } from '../utils/documents-client';
 import { toast } from 'sonner';
+import { appointmentsAPI } from '../utils/api';
 
 interface Contact {
   id: string;
@@ -180,6 +181,8 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
   const [documents, setDocuments] = useState<Document[]>([]);
   const [linkedNotes, setLinkedNotes] = useState<any[]>([]);
   const [isLoadingNotes, setIsLoadingNotes] = useState(false);
+  const [linkedAppointments, setLinkedAppointments] = useState<any[]>([]);
+  const [isLoadingAppointments, setIsLoadingAppointments] = useState(false);
   
   // Bids management state
   const [isBidsDialogOpen, setIsBidsDialogOpen] = useState(false);
@@ -278,6 +281,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
     loadBids();
     loadOrgSettings();
     loadLinkedNotes();
+    loadLinkedAppointments();
   }, [contact.id]);
 
   // Initialize line item dialog (same as Bids.tsx)
@@ -362,6 +366,19 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
       console.error('[ContactDetail] Failed to load linked notes:', error);
     } finally {
       setIsLoadingNotes(false);
+    }
+  };
+
+  const loadLinkedAppointments = async () => {
+    try {
+      setIsLoadingAppointments(true);
+      const { appointments } = await appointmentsAPI.getAll();
+      const linked = (appointments || []).filter((a: any) => a.contact_id === contact.id);
+      setLinkedAppointments(linked);
+    } catch (error) {
+      console.error('[ContactDetail] Failed to load linked appointments:', error);
+    } finally {
+      setIsLoadingAppointments(false);
     }
   };
 
@@ -1522,6 +1539,69 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Linked Appointments */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Linked Appointments</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isLoadingAppointments ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+            </div>
+          ) : linkedAppointments.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <Calendar className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p>No appointments linked to this contact</p>
+              <p className="text-sm mt-1">Link appointments from the Appointments module</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {linkedAppointments
+                .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+                .map((apt) => {
+                  const startDate = new Date(apt.start_time);
+                  const isUpcoming = startDate > new Date();
+                  return (
+                    <div key={apt.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                      <div className="flex items-start gap-3">
+                        <Calendar className="h-5 w-5 text-blue-600 mt-0.5 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-semibold text-gray-900">{apt.title}</h4>
+                            {isUpcoming && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] bg-green-100 text-green-800">
+                                Upcoming
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-3 mt-1 text-sm text-gray-600">
+                            <span>
+                              {startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </span>
+                            <span>
+                              {startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                              {apt.end_time && ` - ${new Date(apt.end_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`}
+                            </span>
+                          </div>
+                          {apt.location && (
+                            <p className="text-sm text-gray-500 mt-1">{apt.location}</p>
+                          )}
+                          {apt.description && (
+                            <p className="text-sm text-gray-600 mt-1 line-clamp-2">{apt.description}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
             </div>
           )}
         </CardContent>

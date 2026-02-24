@@ -15,10 +15,12 @@ import { Textarea } from './ui/textarea';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { Plus, Trash2, Clock, MapPin, Calendar as CalendarIcon, MoreVertical, Link2, RefreshCw, Loader2 } from 'lucide-react';
-import { Video, List, ChevronLeft, ChevronRight, LayoutGrid, CalendarDays } from 'lucide-react';
+import { Video, List, ChevronLeft, ChevronRight, LayoutGrid, CalendarDays, User as UserIcon, X, Pencil } from 'lucide-react';
 import type { User } from '../App';
 import { PermissionGate } from './PermissionGate';
 import { canAdd, canDelete } from '../utils/permissions';
+import { canChange } from '../utils/permissions';
+import { contactsAPI } from '../utils/api';
 
 interface Appointment {
   id: string;
@@ -83,10 +85,11 @@ function colorForId(id: string) {
 
 // ─── Sub-components ─────────────────────────────────────────────────
 
-function AppointmentDetailPopover({ appointment, formatTime, onDelete, userRole }: {
+function AppointmentDetailPopover({ appointment, formatTime, onDelete, onEdit, userRole }: {
   appointment: Appointment;
   formatTime: (s: string) => string;
   onDelete: (id: string) => void;
+  onEdit: (appointment: Appointment) => void;
   userRole: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -122,17 +125,24 @@ function AppointmentDetailPopover({ appointment, formatTime, onDelete, userRole 
             </span>
           )}
         </div>
+        <div className="border-t" />
+        {canChange('appointments', userRole as any) && (
+          <DropdownMenuItem
+            onClick={() => { setOpen(false); onEdit(appointment); }}
+            className="m-1"
+          >
+            <Pencil className="h-3.5 w-3.5 mr-2" />
+            Edit
+          </DropdownMenuItem>
+        )}
         {canDelete('appointments', userRole as any) && (
-          <>
-            <div className="border-t" />
-            <DropdownMenuItem
-              onClick={() => { setOpen(false); onDelete(appointment.id); }}
-              className="text-red-600 m-1"
-            >
-              <Trash2 className="h-3.5 w-3.5 mr-2" />
-              Delete
-            </DropdownMenuItem>
-          </>
+          <DropdownMenuItem
+            onClick={() => { setOpen(false); onDelete(appointment.id); }}
+            className="text-red-600 m-1"
+          >
+            <Trash2 className="h-3.5 w-3.5 mr-2" />
+            Delete
+          </DropdownMenuItem>
         )}
       </DropdownMenuContent>
     </DropdownMenu>
@@ -157,6 +167,30 @@ export function Appointments({ user }: AppointmentsProps) {
   const [calendarAccounts, setCalendarAccounts] = useState<any[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
 
+  // Contact picker state
+  const [contacts, setContacts] = useState<{ id: string; name: string }[]>([]);
+  const [contactSearch, setContactSearch] = useState('');
+  const [selectedContactId, setSelectedContactId] = useState<string>('');
+  const [isContactDropdownOpen, setIsContactDropdownOpen] = useState(false);
+  const [contactsLoaded, setContactsLoaded] = useState(false);
+  // Map contact_id -> name for display
+  const [contactNameMap, setContactNameMap] = useState<Record<string, string>>({});
+
+  // Edit state
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
+  const [editForm, setEditForm] = useState({
+    title: '',
+    description: '',
+    date: '',
+    startTime: '',
+    endTime: '',
+    location: '',
+  });
+  const [editContactId, setEditContactId] = useState<string>('');
+  const [editContactSearch, setEditContactSearch] = useState('');
+  const [isEditContactDropdownOpen, setIsEditContactDropdownOpen] = useState(false);
+
   const [newAppointment, setNewAppointment] = useState({
     title: '',
     description: '',
@@ -175,20 +209,7 @@ export function Appointments({ user }: AppointmentsProps) {
   useEffect(() => {
     loadAppointments();
     loadCalendarAccounts();
-
-    const urlParams = new URLSearchParams(window.location.search);
-    const calendarConnected = urlParams.get('calendar_connected');
-    const email = urlParams.get('email');
-    const errorMessage = urlParams.get('message');
-
-    if (calendarConnected === 'success' && email) {
-      toast.success('Calendar connected!', { description: `${email} has been successfully connected` });
-      window.history.replaceState({}, document.title, window.location.pathname);
-      loadCalendarAccounts();
-    } else if (calendarConnected === 'error') {
-      toast.error('Failed to connect calendar', { description: errorMessage || 'An error occurred during connection' });
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
+    loadContacts();
   }, []);
 
   // Auto-sync every 5 min
@@ -224,9 +245,11 @@ export function Appointments({ user }: AppointmentsProps) {
         start_time: startDateTime.toISOString(),
         end_time: endDateTime.toISOString(),
         location: newAppointment.location,
+        ...(selectedContactId ? { contact_id: selectedContactId } : {}),
       });
       await loadAppointments();
       setNewAppointment({ title: '', description: '', date: '', startTime: '', endTime: '', location: '' });
+      setSelectedContactId('');
       setIsAddDialogOpen(false);
     } catch (error) {
       console.error('Failed to create appointment:', error);
@@ -313,6 +336,63 @@ export function Appointments({ user }: AppointmentsProps) {
       toast.error('Failed to sync calendar', { description: error.message || 'Please try again' });
     } finally {
       setIsSyncing(false);
+    }
+  };
+
+  const loadContacts = async () => {
+    try {
+      const response = await contactsAPI.getAll();
+      setContacts(response.contacts || []);
+      setContactsLoaded(true);
+      const nameMap: Record<string, string> = {};
+      for (const contact of response.contacts || []) {
+        nameMap[contact.id] = contact.name;
+      }
+      setContactNameMap(nameMap);
+    } catch (error) {
+      console.error('Failed to load contacts:', error);
+    }
+  };
+
+  const openEditDialog = (appointment: Appointment) => {
+    setEditingAppointment(appointment);
+    const start = new Date(appointment.start_time);
+    const end = new Date(appointment.end_time);
+    setEditForm({
+      title: appointment.title || '',
+      description: appointment.description || '',
+      date: start.toISOString().split('T')[0],
+      startTime: start.toTimeString().slice(0, 5),
+      endTime: end.toTimeString().slice(0, 5),
+      location: appointment.location || '',
+    });
+    setEditContactId(appointment.contact_id || '');
+    setEditContactSearch('');
+    setIsEditContactDropdownOpen(false);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleEditAppointment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingAppointment) return;
+    try {
+      const startDateTime = new Date(`${editForm.date}T${editForm.startTime}`);
+      const endDateTime = new Date(`${editForm.date}T${editForm.endTime}`);
+      await appointmentsAPI.update(editingAppointment.id, {
+        title: editForm.title,
+        description: editForm.description,
+        start_time: startDateTime.toISOString(),
+        end_time: endDateTime.toISOString(),
+        location: editForm.location,
+        contact_id: editContactId || null,
+      });
+      toast.success('Appointment updated');
+      await loadAppointments();
+      setIsEditDialogOpen(false);
+      setEditingAppointment(null);
+    } catch (error) {
+      console.error('Failed to update appointment:', error);
+      toast.error('Failed to update appointment');
     }
   };
 
@@ -513,6 +593,59 @@ export function Appointments({ user }: AppointmentsProps) {
                     <Label htmlFor="location">Location</Label>
                     <Input id="location" value={newAppointment.location} onChange={(e) => setNewAppointment({ ...newAppointment, location: e.target.value })} placeholder="Meeting location" />
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="contact">Link to Contact <span className="text-gray-400 font-normal">(optional)</span></Label>
+                    <div className="relative">
+                      <Input
+                        id="contact"
+                        value={selectedContactId ? (contactNameMap[selectedContactId] || '') : contactSearch}
+                        onChange={(e) => {
+                          setContactSearch(e.target.value);
+                          setSelectedContactId('');
+                          setIsContactDropdownOpen(true);
+                        }}
+                        onFocus={() => setIsContactDropdownOpen(true)}
+                        placeholder="Search contacts..."
+                        className="w-full"
+                        autoComplete="off"
+                      />
+                      {selectedContactId && (
+                        <button
+                          type="button"
+                          onClick={() => { setSelectedContactId(''); setContactSearch(''); }}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                      {isContactDropdownOpen && !selectedContactId && (
+                        <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                          {contacts
+                            .filter((c) => c.name.toLowerCase().includes(contactSearch.toLowerCase()))
+                            .slice(0, 20)
+                            .map((c) => (
+                              <button
+                                key={c.id}
+                                type="button"
+                                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 flex items-center gap-2"
+                                onClick={() => {
+                                  setSelectedContactId(c.id);
+                                  setContactSearch('');
+                                  setIsContactDropdownOpen(false);
+                                }}
+                              >
+                                <UserIcon className="h-3.5 w-3.5 text-gray-400" />
+                                {c.name}
+                              </button>
+                            ))
+                          }
+                          {contactsLoaded && contacts.filter((c) => c.name.toLowerCase().includes(contactSearch.toLowerCase())).length === 0 && (
+                            <div className="px-3 py-2 text-sm text-gray-500">No contacts found</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                   <div className="flex gap-2 pt-4">
                     <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)} className="flex-1">Cancel</Button>
                     <Button type="submit" className="flex-1">Add Appointment</Button>
@@ -584,6 +717,11 @@ export function Appointments({ user }: AppointmentsProps) {
                                   <Button variant="ghost" size="sm"><MoreVertical className="h-4 w-4" /></Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
+                                  {canChange('appointments', user.role) && (
+                                    <DropdownMenuItem onClick={() => openEditDialog(appointment)}>
+                                      <Pencil className="h-4 w-4 mr-2" />Edit
+                                    </DropdownMenuItem>
+                                  )}
                                   {canDelete('appointments', user.role) && (
                                     <DropdownMenuItem onClick={() => handleDeleteAppointment(appointment.id)} className="text-red-600">
                                       <Trash2 className="h-4 w-4 mr-2" />Delete
@@ -615,6 +753,12 @@ export function Appointments({ user }: AppointmentsProps) {
                               {appointment.attendees && (
                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs bg-blue-100 text-blue-800">
                                   {appointment.attendees.split(',').length} attendee(s)
+                                </span>
+                              )}
+                              {appointment.contact_id && contactNameMap[appointment.contact_id] && (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs bg-indigo-100 text-indigo-800">
+                                  <UserIcon className="h-3 w-3 mr-1" />
+                                  {contactNameMap[appointment.contact_id]}
                                 </span>
                               )}
                             </div>
@@ -662,6 +806,7 @@ export function Appointments({ user }: AppointmentsProps) {
                                 appointment={a}
                                 formatTime={formatTime}
                                 onDelete={handleDeleteAppointment}
+                                onEdit={openEditDialog}
                                 userRole={user.role}
                               />
                             ))}
@@ -757,13 +902,16 @@ export function Appointments({ user }: AppointmentsProps) {
                                             </span>
                                           )}
                                         </div>
+                                        <div className="border-t" />
+                                        {canChange('appointments', user.role) && (
+                                          <DropdownMenuItem onClick={() => openEditDialog(a)} className="m-1">
+                                            <Pencil className="h-3.5 w-3.5 mr-2" />Edit
+                                          </DropdownMenuItem>
+                                        )}
                                         {canDelete('appointments', user.role) && (
-                                          <>
-                                            <div className="border-t" />
                                             <DropdownMenuItem onClick={() => handleDeleteAppointment(a.id)} className="text-red-600 m-1">
                                               <Trash2 className="h-3.5 w-3.5 mr-2" />Delete
                                             </DropdownMenuItem>
-                                          </>
                                         )}
                                       </DropdownMenuContent>
                                     </DropdownMenu>
@@ -781,6 +929,101 @@ export function Appointments({ user }: AppointmentsProps) {
             )}
           </>
         )}
+
+        {/* Edit Appointment Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="sm:max-w-[500px] bg-white">
+            <DialogHeader>
+              <DialogTitle>Edit Appointment</DialogTitle>
+              <DialogDescription>Update appointment details.</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleEditAppointment} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-title">Title</Label>
+                <Input id="edit-title" value={editForm.title} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} placeholder="Meeting title" required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-description">Description</Label>
+                <Textarea id="edit-description" value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} rows={3} placeholder="Meeting details..." />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-date">Date</Label>
+                <Input id="edit-date" type="date" value={editForm.date} onChange={(e) => setEditForm({ ...editForm, date: e.target.value })} required />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-startTime">Start Time</Label>
+                  <Input id="edit-startTime" type="time" value={editForm.startTime} onChange={(e) => setEditForm({ ...editForm, startTime: e.target.value })} required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-endTime">End Time</Label>
+                  <Input id="edit-endTime" type="time" value={editForm.endTime} onChange={(e) => setEditForm({ ...editForm, endTime: e.target.value })} required />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-location">Location</Label>
+                <Input id="edit-location" value={editForm.location} onChange={(e) => setEditForm({ ...editForm, location: e.target.value })} placeholder="Meeting location" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-contact">Link to Contact <span className="text-gray-400 font-normal">(optional)</span></Label>
+                <div className="relative">
+                  <Input
+                    id="edit-contact"
+                    value={editContactId ? (contactNameMap[editContactId] || '') : editContactSearch}
+                    onChange={(e) => {
+                      setEditContactSearch(e.target.value);
+                      setEditContactId('');
+                      setIsEditContactDropdownOpen(true);
+                    }}
+                    onFocus={() => setIsEditContactDropdownOpen(true)}
+                    placeholder="Search contacts..."
+                    className="w-full"
+                    autoComplete="off"
+                  />
+                  {editContactId && (
+                    <button
+                      type="button"
+                      onClick={() => { setEditContactId(''); setEditContactSearch(''); }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                  {isEditContactDropdownOpen && !editContactId && (
+                    <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                      {contacts
+                        .filter((c) => c.name.toLowerCase().includes(editContactSearch.toLowerCase()))
+                        .slice(0, 20)
+                        .map((c) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 flex items-center gap-2"
+                            onClick={() => {
+                              setEditContactId(c.id);
+                              setEditContactSearch('');
+                              setIsEditContactDropdownOpen(false);
+                            }}
+                          >
+                            <UserIcon className="h-3.5 w-3.5 text-gray-400" />
+                            {c.name}
+                          </button>
+                        ))
+                      }
+                      {contactsLoaded && contacts.filter((c) => c.name.toLowerCase().includes(editContactSearch.toLowerCase())).length === 0 && (
+                        <div className="px-3 py-2 text-sm text-gray-500">No contacts found</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="flex gap-2 pt-4">
+                <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)} className="flex-1">Cancel</Button>
+                <Button type="submit" className="flex-1">Save Changes</Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
 
         {/* Calendar setup dialog */}
         <Dialog open={isCalendarSetupOpen} onOpenChange={setIsCalendarSetupOpen}>
