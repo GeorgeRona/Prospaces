@@ -565,50 +565,17 @@ export function Navigation({
         </div>
       </div>
 
-      {/* Desktop sidebar */}
-      <div className={`hidden lg:fixed lg:inset-y-0 lg:flex lg:flex-col transition-all duration-300 ${isSidebarCollapsed ? 'lg:w-20' : 'lg:w-64'}`}>
+      {/* Desktop sidebar — starts below the full-width header */}
+      <div className={`hidden lg:fixed lg:top-16 lg:bottom-0 lg:left-0 lg:flex lg:flex-col transition-all duration-300 z-30 ${isSidebarCollapsed ? 'lg:w-20' : 'lg:w-64'}`}>
         <div 
-          className="flex flex-col flex-grow border-r pt-5 pb-4 overflow-y-auto"
+          className="flex flex-col flex-grow border-r pt-4 pb-4 overflow-y-auto"
           style={{
             background: theme.colors.navBackground,
             color: theme.colors.navText,
             borderColor: theme.colors.border
           }}
         >
-          <div className={`flex items-center flex-shrink-0 px-4 gap-2 ${isSidebarCollapsed ? 'justify-center flex-col' : 'justify-between'}`}>
-            <div className={`flex items-center gap-2 ${isSidebarCollapsed ? 'justify-center' : ''}`}>
-              <div 
-                className="h-10 w-10 rounded-lg flex items-center justify-center bg-blue-600"
-              >
-                <Building2 className="h-6 w-6 text-white" />
-              </div>
-              {!isSidebarCollapsed && (
-                <span className="text-xl font-semibold" style={{ color: theme.colors.navText }}>
-                  ProSpaces CRM
-                </span>
-              )}
-            </div>
-            
-            {/* Sidebar Toggle Button */}
-            <button
-              onClick={onToggleSidebar}
-              className={`p-1.5 rounded-md transition-colors ${isSidebarCollapsed ? 'mt-4' : ''}`}
-              style={{ color: theme.colors.navText, opacity: 0.7 }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = theme.colors.navHover;
-                e.currentTarget.style.opacity = '1';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'transparent';
-                e.currentTarget.style.opacity = '0.7';
-              }}
-              title={isSidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-            >
-              <Menu className="h-5 w-5" />
-            </button>
-          </div>
-          
-          <nav className="mt-8 flex-1 px-2 space-y-1">
+          <nav className="flex-1 px-2 space-y-1">
             {navItems.map((item) => renderNavItem(item))}
           </nav>
 
@@ -706,14 +673,39 @@ export function Navigation({
       )}
 
       {/* Desktop header */}
-      <div className={`hidden lg:block fixed top-0 right-0 border-b bg-white dark:bg-slate-900 z-40 h-16 shadow-sm transition-all duration-300 ${isSidebarCollapsed ? 'left-20' : 'left-64'}`}>
-        <div className="flex items-center justify-between h-full px-6 border-b border-slate-200 dark:border-slate-700">
+      <div className="hidden lg:block fixed top-0 left-0 right-0 border-b bg-white dark:bg-slate-900 z-50 h-16 shadow-sm">
+        <div className="flex items-center justify-between h-full px-4 border-b border-slate-200 dark:border-slate-700">
           <div className="flex items-center gap-3">
+            {/* Logo & Brand */}
+            <div className="flex items-center gap-2 mr-2">
+              <div className="h-9 w-9 rounded-lg flex items-center justify-center bg-blue-600">
+                <Building2 className="h-5 w-5 text-white" />
+              </div>
+              {!isSidebarCollapsed && (
+                <span className="text-lg font-semibold text-slate-900 dark:text-white whitespace-nowrap">
+                  ProSpaces CRM
+                </span>
+              )}
+            </div>
+
+            {/* Sidebar Toggle */}
+            <button
+              onClick={onToggleSidebar}
+              className="p-1.5 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800 transition-colors"
+              title={isSidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+
+            {/* Divider */}
+            <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 mx-1" />
+
+            {/* Page Title */}
             {(() => {
               const Icon = getPageIcon(currentView);
-              return <Icon className="h-6 w-6 text-blue-600 dark:text-blue-400" />;
+              return <Icon className="h-5 w-5 text-blue-600 dark:text-blue-400" />;
             })()}
-            <h1 className="text-xl font-semibold text-slate-900 dark:text-white">
+            <h1 className="text-lg font-semibold text-slate-900 dark:text-white">
               {getPageTitle(currentView)}
             </h1>
           </div>
