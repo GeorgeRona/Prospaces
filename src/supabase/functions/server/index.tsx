@@ -9,6 +9,7 @@ import { apiKeys } from './api-keys.ts';
 import { publicApi } from './public-api.ts';
 import { designsApi } from './designs-api.ts';
 import { contactsAPI } from './contacts-api.ts';
+import { inventoryDiagnostic } from './inventory-diagnostic.ts';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ProSpaces CRM — Consolidated Edge Function (v5 — 2025-02-21)
@@ -1294,6 +1295,9 @@ marketing(app);
 
 // ── SAVED DESIGNS (deck, garage, shed, roof, kitchen — service-role to bypass RLS) ──
 designsApi(app);
+
+// ── INVENTORY DIAGNOSTIC (duplicate SKU scan, cleanup, import jobs) ──────
+inventoryDiagnostic(app);
 
 // ── ORG USER MODE (KV-backed single/multi user toggle) ──────────────────
 app.get(`${PREFIX}/settings/org-mode`, async (c) => {
