@@ -92,18 +92,25 @@ export function Notes({ user }: NotesProps) {
   const loadNotes = async () => {
     try {
       const { notes: data } = await notesAPI.getAll();
-      const mappedNotes: Note[] = data.map((item: any) => ({
-        id: item.id,
-        title: item.title || 'Untitled Note',
-        content: item.content || '',
-        createdAt: item.created_at,
-        updatedAt: item.updated_at,
-        linkedTo: item.contact_id || undefined,
-        ownerId: item.owner_id,
-      }));
-      setNotes(mappedNotes);
+      console.log('[Notes] loadNotes returned', data?.length ?? 0, 'notes');
+      if (data && data.length > 0) {
+        console.log('[Notes] Sample note keys:', Object.keys(data[0]));
+        const mappedNotes: Note[] = data.map((item: any) => ({
+          id: item.id,
+          title: item.title || 'Untitled Note',
+          content: item.content || '',
+          createdAt: item.created_at,
+          updatedAt: item.updated_at,
+          linkedTo: item.contact_id || undefined,
+          ownerId: item.owner_id,
+        }));
+        setNotes(mappedNotes);
+      } else {
+        // Query returned empty — don't wipe optimistic state
+        console.log('[Notes] loadNotes returned empty, keeping current state');
+      }
     } catch (error) {
-      console.error('Failed to reload notes:', error);
+      console.error('[Notes] Failed to reload notes:', error);
     }
   };
 
@@ -135,9 +142,6 @@ export function Notes({ user }: NotesProps) {
 
     setIsSubmitting(true);
     try {
-      // Append linkedTo info to content if provided, as schema might only support contact_id
-      // If the user provided a valid UUID in linkedTo, we could use it as contact_id, 
-      // but for free text we'll save it in content to preserve it.
       let contentToSave = newNote.content;
       let contactId = null;
 
@@ -145,18 +149,36 @@ export function Notes({ user }: NotesProps) {
         contactId = newNote.linkedTo;
       }
 
-      await notesAPI.create({
+      const result = await notesAPI.create({
         title: newNote.title,
         content: contentToSave,
         contact_id: contactId
       });
 
+      console.log('[Notes] Create result:', result);
+
+      // Optimistically add the note to state so it appears immediately
+      if (result?.note) {
+        const createdNote: Note = {
+          id: result.note.id,
+          title: result.note.title || newNote.title,
+          content: result.note.content || contentToSave,
+          createdAt: result.note.created_at || new Date().toISOString(),
+          updatedAt: result.note.updated_at || new Date().toISOString(),
+          linkedTo: result.note.contact_id || contactId || undefined,
+          ownerId: result.note.owner_id || user.id,
+        };
+        setNotes(prev => [createdNote, ...prev]);
+      }
+
       toast.success('Note created successfully');
       setNewNote({ title: '', content: '', linkedTo: '' });
       setIsAddDialogOpen(false);
-      loadNotes(); // Reload list
+
+      // Also reload in background to sync with DB (catches any RLS-filtered data)
+      loadNotes();
     } catch (error: any) {
-      console.error('Failed to create note:', error);
+      console.error('[Notes] Failed to create note:', error);
       toast.error(error.message || 'Failed to create note');
     } finally {
       setIsSubmitting(false);

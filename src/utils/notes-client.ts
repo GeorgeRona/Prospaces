@@ -42,18 +42,9 @@ export async function getAllNotesClient(scope: 'personal' | 'team' = 'personal')
 
     // Apply scope-based filtering
     if (scope === 'personal') {
-      // Personal scope: ALL roles see only their own notes
-      if (userRole === 'super_admin') {
-        if (userOrgId) {
-          query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
-        }
-      } else {
-        console.log('👤 Personal View - Loading only own notes for user:', authUser.id);
-        if (userOrgId) {
-          query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
-        }
-        query = query.eq('owner_id', authUser.id);
-      }
+      // Personal scope: filter by owner_id only — your own notes regardless of org
+      console.log('👤 Personal View - Loading only own notes for user:', authUser.id);
+      query = query.eq('owner_id', authUser.id);
     } else {
       // Team scope: role-based filtering
       if (userRole === 'super_admin') {
@@ -67,9 +58,6 @@ export async function getAllNotesClient(scope: 'personal' | 'team' = 'personal')
         }
       } else {
         console.log('👤 Standard User - Loading only own notes for user:', authUser.id);
-        if (userOrgId) {
-          query = query.or(`organization_id.eq.${userOrgId},organization_id.is.null`);
-        }
         query = query.eq('owner_id', authUser.id);
       }
     }
@@ -82,13 +70,15 @@ export async function getAllNotesClient(scope: 'personal' | 'team' = 'personal')
         console.log('[notes-client] Notes table not found, returning empty array');
         return { notes: [] };
       }
-      console.error('[notes-client] Error loading notes:', error);
+      console.error('[notes-client] Error loading notes:', error.message, error.code, error.details, error.hint);
       throw error;
     }
 
+    console.log(`[notes-client] Query returned ${notes?.length ?? 0} note(s)`);
+
     return { notes: notes || [] };
   } catch (error: any) {
-    console.error('[notes-client] Error:', error.message);
+    console.error('[notes-client] Error:', error.message, error.code || '', error.details || '');
     return { notes: [] };
   }
 }
@@ -116,6 +106,17 @@ export async function createNoteClient(noteData: any) {
         // ignore
       }
     }
+
+    // Also try localStorage fallback (set during login in App.tsx)
+    if (!organizationId) {
+      try {
+        organizationId = localStorage.getItem('currentOrgId');
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    console.log('[notes-client] Resolved organization_id:', organizationId, '| user.id:', user.id);
 
     const newNote = {
       title: noteData.title,
@@ -163,5 +164,28 @@ export async function deleteNoteClient(id: string) {
   } catch (error: any) {
     console.error('[notes-client] Error deleting note:', error.message);
     throw error;
+  }
+}
+
+export async function getNotesByContactClient(contactId: string) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { notes: [] };
+
+    const { data: notes, error } = await supabase
+      .from('notes')
+      .select('*')
+      .eq('contact_id', contactId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('[notes-client] Error loading notes by contact:', error.message);
+      return { notes: [] };
+    }
+
+    return { notes: notes || [] };
+  } catch (error: any) {
+    console.error('[notes-client] Error loading notes by contact:', error.message);
+    return { notes: [] };
   }
 }

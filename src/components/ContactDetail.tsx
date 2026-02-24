@@ -37,7 +37,8 @@ import {
   Receipt,
   ShoppingCart,
   Search,
-  RefreshCw
+  RefreshCw,
+  StickyNote
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -45,7 +46,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
-import { projectManagersAPI, bidsAPI, quotesAPI, inventoryAPI, settingsAPI } from '../utils/api';
+import { projectManagersAPI, bidsAPI, quotesAPI, inventoryAPI, settingsAPI, notesAPI } from '../utils/api';
 import type { User } from '../App';
 import { canAdd, canChange, canDelete } from '../utils/permissions';
 // BidLineItems no longer needed — Add Deal now uses the same inline dialog as the Deals module
@@ -177,6 +178,8 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
     mailingAddress: '',
   });
   const [documents, setDocuments] = useState<Document[]>([]);
+  const [linkedNotes, setLinkedNotes] = useState<any[]>([]);
+  const [isLoadingNotes, setIsLoadingNotes] = useState(false);
   
   // Bids management state
   const [isBidsDialogOpen, setIsBidsDialogOpen] = useState(false);
@@ -274,6 +277,7 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
     loadInventoryItems();
     loadBids();
     loadOrgSettings();
+    loadLinkedNotes();
   }, [contact.id]);
 
   // Initialize line item dialog (same as Bids.tsx)
@@ -346,6 +350,18 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
       }
     } catch (error) {
       console.error('[ContactDetail] Failed to load org settings, using localStorage fallback:', error);
+    }
+  };
+
+  const loadLinkedNotes = async () => {
+    try {
+      setIsLoadingNotes(true);
+      const { notes } = await notesAPI.getByContact(contact.id);
+      setLinkedNotes(notes || []);
+    } catch (error) {
+      console.error('[ContactDetail] Failed to load linked notes:', error);
+    } finally {
+      setIsLoadingNotes(false);
     }
   };
 
@@ -1458,6 +1474,51 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
                         </DropdownMenuContent>
                       </DropdownMenu>
                     )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Linked Notes */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Linked Notes</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isLoadingNotes ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+            </div>
+          ) : linkedNotes.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <StickyNote className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p>No notes linked to this contact</p>
+              <p className="text-sm mt-1">Link notes to this contact from the Notes module</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {linkedNotes.map((note) => (
+                <div key={note.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                  <div className="flex items-start gap-3">
+                    <StickyNote className="h-5 w-5 text-yellow-600 mt-0.5 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-semibold text-gray-900">{note.title || 'Untitled Note'}</h4>
+                      <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap line-clamp-4">{note.content}</p>
+                      <p className="text-xs text-gray-400 mt-2">
+                        {new Date(note.created_at).toLocaleString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </p>
+                    </div>
                   </div>
                 </div>
               ))}

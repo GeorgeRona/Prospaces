@@ -9,7 +9,7 @@ import { getAllUsersClient, inviteUserClient, updateUserClient, deleteUserClient
 import { getAllAppointmentsClient, createAppointmentClient, deleteAppointmentClient } from './appointments-client';
 import { getAllBidsClient, getBidsByOpportunityClient, createBidClient, updateBidClient, deleteBidClient, fixBidOrganizationIds } from './bids-client';
 import { getAllTasksClient, createTaskClient, updateTaskClient, deleteTaskClient } from './tasks-client';
-import { getAllNotesClient, createNoteClient, deleteNoteClient } from './notes-client';
+import { getAllNotesClient, createNoteClient, deleteNoteClient, getNotesByContactClient } from './notes-client';
 import { getUserPreferencesClient, upsertUserPreferencesClient, getOrganizationSettingsClient, upsertOrganizationSettingsClient, updateOrganizationNameClient, updateUserProfileClient, getOrgMode, setOrgMode } from './settings-client';
 import { getJourneys, createJourney, updateJourney, deleteJourney, getLandingPages, createLandingPage, updateLandingPage, deleteLandingPage, getLeadScores, updateLeadScore, getScoringRules, createScoringRule, updateScoringRule, deleteScoringRule, getLeadScoreStats } from './marketing-client';
 import { getServerHeaders } from './server-headers';
@@ -781,6 +781,7 @@ export const tasksAPI = {
 // Notes APIs - use direct Supabase client
 export const notesAPI = {
   getAll: (scope: 'personal' | 'team' = 'personal') => getAllNotesClient(scope),
+  getByContact: (contactId: string) => getNotesByContactClient(contactId),
   create: (data: any) => createNoteClient(data),
   delete: (id: string) => deleteNoteClient(id),
 };

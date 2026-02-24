@@ -30,7 +30,6 @@ import { createClient } from '../utils/supabase/client';
 import type { User } from '../App';
 import { PermissionGate } from './PermissionGate';
 import { DailyBriefingPopup } from './DailyBriefingPopup';
-import { DashboardBillingWidget } from './subscription/DashboardBillingWidget';
 
 interface DashboardProps {
   user: User;
@@ -553,9 +552,6 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
         )}
 
       </div>
-
-      {/* Billing Widget */}
-      {onNavigate && <DashboardBillingWidget onNavigate={onNavigate} />}
 
     </div>
     </PermissionGate>
