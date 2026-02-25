@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Alert, AlertDescription } from './ui/alert';
-import { Calendar, CheckCircle, XCircle, Loader2, AlertCircle, Trash2, RefreshCw } from 'lucide-react';
+import { Calendar, CheckCircle, XCircle, Loader2, AlertCircle, Trash2, RefreshCw, ExternalLink } from 'lucide-react';
 import { createClient } from '../utils/supabase/client';
 import { toast } from 'sonner';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
@@ -71,6 +71,13 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+
+  // OAuth popup tracking for MFA reopen support
+  const [popupClosed, setPopupClosed] = useState(false);
+  const [oauthAuthUrl, setOauthAuthUrl] = useState<string | null>(null);
+  const popupRef = useRef<Window | null>(null);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const oauthCompleteRef = useRef(false);
 
   useEffect(() => {
     if (editingAccount) {
@@ -139,69 +146,66 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
         throw new Error('Not authenticated');
       }
 
-      const functionName = await findActiveFunctionName(supabaseUrl, session.access_token);
-      
-      const payload = {
-          provider: selectedProvider === 'google' ? 'gmail' : 'outlook',
-          email: email.trim(),
-          returnUrl: window.location.origin,
-          endpoint: functionName 
-      };
+      // Determine endpoint sub-path based on provider
+      const subPath = selectedProvider === 'google'
+        ? 'google-oauth-init'
+        : selectedProvider === 'outlook'
+        ? 'microsoft-oauth-init'
+        : null;
 
-      const { data, error: invokeError } = await supabase.functions.invoke(functionName, {
-        body: payload
+      if (!subPath) {
+        throw new Error(`${selectedProvider} is not yet supported for calendar`);
+      }
+
+      // Use the function name with sub-path so supabase.functions.invoke()
+      // hits  /functions/v1/make-server-8405be07/<subPath>
+      const functionPath = `make-server-8405be07/${subPath}`;
+      console.log(`[Calendar OAuth] Invoking function: ${functionPath}`);
+
+      const { data, error: invokeError } = await supabase.functions.invoke(functionPath, {
+        method: 'POST',
+        body: { frontendOrigin: window.location.origin },
+        headers: {
+          'X-User-Token': session.access_token,
+        },
       });
 
       if (invokeError) {
         console.error('[Calendar] Invoke error:', invokeError);
-        
-        // Attempt fallback fetch to get the real error body
-        try {
-            const fallbackUrl = `${supabaseUrl}/functions/v1/${functionName}`;
-            const fallbackResponse = await fetch(fallbackUrl, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${session.access_token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(payload)
-            });
-            const fallbackText = await fallbackResponse.text();
-            try {
-                const fallbackJson = JSON.parse(fallbackText);
-                if (fallbackJson.error) throw new Error(fallbackJson.error);
-            } catch (e) {
-                if (fallbackText && fallbackText.length < 200) throw new Error(fallbackText);
-            }
-        } catch (fallbackErr: any) {
-             if (fallbackErr.message && fallbackErr.message !== 'Failed to fetch') throw fallbackErr;
-        }
-
         throw new Error(invokeError.message || 'Failed to initialize OAuth.');
       }
 
-      if (!data?.authUrl) {
-        throw new Error('Failed to get authorization URL from server.');
+      if (!data?.success || !data?.authUrl) {
+        console.error('[Calendar] Unexpected response:', data);
+        throw new Error(data?.error || 'Failed to get authorization URL from server.');
       }
 
+      // Store the auth URL so we can reopen the popup if closed during MFA
+      setOauthAuthUrl(data.authUrl);
+      setPopupClosed(false);
+      oauthCompleteRef.current = false;
+
       toast.info('Opening authorization window...', {
-        description: `Please sign in with ${selectedProvider === 'google' ? 'Google' : 'Microsoft'}`
+        description: `Please sign in with ${selectedProvider === 'google' ? 'Google' : 'Microsoft'}. If your account requires 2FA / Authenticator, approve the prompt in the sign-in window.`
       });
 
-      const width = 600;
-      const height = 700;
-      const left = window.screen.width / 2 - width / 2;
-      const top = window.screen.height / 2 - height / 2;
+      // Sized larger to accommodate MFA / Microsoft Authenticator prompts
+      const width = 650;
+      const height = 800;
+      const left = Math.max(0, window.screen.width / 2 - width / 2);
+      const top = Math.max(0, window.screen.height / 2 - height / 2);
       
       const popup = window.open(
         data.authUrl,
         'oauth-popup',
-        `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
+        `width=${width},height=${height},left=${left},top=${top},toolbar=no,location=yes,status=yes,menubar=no,scrollbars=yes,resizable=yes`
       );
 
       if (!popup) {
         throw new Error('Popup was blocked. Please allow popups for this site.');
       }
+
+      popupRef.current = popup;
 
       console.log('[CalendarAccountSetup] Popup opened, starting to poll for new account...');
 
@@ -214,7 +218,7 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
         const elapsed = Date.now() - startTime;
         
         if (elapsed > maxWaitTime) {
-          clearInterval(pollInterval);
+          clearInterval(pollIntervalRef.current);
           setIsConnecting(false);
           setError('Connection timeout. Please try again.');
           return;
@@ -223,8 +227,7 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
         try {
           try {
             if (popup.closed) {
-              clearInterval(pollInterval);
-              
+              // Don't immediately give up — check server one more time
               const srvHeaders = await getServerHeaders();
               const srvRes = await fetch(
                 `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/email-accounts`,
@@ -234,14 +237,19 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
               const accounts = (srvJson.accounts || []).filter((a: any) => a.email === email.trim() && a.connected);
               
               if (accounts.length > 0 && new Date(accounts[0].created_at).getTime() > startTime) {
+                oauthCompleteRef.current = true;
+                clearInterval(pollIntervalRef.current!);
                 toast.success('Calendar connected!');
                 setIsConnecting(false);
                 setStep('success');
                 onAccountAdded();
                 setTimeout(() => onClose(), 1500);
               } else {
+                // Popup was closed but no account found yet — show reopen option
+                clearInterval(pollIntervalRef.current!);
+                console.log('[CalendarAccountSetup] Popup closed without completion — showing reopen option');
+                setPopupClosed(true);
                 setIsConnecting(false);
-                setError('Authorization was cancelled');
               }
               return;
             }
@@ -260,7 +268,7 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
           if (accounts && accounts.length > 0) {
             const accountCreatedAt = new Date(accounts[0].created_at).getTime();
             if (accountCreatedAt > startTime) {
-              clearInterval(pollInterval);
+              clearInterval(pollIntervalRef.current);
               
               toast.success('Calendar connected!');
               setIsConnecting(false);
@@ -282,6 +290,7 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
       };
 
       const pollInterval = setInterval(pollForAccount, 2000);
+      pollIntervalRef.current = pollInterval;
       pollForAccount();
 
     } catch (error: any) {
@@ -292,6 +301,109 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
       });
       setIsConnecting(false);
     }
+  };
+
+  // Reopen the sign-in popup with the same auth URL (for MFA retry)
+  const handleReopenPopup = () => {
+    if (!oauthAuthUrl) {
+      // No stored URL — restart the full OAuth flow
+      handleOAuthConnect();
+      return;
+    }
+
+    const width = 650;
+    const height = 800;
+    const left = Math.max(0, window.screen.width / 2 - width / 2);
+    const top = Math.max(0, window.screen.height / 2 - height / 2);
+
+    const newPopup = window.open(
+      oauthAuthUrl,
+      'oauth-popup',
+      `width=${width},height=${height},left=${left},top=${top},toolbar=no,location=yes,status=yes,menubar=no,scrollbars=yes,resizable=yes`
+    );
+
+    if (!newPopup) {
+      toast.error('Popup was blocked. Please allow popups for this site.');
+      return;
+    }
+
+    popupRef.current = newPopup;
+    setPopupClosed(false);
+    setError('');
+    setIsConnecting(true);
+    oauthCompleteRef.current = false;
+
+    toast.info('Sign-in window reopened', {
+      description: 'Complete the sign-in and MFA approval in the new window.'
+    });
+
+    // Restart polling for account creation
+    const startTime = Date.now();
+    const maxWaitTime = 5 * 60 * 1000;
+
+    const pollForAccount = async () => {
+      const elapsed = Date.now() - startTime;
+      if (elapsed > maxWaitTime || oauthCompleteRef.current) {
+        clearInterval(pollIntervalRef.current!);
+        if (!oauthCompleteRef.current) {
+          setIsConnecting(false);
+          setError('Connection timeout. Please try again.');
+        }
+        return;
+      }
+
+      try {
+        try {
+          if (newPopup.closed) {
+            const srvHeaders = await getServerHeaders();
+            const srvRes = await fetch(
+              `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/email-accounts`,
+              { headers: srvHeaders }
+            );
+            const srvJson = srvRes.ok ? await srvRes.json() : { accounts: [] };
+            const accounts = (srvJson.accounts || []).filter((a: any) => a.email === email.trim() && a.connected);
+
+            if (accounts.length > 0) {
+              oauthCompleteRef.current = true;
+              clearInterval(pollIntervalRef.current!);
+              toast.success('Calendar connected!');
+              setIsConnecting(false);
+              setStep('success');
+              onAccountAdded();
+              setTimeout(() => onClose(), 1500);
+            } else {
+              clearInterval(pollIntervalRef.current!);
+              setPopupClosed(true);
+              setIsConnecting(false);
+            }
+            return;
+          }
+        } catch (e) {}
+
+        const srvHeaders2 = await getServerHeaders();
+        const srvRes2 = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/email-accounts`,
+          { headers: srvHeaders2 }
+        );
+        if (!srvRes2.ok) return;
+        const srvJson2 = await srvRes2.json();
+        const accounts = (srvJson2.accounts || []).filter((a: any) => a.email === email.trim() && a.connected);
+
+        if (accounts && accounts.length > 0) {
+          oauthCompleteRef.current = true;
+          clearInterval(pollIntervalRef.current!);
+          toast.success('Calendar connected!');
+          setIsConnecting(false);
+          setStep('success');
+          onAccountAdded();
+          try { newPopup.close(); } catch (e) {}
+          setTimeout(() => onClose(), 1500);
+        }
+      } catch (err) {}
+    };
+
+    pollIntervalRef.current = setInterval(pollForAccount, 2000);
+    pollForAccount();
   };
 
   const handleDeleteAccount = async (accountId: string, email: string) => {
@@ -510,6 +622,50 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
           </Alert>
         )}
 
+        {selectedProvider === 'outlook' && (
+          <Alert className="bg-blue-50 border-blue-200">
+            <AlertCircle className="h-4 w-4 text-blue-600" />
+            <AlertDescription className="text-blue-800 text-xs">
+              <strong>2FA / MFA Supported:</strong> If your organization requires
+              Microsoft Authenticator or another two-factor method, you will be
+              prompted in the sign-in window. Keep it open until approval is complete.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {selectedProvider === 'google' && (
+          <Alert className="bg-amber-50 border-amber-200">
+            <AlertCircle className="h-4 w-4 text-amber-600" />
+            <AlertDescription className="text-amber-800 text-xs">
+              <strong>2-Step Verification Supported:</strong> If your Google account
+              has 2-Step Verification enabled, approve the prompt (authenticator app,
+              security key, or phone) in the sign-in window.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {popupClosed && (
+          <Alert className="bg-orange-50 border-orange-200">
+            <AlertCircle className="h-4 w-4 text-orange-600" />
+            <AlertDescription className="text-orange-800">
+              <strong>Sign-in window was closed.</strong>
+              <span className="block text-xs mt-1">
+                If you closed it accidentally or need to complete MFA approval,
+                click below to reopen the sign-in window.
+              </span>
+              <Button
+                onClick={handleReopenPopup}
+                variant="outline"
+                size="sm"
+                className="mt-2 border-orange-300 text-orange-700 hover:bg-orange-100"
+              >
+                <ExternalLink className="mr-2 h-3 w-3" />
+                Reopen Sign-in Window
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription className="text-xs">
@@ -537,7 +693,7 @@ export function CalendarAccountSetup({ isOpen, onClose, onAccountAdded, editingA
           {isConnecting ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Connecting...
+              Waiting for sign-in & MFA...
             </>
           ) : (
             <>

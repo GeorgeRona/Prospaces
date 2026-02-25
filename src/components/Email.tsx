@@ -125,7 +125,6 @@ interface EmailAccount {
     username: string;
     password: string;
   };
-  nylasGrantId?: string;
 }
 
 interface EmailProps {
@@ -209,7 +208,6 @@ export function Email({ user }: EmailProps) {
         lastSync: a.last_sync,
         imapConfig: a.imap_host ? { host: a.imap_host, port: a.imap_port!, username: a.imap_username!, password: a.imap_password! } : undefined,
         smtpConfig: a.smtp_host ? { host: a.smtp_host, port: a.smtp_port!, username: a.smtp_username!, password: a.smtp_password! } : undefined,
-        nylasGrantId: a.nylas_grant_id,
       }));
       setAccounts(transformed);
       setIsLoading(false);
@@ -305,7 +303,6 @@ export function Email({ user }: EmailProps) {
             username: account.smtp_username,
             password: account.smtp_password,
           } : undefined,
-          nylasGrantId: account.nylas_grant_id,
         }));
 
         setAccounts(transformedAccounts);
@@ -397,10 +394,6 @@ export function Email({ user }: EmailProps) {
         accountData.smtp_username = account.smtpConfig.username;
         accountData.smtp_password = account.smtpConfig.password;
       }
-      if (account.nylasGrantId) {
-        accountData.nylas_grant_id = account.nylasGrantId;
-      }
-
       const headers = await getServerHeaders();
       const res = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/email-accounts`,
@@ -1432,7 +1425,7 @@ export function Email({ user }: EmailProps) {
                 <strong>Getting Started:</strong>
                 <ul className="list-disc ml-4 mt-2 space-y-1">
                   <li><strong>IMAP/SMTP (Recommended):</strong> Connect directly using your email provider's server settings. Works immediately with no backend setup required.</li>
-                  <li><strong>OAuth (Advanced):</strong> Requires deploying Nylas Edge Functions to Supabase. See deployment guides for instructions.</li>
+                  <li><strong>OAuth (Recommended):</strong> Connect via Google or Microsoft OAuth for seamless email integration.</li>
                 </ul>
               </AlertDescription>
             </Alert>

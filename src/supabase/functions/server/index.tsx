@@ -1019,7 +1019,7 @@ async function refreshGoogleTokenFn(refreshToken: string) {
   return await r.json();
 }
 
-// ── EMAIL SYNC (consolidated — replaces azure-sync-emails & nylas-sync-emails) ──
+// ── EMAIL SYNC (consolidated — direct Google & Microsoft APIs) ──
 app.post(`${PREFIX}/email-sync`, async (c) => {
   try {
     const auth = await authenticateUser(c);
@@ -1043,11 +1043,9 @@ app.post(`${PREFIX}/email-sync`, async (c) => {
           id: dbAccount.id,
           provider: dbAccount.provider,
           email: dbAccount.email,
-          access_token: dbAccount.access_token || dbAccount.nylas_access_token,
+          access_token: dbAccount.access_token,
           refresh_token: dbAccount.refresh_token,
           token_expires_at: dbAccount.token_expires_at,
-          nylasGrantId: dbAccount.nylas_grant_id,
-          nylas_grant_id: dbAccount.nylas_grant_id,
         };
       }
     }
@@ -1096,32 +1094,7 @@ app.post(`${PREFIX}/email-sync`, async (c) => {
         }
       }
     } else if (kvAccount.provider === 'gmail') {
-      const NYLAS_API_KEY = Deno.env.get('NYLAS_API_KEY');
-      const nylasGrantId = kvAccount.nylasGrantId || kvAccount.nylas_grant_id;
-      if (NYLAS_API_KEY && nylasGrantId) {
-        const nylasRes = await fetch(`https://api.us.nylas.com/v3/grants/${nylasGrantId}/messages?limit=${emailLimit}`, {
-          headers: { Authorization: `Bearer ${NYLAS_API_KEY}` },
-        });
-        if (!nylasRes.ok) return c.json({ error: `Nylas API error: ${await nylasRes.text()}` }, 502);
-        const messages = (await nylasRes.json()).data || [];
-        for (const msg of messages) {
-          const { data: existing } = await auth.supabase.from('emails').select('id').eq('message_id', msg.id).eq('account_id', accountId).maybeSingle();
-          if (!existing) {
-            const { error: insErr } = await auth.supabase.from('emails').insert({
-              id: crypto.randomUUID(), user_id: auth.user.id, organization_id: orgId, account_id: accountId,
-              message_id: msg.id, from_email: msg.from?.[0]?.email || '',
-              to_email: msg.to?.[0]?.email || kvAccount.email,
-              cc_email: msg.cc?.map((x: any) => x.email).join(', ') || null,
-              subject: msg.subject || '(No Subject)', body: msg.body || msg.snippet || '',
-              folder: msg.folders?.includes('SENT') ? 'sent' : 'inbox',
-              is_read: msg.unread === false, is_starred: msg.starred || false,
-              received_at: new Date(msg.date * 1000).toISOString(),
-            });
-            if (!insErr) syncedCount++;
-          }
-        }
-      } else {
-        let accessToken = kvAccount.access_token;
+      let accessToken = kvAccount.access_token;
         const expiresAt = new Date(kvAccount.token_expires_at || 0);
         if (expiresAt <= new Date() && kvAccount.refresh_token) {
           const newTokens = await refreshGoogleTokenFn(kvAccount.refresh_token);
@@ -1159,7 +1132,6 @@ app.post(`${PREFIX}/email-sync`, async (c) => {
             }
           }
         }
-      }
     } else {
       return c.json({ error: `Unsupported provider: ${kvAccount.provider}` }, 400);
     }
@@ -1171,7 +1143,7 @@ app.post(`${PREFIX}/email-sync`, async (c) => {
   }
 });
 
-// ── EMAIL SEND (consolidated — replaces azure-send-email & nylas-send-email) ──
+// ── EMAIL SEND (consolidated — direct Google & Microsoft APIs) ──
 app.post(`${PREFIX}/email-send`, async (c) => {
   try {
     const auth = await authenticateUser(c);
@@ -1219,30 +1191,18 @@ app.post(`${PREFIX}/email-send`, async (c) => {
       await auth.supabase.from('emails').insert({ id: crypto.randomUUID(), user_id: auth.user.id, organization_id: orgId, account_id: accountId, message_id: crypto.randomUUID(), from_email: kvAccount.email, to_email: Array.isArray(to) ? to[0] : to, cc_email: cc ? (Array.isArray(cc) ? cc.join(', ') : cc) : null, subject, body: emailBody, folder: 'sent', is_read: true, is_starred: false, received_at: new Date().toISOString() });
       return c.json({ success: true, message: 'Email sent via Outlook' });
     } else if (kvAccount.provider === 'gmail') {
-      const NYLAS_API_KEY = Deno.env.get('NYLAS_API_KEY');
-      const nylasGrantId = kvAccount.nylasGrantId || kvAccount.nylas_grant_id;
-      if (NYLAS_API_KEY && nylasGrantId) {
-        const nb: any = { subject, body: emailBody, to: (Array.isArray(to) ? to : [to]).map((e: string) => ({ email: e })) };
-        if (cc) nb.cc = (Array.isArray(cc) ? cc : [cc]).map((e: string) => ({ email: e }));
-        if (bcc) nb.bcc = (Array.isArray(bcc) ? bcc : [bcc]).map((e: string) => ({ email: e }));
-        const nRes = await fetch(`https://api.us.nylas.com/v3/grants/${nylasGrantId}/messages/send`, { method: 'POST', headers: { Authorization: `Bearer ${NYLAS_API_KEY}`, 'Content-Type': 'application/json' }, body: JSON.stringify(nb) });
-        if (!nRes.ok) return c.json({ error: 'Nylas send error: ' + await nRes.text() }, 502);
-        await auth.supabase.from('emails').insert({ id: crypto.randomUUID(), user_id: auth.user.id, organization_id: orgId, account_id: accountId, message_id: crypto.randomUUID(), from_email: kvAccount.email, to_email: Array.isArray(to) ? to[0] : to, subject, body: emailBody, folder: 'sent', is_read: true, is_starred: false, received_at: new Date().toISOString() });
-        return c.json({ success: true, message: 'Email sent via Nylas/Gmail' });
-      } else {
-        let accessToken = kvAccount.access_token;
-        if (new Date(kvAccount.token_expires_at || 0) <= new Date() && kvAccount.refresh_token) {
-          const nt = await refreshGoogleTokenFn(kvAccount.refresh_token);
-          accessToken = nt.access_token;
-          const kvKey = kvAccount.kvKey || `gmail_${kvAccount.email.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
-          await kv.set(`email_account:${auth.user.id}:${kvKey}`, { ...kvAccount, access_token: nt.access_token, token_expires_at: new Date(Date.now() + nt.expires_in * 1000).toISOString() });
-        }
-        const raw = btoa(`From: ${kvAccount.email}\r\nTo: ${Array.isArray(to) ? to.join(', ') : to}\r\n${cc ? `Cc: ${Array.isArray(cc) ? cc.join(', ') : cc}\r\n` : ''}Subject: ${subject}\r\nContent-Type: text/html; charset=utf-8\r\n\r\n${emailBody}`).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-        const gRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', { method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ raw }) });
-        if (!gRes.ok) return c.json({ error: 'Gmail send error: ' + await gRes.text() }, 502);
-        await auth.supabase.from('emails').insert({ id: crypto.randomUUID(), user_id: auth.user.id, organization_id: orgId, account_id: accountId, message_id: crypto.randomUUID(), from_email: kvAccount.email, to_email: Array.isArray(to) ? to[0] : to, subject, body: emailBody, folder: 'sent', is_read: true, is_starred: false, received_at: new Date().toISOString() });
-        return c.json({ success: true, message: 'Email sent via Gmail API' });
+      let accessToken = kvAccount.access_token;
+      if (new Date(kvAccount.token_expires_at || 0) <= new Date() && kvAccount.refresh_token) {
+        const nt = await refreshGoogleTokenFn(kvAccount.refresh_token);
+        accessToken = nt.access_token;
+        const kvKey = kvAccount.kvKey || `gmail_${kvAccount.email.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
+        await kv.set(`email_account:${auth.user.id}:${kvKey}`, { ...kvAccount, access_token: nt.access_token, token_expires_at: new Date(Date.now() + nt.expires_in * 1000).toISOString() });
       }
+      const raw = btoa(`From: ${kvAccount.email}\r\nTo: ${Array.isArray(to) ? to.join(', ') : to}\r\n${cc ? `Cc: ${Array.isArray(cc) ? cc.join(', ') : cc}\r\n` : ''}Subject: ${subject}\r\nContent-Type: text/html; charset=utf-8\r\n\r\n${emailBody}`).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      const gRes = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', { method: 'POST', headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ raw }) });
+      if (!gRes.ok) return c.json({ error: 'Gmail send error: ' + await gRes.text() }, 502);
+      await auth.supabase.from('emails').insert({ id: crypto.randomUUID(), user_id: auth.user.id, organization_id: orgId, account_id: accountId, message_id: crypto.randomUUID(), from_email: kvAccount.email, to_email: Array.isArray(to) ? to[0] : to, subject, body: emailBody, folder: 'sent', is_read: true, is_starred: false, received_at: new Date().toISOString() });
+      return c.json({ success: true, message: 'Email sent via Gmail API' });
     } else {
       return c.json({ error: `Sending not supported for provider: ${kvAccount.provider}` }, 400);
     }
@@ -1446,7 +1406,7 @@ app.get(`${PREFIX}/public/view`, async (c) => {
     } catch (_) { /* ignore activity tracking errors */ }
 
     // Strip sensitive fields before returning to public viewer
-    const { access_token, refresh_token, nylas_grant_id, imap_password, ...safeData } = data as any;
+    const { access_token, refresh_token, imap_password, ...safeData } = data as any;
 
     return c.json({ data: safeData });
   } catch (err: any) {
@@ -1839,6 +1799,187 @@ app.route('/', apiKeys);
 
 // ── PUBLIC REST API (Enterprise, API-key auth) ──────────────────────────
 app.route('/', publicApi);
+
+// ── CALENDAR SYNC (direct Google Calendar & Microsoft Graph APIs) ──
+app.post(`${PREFIX}/calendar-sync`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status as any);
+    const { supabase, user, profile } = auth;
+
+    const { accountId } = await c.req.json();
+    if (!accountId) return c.json({ error: 'Missing accountId' }, 400);
+
+    console.log('[calendar-sync] Request for account:', accountId);
+
+    const orgId = profile.organization_id;
+    if (!orgId) return c.json({ success: false, error: 'User organization not found' }, 400);
+
+    // Look up account from KV first, then DB
+    let kvAccount = await getAccountTokensFromKV(user.id, accountId);
+    if (!kvAccount) {
+      const { data: dbAccount } = await supabase
+        .from('email_accounts').select('*').eq('id', accountId).eq('user_id', user.id).single();
+      if (dbAccount) {
+        kvAccount = {
+          id: dbAccount.id, provider: dbAccount.provider, email: dbAccount.email,
+          access_token: dbAccount.access_token, refresh_token: dbAccount.refresh_token,
+          token_expires_at: dbAccount.token_expires_at, kvKey: dbAccount.id,
+        };
+      }
+    }
+    if (!kvAccount) return c.json({ success: false, error: `Email account not found. Account ID: ${accountId}` }, 404);
+
+    console.log(`[calendar-sync] provider=${kvAccount.provider}, email=${kvAccount.email}`);
+
+    // Time range: last 30 days to next 90 days
+    const now = new Date();
+    const rangeStart = new Date(now.getTime() - 30 * 86400000);
+    const rangeEnd = new Date(now.getTime() + 90 * 86400000);
+    let syncedCount = 0;
+
+    if (kvAccount.provider === 'gmail') {
+      // ── Google Calendar API ──
+      let accessToken = kvAccount.access_token;
+      if (new Date(kvAccount.token_expires_at || 0) <= now && kvAccount.refresh_token) {
+        console.log('[calendar-sync] Google token expired, refreshing...');
+        const nt = await refreshGoogleTokenFn(kvAccount.refresh_token);
+        accessToken = nt.access_token;
+        const kvKey = kvAccount.kvKey || `gmail_${kvAccount.email.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
+        await kv.set(`email_account:${user.id}:${kvKey}`, {
+          ...kvAccount, access_token: nt.access_token,
+          token_expires_at: new Date(Date.now() + nt.expires_in * 1000).toISOString(),
+        });
+      }
+
+      const calUrl = `https://www.googleapis.com/calendar/v3/calendars/primary/events?` +
+        `timeMin=${rangeStart.toISOString()}&timeMax=${rangeEnd.toISOString()}` +
+        `&maxResults=250&singleEvents=true&orderBy=startTime`;
+      const calRes = await fetch(calUrl, { headers: { Authorization: `Bearer ${accessToken}` } });
+      if (!calRes.ok) return c.json({ success: false, error: `Google Calendar API error: ${await calRes.text()}` }, 502);
+      const calData = await calRes.json();
+      const events = calData.items || [];
+      console.log(`[calendar-sync] Google Calendar: ${events.length} events`);
+
+      for (const event of events) {
+        try {
+          if (event.status === 'cancelled') continue;
+          const calEventKey = `cal_event:google:${kvAccount.email}:${event.id}`;
+          const { data: existingMapping } = await supabase
+            .from('kv_store_8405be07').select('value').eq('key', calEventKey).single();
+
+          const evStart = event.start?.dateTime || event.start?.date;
+          const evEnd = event.end?.dateTime || event.end?.date;
+          if (!evStart) { console.warn('[calendar-sync] Skipping event with no start:', event.id); continue; }
+
+          const appointmentData: Record<string, any> = {
+            organization_id: orgId, owner_id: user.id,
+            title: event.summary || '(No Title)',
+            description: event.description || null,
+            location: event.location || null,
+            start_time: new Date(evStart).toISOString(),
+            end_time: evEnd ? new Date(evEnd).toISOString() : new Date(evStart).toISOString(),
+          };
+
+          if (existingMapping?.value) {
+            const existingId = JSON.parse(existingMapping.value);
+            await supabase.from('appointments').update(appointmentData).eq('id', existingId);
+          } else {
+            const { data: insertResult, error: insertError } = await supabase
+              .from('appointments').insert(appointmentData).select('id').single();
+            if (insertError) {
+              console.error('[calendar-sync] Insert error:', { eventId: event.id, error: insertError });
+            } else {
+              await supabase.from('kv_store_8405be07')
+                .upsert({ key: calEventKey, value: JSON.stringify(insertResult.id) });
+              syncedCount++;
+            }
+          }
+        } catch (evErr) {
+          console.error('[calendar-sync] Exception for event:', event.id, evErr);
+        }
+      }
+
+    } else if (kvAccount.provider === 'outlook') {
+      // ── Microsoft Graph Calendar API ──
+      let accessToken = kvAccount.access_token;
+      if (new Date(kvAccount.token_expires_at || 0) <= now && kvAccount.refresh_token) {
+        console.log('[calendar-sync] Outlook token expired, refreshing...');
+        const nt = await refreshAzureTokenFn(kvAccount.refresh_token);
+        accessToken = nt.access_token;
+        const kvKey = kvAccount.kvKey || `outlook_${kvAccount.email.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`;
+        await kv.set(`email_account:${user.id}:${kvKey}`, {
+          ...kvAccount, access_token: nt.access_token,
+          refresh_token: nt.refresh_token || kvAccount.refresh_token,
+          token_expires_at: new Date(Date.now() + nt.expires_in * 1000).toISOString(),
+        });
+      }
+
+      const graphUrl = `https://graph.microsoft.com/v1.0/me/calendarView?` +
+        `startDateTime=${rangeStart.toISOString()}&endDateTime=${rangeEnd.toISOString()}` +
+        `&$top=250&$orderby=start/dateTime`;
+      const graphRes = await fetch(graphUrl, { headers: { Authorization: `Bearer ${accessToken}` } });
+      if (!graphRes.ok) return c.json({ success: false, error: `Microsoft Graph Calendar error: ${await graphRes.text()}` }, 502);
+      const graphData = await graphRes.json();
+      const events = graphData.value || [];
+      console.log(`[calendar-sync] Outlook Calendar: ${events.length} events`);
+
+      for (const event of events) {
+        try {
+          if (event.isCancelled) continue;
+          const calEventKey = `cal_event:outlook:${kvAccount.email}:${event.id}`;
+          const { data: existingMapping } = await supabase
+            .from('kv_store_8405be07').select('value').eq('key', calEventKey).single();
+
+          const evStart = event.start?.dateTime ? new Date(event.start.dateTime + 'Z').toISOString() : null;
+          const evEnd = event.end?.dateTime ? new Date(event.end.dateTime + 'Z').toISOString() : null;
+          if (!evStart) { console.warn('[calendar-sync] Skipping event with no start:', event.id); continue; }
+
+          const appointmentData: Record<string, any> = {
+            organization_id: orgId, owner_id: user.id,
+            title: event.subject || '(No Title)',
+            description: event.bodyPreview || null,
+            location: event.location?.displayName || null,
+            start_time: evStart,
+            end_time: evEnd || evStart,
+          };
+
+          if (existingMapping?.value) {
+            const existingId = JSON.parse(existingMapping.value);
+            await supabase.from('appointments').update(appointmentData).eq('id', existingId);
+          } else {
+            const { data: insertResult, error: insertError } = await supabase
+              .from('appointments').insert(appointmentData).select('id').single();
+            if (insertError) {
+              console.error('[calendar-sync] Insert error:', { eventId: event.id, error: insertError });
+            } else {
+              await supabase.from('kv_store_8405be07')
+                .upsert({ key: calEventKey, value: JSON.stringify(insertResult.id) });
+              syncedCount++;
+            }
+          }
+        } catch (evErr) {
+          console.error('[calendar-sync] Exception for event:', event.id, evErr);
+        }
+      }
+
+    } else {
+      return c.json({ success: false, error: `Calendar sync not supported for provider: ${kvAccount.provider}` }, 400);
+    }
+
+    // Update last sync timestamp
+    await supabase.from('email_accounts')
+      .update({ last_sync: new Date().toISOString() }).eq('id', accountId);
+
+    return c.json({
+      success: true, syncedCount,
+      lastSync: new Date().toISOString(),
+    });
+  } catch (err: any) {
+    console.error('[calendar-sync] Error:', err);
+    return c.json({ success: false, error: err.message || 'Calendar sync failed' }, 500);
+  }
+});
 
 // ── CATCH-ALL ───────────────────────────────────────────────────────────
 app.all('*', (c) => {

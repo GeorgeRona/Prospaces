@@ -30,7 +30,7 @@ export interface PreloadedAccount {
   smtp_port?: number;
   smtp_username?: string;
   smtp_password?: string;
-  nylas_grant_id?: string;
+
 }
 
 // Module-level cache

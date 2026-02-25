@@ -126,7 +126,7 @@ export function EmailDebug() {
                 <ul className="list-disc ml-4 mt-1">
                   <li>Ensure the Edge Function "server" (or "make-server") is deployed.</li>
                   <li>Check if the Supabase project is active (not paused).</li>
-                  <li>Verify that `NYLAS_API_KEY` is set in Supabase Secrets.</li>
+                  <li>Verify that Google/Microsoft OAuth credentials are set in Supabase Secrets.</li>
                 </ul>
               </div>
             </AlertDescription>
@@ -148,15 +148,15 @@ export function EmailDebug() {
                 <h4 className="font-semibold text-sm">Environment Configuration</h4>
                 <div className="space-y-1">
                   <div className="flex justify-between text-xs">
-                    <span className="text-slate-500">Nylas API Key:</span>
-                    <Badge variant={results.env.hasNylasKey ? "default" : "destructive"} className="h-5">
-                      {results.env.hasNylasKey ? "Configured" : "Missing"}
+                    <span className="text-slate-500">Google OAuth:</span>
+                    <Badge variant={results.env.hasGoogleClientId ? "default" : "destructive"} className="h-5">
+                      {results.env.hasGoogleClientId ? "Configured" : "Missing"}
                     </Badge>
                   </div>
                   <div className="flex justify-between text-xs">
-                    <span className="text-slate-500">Nylas Client ID:</span>
-                    <Badge variant={results.env.hasNylasClientId ? "default" : "destructive"} className="h-5">
-                      {results.env.hasNylasClientId ? "Configured" : "Missing"}
+                    <span className="text-slate-500">Azure OAuth:</span>
+                    <Badge variant={results.env.hasAzureClientId ? "default" : "destructive"} className="h-5">
+                      {results.env.hasAzureClientId ? "Configured" : "Missing"}
                     </Badge>
                   </div>
                 </div>

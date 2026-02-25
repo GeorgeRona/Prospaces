@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { Card, CardContent } from './ui/card';
@@ -6,7 +6,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Alert, AlertDescription } from './ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Mail, CheckCircle, AlertCircle, Info, Loader2 } from 'lucide-react';
+import { Mail, CheckCircle, AlertCircle, Info, Loader2, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClient } from '../utils/supabase/client';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
@@ -83,6 +83,15 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
   const [smtpHost, setSmtpHost] = useState('');
   const [smtpPort, setSmtpPort] = useState('465');
   const [error, setError] = useState('');
+
+  // OAuth popup tracking for MFA reopen support
+  const [popupClosed, setPopupClosed] = useState(false);
+  const [oauthAuthUrl, setOauthAuthUrl] = useState<string | null>(null);
+  const popupRef = useRef<Window | null>(null);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const popupCheckIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const messageHandlerRef = useRef<((event: MessageEvent) => void) | null>(null);
+  const oauthHandledRef = useRef(false);
 
   // Populate form when editing an account
   useEffect(() => {
@@ -220,34 +229,42 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
         throw new Error(data?.error || 'Failed to generate authorization URL.');
       }
 
-      // Open OAuth popup
-      const width = 600;
-      const height = 700;
-      const left = window.screen.width / 2 - width / 2;
-      const top = window.screen.height / 2 - height / 2;
+      // Open OAuth popup — sized larger to accommodate MFA / Microsoft Authenticator
+      // prompts which render inside the Microsoft login page.
+      const width = 650;
+      const height = 800;
+      const left = Math.max(0, window.screen.width / 2 - width / 2);
+      const top = Math.max(0, window.screen.height / 2 - height / 2);
       
       const providerName = getProviderInfo()?.name || 'Email';
+
+      // Store the auth URL so we can reopen the popup if it's closed during MFA
+      setOauthAuthUrl(data.authUrl);
+      setPopupClosed(false);
+
       const popup = window.open(
         data.authUrl,
         `${providerName} OAuth`,
-        `width=${width},height=${height},left=${left},top=${top},toolbar=no,location=no,status=no,menubar=no`
+        `width=${width},height=${height},left=${left},top=${top},toolbar=no,location=yes,status=yes,menubar=no,scrollbars=yes,resizable=yes`
       );
 
       if (!popup) {
         throw new Error('Popup was blocked. Please allow popups for this site.');
       }
 
+      popupRef.current = popup;
+
       // Track whether we've already handled the result
-      let oauthHandled = false;
+      oauthHandledRef.current = false;
 
       const handleOAuthResult = (resultData: { type: string; account?: any; error?: string }) => {
-        if (oauthHandled) return;
-        oauthHandled = true;
+        if (oauthHandledRef.current) return;
+        oauthHandledRef.current = true;
 
         // Clean up listeners
-        window.removeEventListener('message', handleMessage);
-        if (pollInterval) clearInterval(pollInterval);
-        if (popupCheckInterval) clearInterval(popupCheckInterval);
+        window.removeEventListener('message', messageHandlerRef.current!);
+        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+        if (popupCheckIntervalRef.current) clearInterval(popupCheckIntervalRef.current);
 
         if (resultData.type === 'gmail-oauth-success' || resultData.type === 'outlook-oauth-success') {
           console.log('[EmailAccountSetup] OAuth success:', resultData.type);
@@ -290,25 +307,25 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
         }
       };
 
+      messageHandlerRef.current = handleMessage;
       window.addEventListener('message', handleMessage);
 
       // Method 2: Poll server for result (fallback when cross-origin redirects break window.opener)
-      let pollInterval: ReturnType<typeof setInterval> | null = null;
-      const pollId = data.pollId;
+      let pollId = data.pollId;
       
       if (pollId) {
         let pollAttempts = 0;
-        const maxPollAttempts = 120; // 2 minutes at 1s interval
+        const maxPollAttempts = 300; // 5 minutes at 1s interval — allows time for MFA / Authenticator approval
         
-        pollInterval = setInterval(async () => {
-          if (oauthHandled) {
-            if (pollInterval) clearInterval(pollInterval);
+        pollIntervalRef.current = setInterval(async () => {
+          if (oauthHandledRef.current) {
+            if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
             return;
           }
           
           pollAttempts++;
           if (pollAttempts > maxPollAttempts) {
-            if (pollInterval) clearInterval(pollInterval);
+            if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
             return;
           }
 
@@ -341,19 +358,26 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
         }, 1000);
       }
 
-      // Method 3: Detect popup closed without success
-      let popupCheckInterval: ReturnType<typeof setInterval> | null = null;
-      popupCheckInterval = setInterval(() => {
-        if (popup?.closed) {
-          if (popupCheckInterval) clearInterval(popupCheckInterval);
-          // Give polling a few more seconds after popup closes
-          setTimeout(() => {
-            if (!oauthHandled) {
-              if (pollInterval) clearInterval(pollInterval);
-              window.removeEventListener('message', handleMessage);
-              setIsConnecting(false);
+      // Method 3: Detect popup closed without success — show "Reopen" button
+      // instead of immediately giving up, so user can reopen during MFA
+      popupCheckIntervalRef.current = setInterval(() => {
+        try {
+          if (popupRef.current?.closed) {
+            if (popupCheckIntervalRef.current) clearInterval(popupCheckIntervalRef.current);
+            if (!oauthHandledRef.current) {
+              console.log('[EmailAccountSetup] Popup closed without completion — showing reopen option');
+              setPopupClosed(true);
+              // Keep polling alive for another 30s in case the auth completed
+              // just before the popup closed (e.g. redirect happened)
+              setTimeout(() => {
+                if (!oauthHandledRef.current) {
+                  // Polling will continue — user can reopen or cancel
+                }
+              }, 30000);
             }
-          }, 5000);
+          }
+        } catch (e) {
+          // cross-origin access error — popup navigated away, still open
         }
       }, 500);
 
@@ -479,6 +503,19 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
   };
 
   const handleClose = () => {
+    // Clean up any active OAuth polling/listeners
+    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    if (popupCheckIntervalRef.current) clearInterval(popupCheckIntervalRef.current);
+    if (messageHandlerRef.current) window.removeEventListener('message', messageHandlerRef.current);
+    try { if (popupRef.current && !popupRef.current.closed) popupRef.current.close(); } catch (e) {}
+    popupRef.current = null;
+    pollIntervalRef.current = null;
+    popupCheckIntervalRef.current = null;
+    messageHandlerRef.current = null;
+    oauthHandledRef.current = false;
+    setPopupClosed(false);
+    setOauthAuthUrl(null);
+
     setStep('select');
     setSelectedProvider(null);
     setImapHost('');
@@ -490,6 +527,53 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
     setError('');
     setIsConnecting(false);
     onClose();
+  };
+
+  // Reopen the sign-in popup with the same auth URL (for MFA retry)
+  const handleReopenPopup = () => {
+    if (!oauthAuthUrl) {
+      // No stored URL — restart the full OAuth flow
+      handleOAuthConnect();
+      return;
+    }
+
+    const providerName = getProviderInfo()?.name || 'Email';
+    const width = 650;
+    const height = 800;
+    const left = Math.max(0, window.screen.width / 2 - width / 2);
+    const top = Math.max(0, window.screen.height / 2 - height / 2);
+
+    const newPopup = window.open(
+      oauthAuthUrl,
+      `${providerName} OAuth`,
+      `width=${width},height=${height},left=${left},top=${top},toolbar=no,location=yes,status=yes,menubar=no,scrollbars=yes,resizable=yes`
+    );
+
+    if (!newPopup) {
+      toast.error('Popup was blocked. Please allow popups for this site.');
+      return;
+    }
+
+    popupRef.current = newPopup;
+    setPopupClosed(false);
+    setIsConnecting(true);
+
+    toast.info('Sign-in window reopened', {
+      description: 'Complete the sign-in and MFA approval in the new window.'
+    });
+
+    // Restart popup-close detection
+    popupCheckIntervalRef.current = setInterval(() => {
+      try {
+        if (popupRef.current?.closed) {
+          if (popupCheckIntervalRef.current) clearInterval(popupCheckIntervalRef.current);
+          if (!oauthHandledRef.current) {
+            console.log('[EmailAccountSetup] Reopened popup closed — showing reopen option again');
+            setPopupClosed(true);
+          }
+        }
+      } catch (e) {}
+    }, 500);
   };
 
   const getProviderInfo = () => {
@@ -609,12 +693,37 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
                     <strong>Microsoft 365 / Outlook:</strong>
                     <br />
                     You will be redirected to Microsoft to log in.
+                    If your organization requires two-factor authentication (MFA),
+                    you will be prompted to approve via Microsoft Authenticator or
+                    your configured 2FA method in the sign-in window.
+                    <br />
+                    <span className="text-xs mt-1 block text-blue-700">
+                      Keep the sign-in window open until the process is complete.
+                    </span>
                     <br />
                     <span className="text-xs mt-1 block">
                       <strong>Azure Portal redirect URI:</strong>{' '}
                       <code className="bg-blue-100 px-1 py-0.5 rounded text-xs select-all break-all">
                         {window.location.origin}
                       </code>
+                    </span>
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {selectedProvider === 'gmail' && (
+                <Alert className="bg-amber-50 border-amber-200">
+                  <Info className="h-4 w-4 text-amber-600" />
+                  <AlertDescription className="text-amber-800">
+                    <strong>Google Workspace / Gmail:</strong>
+                    <br />
+                    You will be redirected to Google to sign in.
+                    If your account has 2-Step Verification enabled,
+                    you will be prompted in the sign-in window to approve
+                    via your authenticator app, security key, or phone prompt.
+                    <br />
+                    <span className="text-xs mt-1 block text-amber-700">
+                      Keep the sign-in window open until you see "Connected!".
                     </span>
                   </AlertDescription>
                 </Alert>
@@ -635,12 +744,41 @@ export function EmailAccountSetup({ isOpen, onClose, onAccountAdded, editingAcco
                   disabled={isConnecting}
                   className="flex-1"
                 >
-                  {isConnecting ? 'Connecting...' : `Connect ${getProviderInfo()?.name}`}
+                  {isConnecting ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Waiting for sign-in & MFA...
+                    </span>
+                  ) : (
+                    `Connect ${getProviderInfo()?.name}`
+                  )}
                 </Button>
                 <Button variant="outline" onClick={handleClose} disabled={isConnecting}>
                   Cancel
                 </Button>
               </div>
+
+              {popupClosed && (
+                <Alert className="bg-orange-50 border-orange-200">
+                  <AlertCircle className="h-4 w-4 text-orange-600" />
+                  <AlertDescription className="text-orange-800">
+                    <strong>Sign-in window was closed.</strong>
+                    <span className="block text-xs mt-1">
+                      If you closed it accidentally or need to complete MFA approval,
+                      click below to reopen the sign-in window.
+                    </span>
+                    <Button
+                      onClick={handleReopenPopup}
+                      variant="outline"
+                      size="sm"
+                      className="mt-2 border-orange-300 text-orange-700 hover:bg-orange-100"
+                    >
+                      <ExternalLink className="mr-2 h-3 w-3" />
+                      Reopen Sign-in Window
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              )}
             </div>
           </>
         )}

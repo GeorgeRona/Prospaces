@@ -303,18 +303,20 @@ export function Appointments({ user }: AppointmentsProps) {
     if (calendarAccounts.length === 0) { toast.error('No calendar accounts connected'); return; }
     setIsSyncing(true);
     try {
-      const supabase = createClient();
+      const headers = await getServerHeaders();
       for (const account of calendarAccounts) {
         try {
-          const { data, error } = await supabase.functions.invoke('nylas-sync-calendar', { body: { accountId: account.id } });
-          if (error) {
-            console.warn('[Sync] Edge Function error for', account.email, ':', error.message);
-            toast.error(`Failed to sync ${account.provider || 'calendar'}`, {
-              description: 'The calendar sync edge function is not available. Ensure the nylas-sync-calendar function is deployed and the appointments table has the required calendar columns (calendar_event_id, calendar_provider, attendees).'
-            });
-            continue;
-          }
-          if (!data?.success) {
+          const res = await fetch(
+            `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/calendar-sync`,
+            {
+              method: 'POST',
+              headers: { ...headers, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ accountId: account.id }),
+            }
+          );
+          const data = await res.json();
+          if (!res.ok || !data?.success) {
+            console.warn('[Sync] Calendar sync error for', account.email, ':', data?.error || res.statusText);
             toast.error(`Failed to sync ${account.provider || 'calendar'}`, {
               description: data?.error || 'Sync operation was not successful'
             });
@@ -324,7 +326,7 @@ export function Appointments({ user }: AppointmentsProps) {
         } catch (accountError: any) {
           console.warn('[Sync] Error syncing account:', account.email, accountError.message);
           toast.error(`Failed to sync ${account.provider || 'calendar'}`, {
-            description: 'Calendar sync is unavailable. The edge function or database schema may need setup.'
+            description: accountError.message || 'Calendar sync request failed'
           });
         }
       }
