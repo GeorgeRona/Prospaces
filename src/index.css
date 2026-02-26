@@ -6834,6 +6834,12 @@
   }
 
   @media (width >= 48rem) {
+    .md\:table-cell {
+      display: table-cell;
+    }
+  }
+
+  @media (width >= 48rem) {
     .md\:w-72 {
       width: calc(var(--spacing) * 72);
     }
@@ -7003,6 +7009,12 @@
   }
 
   @media (width >= 64rem) {
+    .lg\:table-cell {
+      display: table-cell;
+    }
+  }
+
+  @media (width >= 64rem) {
     .lg\:max-h-\[600px\] {
       max-height: 600px;
     }
@@ -7138,6 +7150,12 @@
   @media (width >= 80rem) {
     .xl\:col-span-3 {
       grid-column: span 3 / span 3;
+    }
+  }
+
+  @media (width >= 80rem) {
+    .xl\:table-cell {
+      display: table-cell;
     }
   }
 

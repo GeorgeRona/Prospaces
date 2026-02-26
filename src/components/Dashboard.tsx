@@ -316,7 +316,7 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
 
   return (
     <PermissionGate user={user} module="dashboard" action="view">
-    <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 bg-gray-50 min-h-screen">
       
       {/* Daily AI Briefing Popup */}
       <DailyBriefingPopup user={user} onNavigate={onNavigate} organization={organization} />

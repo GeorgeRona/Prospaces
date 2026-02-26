@@ -915,7 +915,7 @@ export function Contacts({ user }: ContactsProps) {
 
   return (
     <PermissionGate user={user} module="contacts" action="view">
-      <div className="p-6 space-y-6">
+      <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-4">
           {canAdd('contacts', user.role) && (
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -1158,16 +1158,16 @@ export function Contacts({ user }: ContactsProps) {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-4 text-sm text-gray-600">Actions</th>
-                    <th className="text-left py-3 px-4 text-sm text-gray-600">Name</th>
-                    <th className="text-left py-3 px-4 text-sm text-gray-600">Email</th>
-                    <th className="text-left py-3 px-4 text-sm text-gray-600">Phone</th>
-                    <th className="text-left py-3 px-4 text-sm text-gray-600">Company</th>
-                    <th className="text-left py-3 px-4 text-sm text-gray-600">Account Owner</th>
-                    <th className="text-left py-3 px-4 text-sm text-gray-600">Status</th>
-                    <th className="text-left py-3 px-4 text-sm text-gray-600">Price Level</th>
-                    <th className="text-left py-3 px-4 text-sm text-gray-600">Tags</th>
-                    <th className="text-left py-3 px-4 text-sm text-gray-600">Created</th>
+                    <th className="text-left py-3 px-3 sm:px-4 text-sm text-gray-600">Actions</th>
+                    <th className="text-left py-3 px-3 sm:px-4 text-sm text-gray-600">Name</th>
+                    <th className="text-left py-3 px-4 text-sm text-gray-600 hidden md:table-cell">Email</th>
+                    <th className="text-left py-3 px-4 text-sm text-gray-600 hidden lg:table-cell">Phone</th>
+                    <th className="text-left py-3 px-4 text-sm text-gray-600 hidden lg:table-cell">Company</th>
+                    <th className="text-left py-3 px-4 text-sm text-gray-600 hidden xl:table-cell">Account Owner</th>
+                    <th className="text-left py-3 px-3 sm:px-4 text-sm text-gray-600">Status</th>
+                    <th className="text-left py-3 px-4 text-sm text-gray-600 hidden xl:table-cell">Price Level</th>
+                    <th className="text-left py-3 px-4 text-sm text-gray-600 hidden xl:table-cell">Tags</th>
+                    <th className="text-left py-3 px-4 text-sm text-gray-600 hidden md:table-cell">Created</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1177,7 +1177,7 @@ export function Contacts({ user }: ContactsProps) {
                       className="border-b border-gray-100 hover:bg-gray-50 cursor-pointer"
                       onClick={() => setSelectedContact(contact)}
                     >
-                      <td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
+                      <td className="py-3 px-3 sm:px-4" onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="sm">
@@ -1216,40 +1216,41 @@ export function Contacts({ user }: ContactsProps) {
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </td>
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-3">
-                          <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                      <td className="py-3 px-3 sm:px-4">
+                        <div className="flex items-center gap-2 sm:gap-3">
+                          <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 flex-shrink-0">
                             {(contact.name || '?').charAt(0)}
                           </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm text-gray-900">{contact.name || 'Unknown'}</span>
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-sm text-gray-900 truncate">{contact.name || 'Unknown'}</span>
+                            <span className="text-xs text-gray-500 truncate md:hidden">{contact.email}</span>
                           </div>
                         </div>
                       </td>
-                      <td className="py-3 px-4">
+                      <td className="py-3 px-4 hidden md:table-cell">
                         <div className="flex items-center gap-2 text-sm text-gray-600">
-                          <Mail className="h-4 w-4" />
-                          {contact.email}
+                          <Mail className="h-4 w-4 flex-shrink-0" />
+                          <span className="truncate">{contact.email}</span>
                         </div>
                       </td>
-                      <td className="py-3 px-4">
+                      <td className="py-3 px-4 hidden lg:table-cell">
                         <div className="flex items-center gap-2 text-sm text-gray-600">
-                          <Phone className="h-4 w-4" />
+                          <Phone className="h-4 w-4 flex-shrink-0" />
                           {contact.phone}
                         </div>
                       </td>
-                      <td className="py-3 px-4">
+                      <td className="py-3 px-4 hidden lg:table-cell">
                         <div className="flex items-center gap-2 text-sm text-gray-600">
-                          <Building className="h-4 w-4" />
+                          <Building className="h-4 w-4 flex-shrink-0" />
                           {contact.company}
                         </div>
                       </td>
-                      <td className="py-3 px-4">
+                      <td className="py-3 px-4 hidden xl:table-cell">
                         <span className="text-sm text-gray-600">
                           {contact.accountOwnerNumber || '-'}
                         </span>
                       </td>
-                      <td className="py-3 px-4">
+                      <td className="py-3 px-3 sm:px-4">
                         <span className={`inline-block px-2 py-1 text-xs rounded ${
                           contact.status === 'Active'
                             ? 'bg-green-100 text-green-700'
@@ -1258,12 +1259,12 @@ export function Contacts({ user }: ContactsProps) {
                           {contact.status}
                         </span>
                       </td>
-                      <td className="py-3 px-4">
+                      <td className="py-3 px-4 hidden xl:table-cell">
                         <span className="inline-block px-2 py-1 text-xs rounded bg-purple-100 text-purple-700">
                           {contact.priceLevel ? contact.priceLevel.replace('tier', 'Tier ') : 'Tier 1'}
                         </span>
                       </td>
-                      <td className="py-3 px-4">
+                      <td className="py-3 px-4 hidden xl:table-cell">
                         <div className="flex flex-wrap gap-1">
                           {contact.tags && contact.tags.length > 0 ? (
                             contact.tags.map((tag) => (
@@ -1276,7 +1277,7 @@ export function Contacts({ user }: ContactsProps) {
                           )}
                         </div>
                       </td>
-                      <td className="py-3 px-4">
+                      <td className="py-3 px-4 hidden md:table-cell">
                         <span className="text-sm text-gray-600">
                           {contact.createdAt ? new Date(contact.createdAt).toLocaleDateString('en-US', {
                             month: 'short',
@@ -1364,7 +1365,7 @@ export function Contacts({ user }: ContactsProps) {
               Update the contact's information and settings.
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleEditContact} className="grid grid-cols-2 gap-4">
+          <form onSubmit={handleEditContact} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="edit-name">Name</Label>
               <Input
