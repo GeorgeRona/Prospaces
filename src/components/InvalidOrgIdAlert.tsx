@@ -4,7 +4,7 @@ import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { AlertTriangle, Copy, CheckCircle, ExternalLink } from 'lucide-react';
 import { copyToClipboard } from '../utils/clipboard';
-import { toast } from 'sonner';
+import { toast } from 'sonner@2.0.3';
 
 interface InvalidOrgIdAlertProps {
   invalidOrgId: string;

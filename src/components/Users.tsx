@@ -3,10 +3,10 @@ import { DatabaseSetup } from './DatabaseSetup';
 import { SimpleSyncButton } from './SimpleSyncButton';
 import { OneTimeSetup } from './OneTimeSetup';
 import { ManagerMigrationHelper } from './ManagerMigrationHelper';
-import type { User, UserRole } from '../App';
+import type { User, UserRole, Organization } from '../App';
 import { PermissionGate } from './PermissionGate';
 import { canView, canAdd, canChange, canDelete } from '../utils/permissions';
-import { tenantsAPI, usersAPI } from '../utils/api';
+import { tenantsAPI, usersAPI, settingsAPI } from '../utils/api';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader } from './ui/card';
 import { Input } from './ui/input';
@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Search, Plus, UserPlus, Edit, Trash2, MoreVertical, Building2, Shield, AlertCircle, Key, Copy } from 'lucide-react';
+import { Search, Plus, UserPlus, Edit, Trash2, MoreVertical, Building2, Shield, AlertCircle, Key, Copy, Pencil, Check, X } from 'lucide-react';
 import { Alert, AlertDescription } from './ui/alert';
 import { copyToClipboard } from '../utils/clipboard';
 import { ProfilesSyncFixer } from './ProfilesSyncFixer';
@@ -27,7 +27,8 @@ import { FindMissingUser } from './FindMissingUser';
 import { FixInvalidOrgIds } from './FixInvalidOrgIds';
 import { InvalidOrgIdAlert } from './InvalidOrgIdAlert';
 import { createClient } from '../utils/supabase/client';
-import { toast } from 'sonner';
+import { getServerHeaders } from '../utils/server-headers';
+import { toast } from 'sonner@2.0.3';
 import { useDebounce } from '../utils/useDebounce';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { adjustSeats } from '../utils/subscription-client';
@@ -36,6 +37,8 @@ const supabase = createClient();
 
 interface UsersProps {
   user: User;
+  organization?: Organization | null;
+  onOrganizationUpdate?: (org: Organization) => void;
 }
 
 interface OrgUser extends User {
@@ -51,7 +54,7 @@ interface Tenant {
   logo?: string;
 }
 
-export function Users({ user }: UsersProps) {
+export function Users({ user, organization, onOrganizationUpdate }: UsersProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(searchQuery, 300); // 🚀 Debounce search for better performance
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -75,6 +78,11 @@ export function Users({ user }: UsersProps) {
   const [pendingOrgChange, setPendingOrgChange] = useState<string | null>(null);
   const [isInviteCredentialsDialogOpen, setIsInviteCredentialsDialogOpen] = useState(false);
   const [inviteCredentials, setInviteCredentials] = useState<{ email: string; tempPassword: string; name: string } | null>(null);
+  const [isEditingOrgName, setIsEditingOrgName] = useState(false);
+  const [editOrgName, setEditOrgName] = useState('');
+  const [isSavingOrgName, setIsSavingOrgName] = useState(false);
+  const [isSyncingMissing, setIsSyncingMissing] = useState(false);
+  const [missingUsersResult, setMissingUsersResult] = useState<{ missing: any[]; wrongOrg: any[] } | null>(null);
 
   // Check permissions using the permissions system
   // Director can VIEW users but not add/edit/delete
@@ -119,52 +127,48 @@ export function Users({ user }: UsersProps) {
     setError(null); // Clear previous errors
     
     try {
-      // Build query - super_admin sees all users, admin sees only their org
-      let query = supabase
-        .from('profiles')
-        .select('*');
-      
-      // Only filter by organization if NOT super_admin
-      if (user.role !== 'super_admin') {
-        query = query.eq('organization_id', user.organizationId);
-      }
-      
-      const { data, error } = await query.order('created_at', { ascending: false });
+      // Use the server-side API which bypasses RLS (direct client queries get blocked)
+      const result = await usersAPI.getAll();
+      const allUsers = result?.users || [];
 
-      if (error) {
-        console.error('[Users Component] ❌ Error loading users:', error);
-        
-        // Check if it's the infinite recursion error
-        if (error.code === '42P17' || error.message?.includes('infinite recursion')) {
-          setError('infinite recursion: ' + JSON.stringify(error, null, 2));
-        } else {
-          setError(JSON.stringify(error, null, 2));
-        }
-        
-        setShowDebug(true);
-        setUsers([]);
-        return;
+      console.log(`[Users] Loaded ${allUsers.length} total profiles, filtering for org: ${user.organizationId}`);
+      if (allUsers.length > 0) {
+        console.log('[Users] Sample orgs:', allUsers.slice(0, 5).map((u: any) => `${u.email}: ${u.organization_id}`));
       }
-      
-      if (!data || data.length === 0) {
+
+      if (allUsers.length === 0) {
         // No users found - sync helper will be shown
         setUsers([]);
-        setShowDebug(false); // Don't show debug, show sync helper instead
+        setShowDebug(false);
         return;
+      }
+
+      // Filter by organization for non-super_admin (server returns all accessible profiles)
+      let filtered = allUsers;
+      if (user.role !== 'super_admin' && user.organizationId) {
+        filtered = allUsers.filter((u: any) => u.organization_id === user.organizationId);
       }
 
       // Map snake_case column names to camelCase for consistency
-      const mappedUsers = data.map(user => ({
-        ...user,
-        organizationId: user.organization_id,
-        lastLogin: user.last_login,
+      const mappedUsers = filtered.map((u: any) => ({
+        ...u,
+        organizationId: u.organization_id,
+        lastLogin: u.last_login,
       }));
 
       setUsers(mappedUsers);
       setError(null);
-    } catch (err) {
+    } catch (err: any) {
       console.error('[Users Component] ❌ Unexpected error:', err);
-      setError(String(err));
+      
+      if (err?.code === '42P17' || err?.message?.includes('infinite recursion')) {
+        setError('infinite recursion: ' + String(err));
+      } else {
+        setError(String(err));
+      }
+      
+      setShowDebug(true);
+      setUsers([]);
     } finally {
       setIsLoadingUsers(false);
     }
@@ -227,25 +231,114 @@ export function Users({ user }: UsersProps) {
   // Check if user has invalid timestamp-based org ID
   const hasInvalidOrgId = /^org-[0-9]+$/.test(user.organizationId);
 
-  // Helper to get organization name
+  // Helper to detect if a string looks like a UUID
+  const looksLikeUuid = (s: string) => /^[0-9a-fA-F]{8}[-\s]?[0-9a-fA-F]{4}/.test(s);
+
+  // Display org name: prefer the DB name unless it looks like a UUID (corrupted)
+  const rawOrgName = organization?.name || '';
+  const orgNameIsValid = rawOrgName && !looksLikeUuid(rawOrgName) && rawOrgName !== 'Organization';
+  const displayOrgName = orgNameIsValid ? rawOrgName : 'Not set — click pencil to rename';
+
+  // Save edited org name
+  const handleSaveOrgName = async () => {
+    if (!editOrgName.trim() || !user.organizationId) return;
+    setIsSavingOrgName(true);
+    try {
+      await settingsAPI.updateOrganizationName(user.organizationId, editOrgName.trim());
+      // Update parent state so it refreshes everywhere immediately
+      if (organization) {
+        const updated = { ...organization, name: editOrgName.trim() };
+        onOrganizationUpdate?.(updated);
+      }
+      toast.success('Organization name updated!');
+      setIsEditingOrgName(false);
+    } catch (err) {
+      console.error('[Users] Failed to save org name:', err);
+      toast.error('Failed to update organization name');
+    } finally {
+      setIsSavingOrgName(false);
+    }
+  };
+
+  // Scan for auth users missing from profiles
+  const handleSyncMissingUsers = async () => {
+    setIsSyncingMissing(true);
+    setMissingUsersResult(null);
+    try {
+      const headers = await getServerHeaders();
+      const orgId = user.organizationId;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/profiles/find-missing?organization_id=${encodeURIComponent(orgId)}`,
+        { headers }
+      );
+      if (!res.ok) {
+        const body = await res.text();
+        console.error('[Users] find-missing error:', body);
+        toast.error('Failed to scan for missing users');
+        return;
+      }
+      const data = await res.json();
+      setMissingUsersResult({ missing: data.missing || [], wrongOrg: data.wrongOrg || [] });
+      const total = (data.missing?.length || 0) + (data.wrongOrg?.length || 0);
+      if (total === 0) {
+        toast.success('All auth users have matching profiles — no issues found!');
+      } else {
+        toast.warning(`Found ${total} user(s) with profile issues`);
+      }
+    } catch (err: any) {
+      console.error('[Users] Sync missing error:', err);
+      toast.error('Error scanning: ' + err.message);
+    } finally {
+      setIsSyncingMissing(false);
+    }
+  };
+
+  // Fix missing/wrong-org profiles
+  const handleFixMissingUsers = async (usersToFix: any[]) => {
+    try {
+      const headers = await getServerHeaders();
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/profiles/fix-missing`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ users: usersToFix, organizationId: user.organizationId }),
+        }
+      );
+      if (!res.ok) {
+        const body = await res.text();
+        console.error('[Users] fix-missing error:', body);
+        toast.error('Failed to fix users');
+        return;
+      }
+      const data = await res.json();
+      toast.success(`Fixed ${data.fixed} user(s)!`);
+      setMissingUsersResult(null);
+      loadUsers(); // Refresh the list
+    } catch (err: any) {
+      console.error('[Users] Fix missing error:', err);
+      toast.error('Error fixing: ' + err.message);
+    }
+  };
+
+  // Helper to get organization name for user table rows
   const getOrgName = (organizationId: string) => {
     // For Super Admin - look up from tenants list
     if (user.role === 'super_admin') {
       const tenant = tenants.find(t => t.id === organizationId);
-      if (tenant) {
+      if (tenant && !looksLikeUuid(tenant.name)) {
         return tenant.name;
       }
-      // If tenant not found, show the organization ID (useful for debugging)
+      // If tenant not found or name looks like UUID, show ID with truncation
       return organizationId || 'Unknown';
     }
     
     // For regular Admin - check if it's their organization
     if (user.role === 'admin') {
       if (organizationId === user.organizationId) {
-        // Show their organization name if available, otherwise show ID
-        return user.organizationName || organizationId || 'My Organization';
+        // Show displayOrgName (which already handles UUID detection)
+        return displayOrgName;
       }
-      // Shouldn't happen (admin seeing other org's users), but handle gracefully
       return organizationId || 'Unknown';
     }
     
@@ -268,9 +361,13 @@ export function Users({ user }: UsersProps) {
         role: newUser.role,
       };
       
-      // If super_admin, include the organizationId
+      // If super_admin, include the organizationId; also pass org name for auto-creation
       if (user.role === 'super_admin') {
         inviteData.organizationId = newUser.organizationId;
+        const tenant = tenants.find(t => t.id === newUser.organizationId);
+        if (tenant) inviteData.organizationName = tenant.name;
+      } else if (organization?.name) {
+        inviteData.organizationName = organization.name;
       }
       
       // Call API to invite user (now creates a real Supabase Auth account)
@@ -694,7 +791,59 @@ export function Users({ user }: UsersProps) {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
                       <p className="text-xs text-gray-600 mb-1">Organization Name</p>
-                      <p className="font-medium text-gray-900">{user.organizationName || 'ProSpaces CRM'}</p>
+                      {isEditingOrgName ? (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={editOrgName}
+                            onChange={(e) => setEditOrgName(e.target.value)}
+                            className="h-8 text-sm max-w-[250px]"
+                            placeholder="Enter organization name"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                handleSaveOrgName();
+                              } else if (e.key === 'Escape') {
+                                setIsEditingOrgName(false);
+                              }
+                            }}
+                          />
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0 text-green-600 hover:text-green-700"
+                            onClick={handleSaveOrgName}
+                            disabled={isSavingOrgName || !editOrgName.trim()}
+                          >
+                            <Check className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0 text-gray-500 hover:text-gray-700"
+                            onClick={() => setIsEditingOrgName(false)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-gray-900">{displayOrgName}</p>
+                          {(user.role === 'admin' || user.role === 'super_admin') && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 w-6 p-0 text-gray-400 hover:text-blue-600"
+                              onClick={() => {
+                                setEditOrgName(organization?.name || '');
+                                setIsEditingOrgName(true);
+                              }}
+                              title="Edit organization name"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div>
                       <p className="text-xs text-gray-600 mb-1">Organization ID</p>
@@ -732,6 +881,17 @@ export function Users({ user }: UsersProps) {
                 </svg>
                 Refresh
               </Button>
+              {canManageAllUsers && (
+                <Button
+                  variant="outline"
+                  onClick={handleSyncMissingUsers}
+                  disabled={isSyncingMissing}
+                  className="flex items-center gap-2"
+                >
+                  <Search className={`h-4 w-4 ${isSyncingMissing ? 'animate-pulse' : ''}`} />
+                  {isSyncingMissing ? 'Scanning...' : 'Find Missing Users'}
+                </Button>
+              )}
               {canManageUsers && (
               <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                 <DialogTrigger asChild>
@@ -845,6 +1005,68 @@ export function Users({ user }: UsersProps) {
               )}
             </div>
           </div>
+
+          {/* Missing Users Results */}
+          {missingUsersResult && ((missingUsersResult.missing.length > 0 || missingUsersResult.wrongOrg.length > 0) && (
+            <Card className="border-amber-300 bg-amber-50">
+              <CardContent className="p-4">
+                <h4 className="font-semibold text-amber-800 mb-3 flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" />
+                  Auth Users Missing from User List
+                </h4>
+
+                {missingUsersResult.missing.length > 0 && (
+                  <div className="mb-3">
+                    <p className="text-sm text-amber-700 mb-2">
+                      <strong>{missingUsersResult.missing.length}</strong> user(s) exist in auth but have no profile:
+                    </p>
+                    <div className="space-y-1">
+                      {missingUsersResult.missing.map((u: any) => (
+                        <div key={u.id} className="flex items-center justify-between bg-white rounded px-3 py-2 text-sm border border-amber-200">
+                          <div>
+                            <span className="font-medium">{u.name}</span>
+                            <span className="text-gray-500 ml-2">{u.email}</span>
+                            <span className="text-xs text-gray-400 ml-2">({u.role})</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {missingUsersResult.wrongOrg.length > 0 && (
+                  <div className="mb-3">
+                    <p className="text-sm text-amber-700 mb-2">
+                      <strong>{missingUsersResult.wrongOrg.length}</strong> user(s) have a profile but wrong organization:
+                    </p>
+                    <div className="space-y-1">
+                      {missingUsersResult.wrongOrg.map((u: any) => (
+                        <div key={u.id} className="flex items-center justify-between bg-white rounded px-3 py-2 text-sm border border-amber-200">
+                          <div>
+                            <span className="font-medium">{u.name}</span>
+                            <span className="text-gray-500 ml-2">{u.email}</span>
+                            <span className="text-xs text-red-500 ml-2">(org: {u.currentOrg?.slice(0,8)}...)</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex gap-2 mt-3">
+                  <Button
+                    size="sm"
+                    onClick={() => handleFixMissingUsers([...missingUsersResult.missing, ...missingUsersResult.wrongOrg])}
+                  >
+                    Fix All ({missingUsersResult.missing.length + missingUsersResult.wrongOrg.length} users)
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setMissingUsersResult(null)}>
+                    Dismiss
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
 
           <Card>
             <CardHeader>

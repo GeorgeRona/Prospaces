@@ -4,7 +4,7 @@ import { CalendarAccountSetup } from './CalendarAccountSetup';
 import { createClient } from '../utils/supabase/client';
 import { projectId } from '../utils/supabase/info';
 import { getServerHeaders } from '../utils/server-headers';
-import { toast } from 'sonner';
+import { toast } from 'sonner@2.0.3';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';

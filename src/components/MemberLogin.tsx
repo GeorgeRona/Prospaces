@@ -17,6 +17,7 @@ import { createClient } from '../utils/supabase/client';
 import { ChangePasswordDialog } from './ChangePasswordDialog';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import type { User, UserRole } from '../App';
+import { projectId, publicAnonKey } from '../utils/supabase/info';
 
 interface MemberLoginProps {
   onLogin: (user: User, token: string) => void;
@@ -80,93 +81,143 @@ export function MemberLogin({ onLogin, onBack }: MemberLoginProps) {
         password,
       });
 
-      if (signInError) {
-        if (signInError.message.toLowerCase().includes('email not confirmed')) {
-          throw new Error('Your email is not confirmed yet. Check your inbox for a confirmation link.');
+      let activeSignIn = signInData;
+      let activeError = signInError;
+
+      // If sign-in failed, try auto-confirm email fix for admin-created users
+      if (activeError) {
+        if (activeError.message.toLowerCase().includes('email not confirmed') ||
+            activeError.message.includes('Invalid login credentials')) {
+          console.log('🔧 MemberLogin: Sign-in failed. Attempting auto-confirm email fix...');
+          try {
+            const confirmResp = await fetch(
+              `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/confirm-email`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${publicAnonKey}` },
+                body: JSON.stringify({ email }),
+              }
+            );
+            if (confirmResp.ok) {
+              console.log('✅ Email confirmed server-side. Retrying sign-in...');
+              const { data: retryData, error: retryError } = await supabase.auth.signInWithPassword({ email, password });
+              if (!retryError && retryData?.session && retryData?.user) {
+                console.log('✅ Retry sign-in successful after email confirmation fix!');
+                activeSignIn = retryData;
+                activeError = null;
+              }
+            }
+          } catch (confirmErr) {
+            console.warn('⚠️ Auto-confirm attempt failed:', confirmErr);
+          }
         }
-        if (signInError.message.includes('Invalid login credentials')) {
-          throw new Error('Invalid email or password.');
+
+        if (activeError) {
+          if (activeError.message.toLowerCase().includes('email not confirmed')) {
+            throw new Error('Your email is not confirmed yet. Check your inbox for a confirmation link.');
+          }
+          if (activeError.message.includes('Invalid login credentials')) {
+            throw new Error('Invalid email or password.');
+          }
+          throw new Error(activeError.message);
         }
-        throw new Error(signInError.message);
       }
 
-      if (!signInData?.session || !signInData?.user) {
+      if (!activeSignIn?.session || !activeSignIn?.user) {
         throw new Error('Invalid server response.');
       }
 
-      // Get user profile
-      let { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', signInData.user.id)
-        .single();
+      // Always call /profiles/ensure first — it finds or creates the profile,
+      // auto-fixes org mismatches, ID mismatches, and missing needs_password_change
+      let profile: any = null;
 
-      if (profileError || !profile) {
-        // Auto-create profile for new users
-        const orgId = crypto.randomUUID();
-        let orgIdToUse = orgId;
-
-        try {
-          const { data: org } = await supabase
-            .from('organizations')
-            .insert({
-              id: orgId,
-              name: `${signInData.user.email?.split('@')[0]}'s Organization`,
-              created_at: new Date().toISOString(),
-            })
-            .select()
-            .single();
-          if (org) orgIdToUse = org.id;
-        } catch {
-          // silently fail
-        }
-
-        const { data: newProfile, error: newProfileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: signInData.user.id,
-            email: signInData.user.email || email,
-            name: signInData.user.user_metadata?.name || email.split('@')[0],
-            role: signInData.user.user_metadata?.role || 'standard_user',
-            organization_id: orgIdToUse,
-            status: 'active',
-            created_at: new Date().toISOString(),
-          })
-          .select()
-          .single();
-
-        if (newProfileError) {
-          if (newProfileError.code === '23505') {
-            // Duplicate - fetch existing
-            const { data: existingProfile } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', signInData.user.id)
-              .single();
-            profile = existingProfile;
-          } else {
-            throw new Error('Failed to create user profile. Please contact support.');
+      try {
+        console.log('📋 Calling /profiles/ensure for profile resolution...');
+        const serverResp = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/profiles/ensure`,
+          {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${publicAnonKey}`,
+              'X-User-Token': activeSignIn.session.access_token,
+            },
           }
+        );
+        const serverResult = await serverResp.json();
+        console.log('Server /profiles/ensure response:', serverResp.status, serverResult);
+
+        if (serverResp.ok && serverResult.profile) {
+          profile = serverResult.profile;
+          console.log('✅ Profile resolved via server:', profile.id, 'org:', profile.organization_id, 'needs_pw:', profile.needs_password_change);
+        } else if (serverResp.ok && serverResult.profileId) {
+          const { data: refetched } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', activeSignIn.user.id)
+            .maybeSingle();
+          if (refetched) profile = refetched;
         } else {
-          profile = newProfile;
+          console.warn('⚠️ Server /profiles/ensure did not return profile:', serverResult.error);
+        }
+      } catch (ensureErr) {
+        console.warn('Server-side profile ensure failed, falling back to client-side fetch:', ensureErr);
+      }
+
+      // Fallback: fetch profile client-side by ID, then by email
+      if (!profile) {
+        console.log('📋 Falling back to client-side profile fetch...');
+        const { data: byId } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', activeSignIn.user.id)
+          .maybeSingle();
+        if (byId) {
+          profile = byId;
+        } else if (activeSignIn.user.email) {
+          const { data: byEmail } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('email', activeSignIn.user.email.toLowerCase())
+            .maybeSingle();
+          if (byEmail) {
+            // Attempt server-side ID fix
+            try {
+              const fixResp = await fetch(
+                `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/fix-profile-mismatch`,
+                {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${publicAnonKey}` },
+                  body: JSON.stringify({
+                    email: activeSignIn.user.email,
+                    currentUserId: activeSignIn.user.id,
+                    oldUserId: byEmail.id,
+                  }),
+                }
+              );
+              const fixResult = await fixResp.json();
+              profile = (fixResp.ok && fixResult.success && fixResult.profile) ? fixResult.profile : { ...byEmail, id: activeSignIn.user.id };
+            } catch {
+              profile = { ...byEmail, id: activeSignIn.user.id };
+            }
+          }
         }
       }
 
       if (!profile) {
-        throw new Error('Could not load user profile.');
+        throw new Error('Could not load or create your user profile. Please contact your administrator.');
       }
 
       // Check if user needs to change password
       if (profile.needs_password_change) {
         const user: User = {
-          id: signInData.user.id,
-          email: signInData.user.email || email,
+          id: activeSignIn.user.id,
+          email: activeSignIn.user.email || email,
           role: (profile.role as UserRole) || 'standard_user',
           full_name: profile.name || 'User',
           organization_id: profile.organization_id,
           organizationId: profile.organization_id,
         };
-        setPendingUser({ user, token: signInData.session.access_token });
+        setPendingUser({ user, token: activeSignIn.session.access_token });
         setShowChangePassword(true);
         setIsLoading(false);
         return;
@@ -176,8 +227,8 @@ export function MemberLogin({ onLogin, onBack }: MemberLoginProps) {
       let avatarUrl = profile.avatar_url;
 
       const user: User = {
-        id: signInData.user.id,
-        email: signInData.user.email || email,
+        id: activeSignIn.user.id,
+        email: activeSignIn.user.email || email,
         role: (profile.role as UserRole) || 'standard_user',
         full_name: profile.name || 'User',
         avatar_url: avatarUrl,
@@ -190,12 +241,12 @@ export function MemberLogin({ onLogin, onBack }: MemberLoginProps) {
         await supabase
           .from('profiles')
           .update({ last_login: new Date().toISOString(), status: 'active' })
-          .eq('id', signInData.user.id);
+          .eq('id', activeSignIn.user.id);
       } catch (lastLoginErr) {
         console.warn('⚠️ Failed to update last_login (non-critical):', lastLoginErr);
       }
 
-      onLogin(user, signInData.session.access_token);
+      onLogin(user, activeSignIn.session.access_token);
     } catch (err: any) {
       console.error('Member login error:', err);
       setError(err.message || 'Sign in failed. Please try again.');

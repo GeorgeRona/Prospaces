@@ -6,7 +6,7 @@ import { Label } from './ui/label';
 import { Alert, AlertDescription } from './ui/alert';
 import { Calendar, CheckCircle, XCircle, Loader2, AlertCircle, Trash2, RefreshCw, ExternalLink } from 'lucide-react';
 import { createClient } from '../utils/supabase/client';
-import { toast } from 'sonner';
+import { toast } from 'sonner@2.0.3';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { getServerHeaders } from '../utils/server-headers';
 

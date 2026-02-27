@@ -7,7 +7,9 @@ import { Alert, AlertDescription } from './ui/alert';
 import { Badge } from './ui/badge';
 import { Search, UserX, RefreshCw, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
 import { createClient } from '../utils/supabase/client';
-import { toast } from 'sonner';
+import { getServerHeaders } from '../utils/server-headers';
+import { projectId } from '../utils/supabase/info';
+import { toast } from 'sonner@2.0.3';
 
 interface DiagnosticResult {
   found: boolean;

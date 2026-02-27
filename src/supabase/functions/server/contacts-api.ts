@@ -284,6 +284,10 @@ export function contactsAPI(app: Hono) {
               if (overlay.ytd_gp_percent !== undefined && enrichedContacts[i].ytd_gp_percent == null) enrichedContacts[i].ytd_gp_percent = overlay.ytd_gp_percent;
               if (overlay.lyr_sales !== undefined && enrichedContacts[i].lyr_sales == null) enrichedContacts[i].lyr_sales = overlay.lyr_sales;
               if (overlay.lyr_gp_percent !== undefined && enrichedContacts[i].lyr_gp_percent == null) enrichedContacts[i].lyr_gp_percent = overlay.lyr_gp_percent;
+              // Location fields
+              if (overlay.city !== undefined && !enrichedContacts[i].city) enrichedContacts[i].city = overlay.city;
+              if (overlay.province !== undefined && !enrichedContacts[i].province) enrichedContacts[i].province = overlay.province;
+              if (overlay.postal_code !== undefined && !enrichedContacts[i].postal_code) enrichedContacts[i].postal_code = overlay.postal_code;
               enrichCount++;
             }
           }
@@ -527,6 +531,10 @@ export function contactsAPI(app: Hono) {
         if (body.ytd_gp_percent !== undefined) kvExtras.ytd_gp_percent = body.ytd_gp_percent;
         if (body.lyr_sales !== undefined) kvExtras.lyr_sales = body.lyr_sales;
         if (body.lyr_gp_percent !== undefined) kvExtras.lyr_gp_percent = body.lyr_gp_percent;
+        // Location fields
+        if (body.city !== undefined) kvExtras.city = body.city;
+        if (body.province !== undefined) kvExtras.province = body.province;
+        if (body.postal_code !== undefined) kvExtras.postal_code = body.postal_code;
         
         if (Object.keys(kvExtras).length > 0) {
           // Merge with any existing overlay to preserve fields not in this update
@@ -752,6 +760,10 @@ export function contactsAPI(app: Hono) {
           if (body.ytd_gp_percent !== undefined) kvExtras.ytd_gp_percent = body.ytd_gp_percent;
           if (body.lyr_sales !== undefined) kvExtras.lyr_sales = body.lyr_sales;
           if (body.lyr_gp_percent !== undefined) kvExtras.lyr_gp_percent = body.lyr_gp_percent;
+          // Location fields
+          if (body.city !== undefined) kvExtras.city = body.city;
+          if (body.province !== undefined) kvExtras.province = body.province;
+          if (body.postal_code !== undefined) kvExtras.postal_code = body.postal_code;
           if (Object.keys(kvExtras).length > 0) {
             await kv.set(`contact_extras:${newContact.id}`, kvExtras);
             console.log(`[contacts-api] KV overlay saved for new contact ${newContact.id}:`, Object.keys(kvExtras));

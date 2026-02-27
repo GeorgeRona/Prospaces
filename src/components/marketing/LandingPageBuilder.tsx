@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { toast } from 'sonner';
+import { toast } from 'sonner@2.0.3';
 import type { User } from '../../App';
 import { landingPagesAPI, inventoryAPI } from '../../utils/api';
 import { advancedSearch } from '../../utils/advanced-search';

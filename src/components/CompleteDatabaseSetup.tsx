@@ -3,7 +3,7 @@ import { Copy, ExternalLink, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Alert, AlertDescription } from './ui/alert';
-import { toast } from 'sonner';
+import { toast } from 'sonner@2.0.3';
 import { copyToClipboard } from '../utils/clipboard';
 
 export function CompleteDatabaseSetup() {

@@ -270,7 +270,7 @@ export async function getAllUsersClient(): Promise<{ users: ClientUser[] }> {
  * Invite a new user — creates a real Supabase Auth account via the server-side
  * admin API so the user can immediately sign in with a temporary password.
  */
-export async function inviteUserClient(data: { email: string; name: string; role: string; organizationId?: string }) {
+export async function inviteUserClient(data: { email: string; name: string; role: string; organizationId?: string; organizationName?: string }) {
   try {
     const user = await getCurrentUser();
     
@@ -323,6 +323,7 @@ export async function inviteUserClient(data: { email: string; name: string; role
         name: data.name,
         role: data.role,
         organizationId: orgId,
+        organizationName: data.organizationName,
         tempPassword,
       }),
     });

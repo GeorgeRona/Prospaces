@@ -24,7 +24,7 @@ import { PermissionGate } from './PermissionGate';
 import { canAdd, canChange, canDelete } from '../utils/permissions';
 import { useDebounce } from '../utils/useDebounce';
 import { notesAPI, contactsAPI } from '../utils/api';
-import { toast } from 'sonner';
+import { toast } from 'sonner@2.0.3';
 
 interface Note {
   id: string;

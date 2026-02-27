@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Search, UserCheck, AlertTriangle, RefreshCw } from 'lucide-react';
 import { createClient } from '../utils/supabase/client';
-import { toast } from 'sonner';
+import { toast } from 'sonner@2.0.3';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';

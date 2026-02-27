@@ -46,6 +46,9 @@ interface Contact {
   lyrSales?: number;
   lyrGpPercent?: number;
   address?: string;
+  city?: string;
+  province?: string;
+  postalCode?: string;
   notes?: string;
   tags?: string[];
 }
@@ -105,6 +108,9 @@ export function Contacts({ user }: ContactsProps) {
     legacyNumber: '',
     accountOwnerNumber: user.email || '', // Default to logged in user's email
     address: '',
+    city: '',
+    province: '',
+    postalCode: '',
     notes: '',
     tags: [] as string[],
     ptdSales: '',
@@ -378,6 +384,9 @@ export function Contacts({ user }: ContactsProps) {
         legacyNumber: newContact.legacyNumber,
         accountOwnerNumber: newContact.accountOwnerNumber,
         address: newContact.address,
+        city: newContact.city,
+        province: newContact.province,
+        postalCode: newContact.postalCode,
         notes: newContact.notes,
         tags: newContact.tags,
         ptdSales: newContact.ptdSales ? parseFloat(newContact.ptdSales) : undefined,
@@ -398,7 +407,7 @@ export function Contacts({ user }: ContactsProps) {
         console.warn('[Contacts] Create returned no contact object, reloading list...');
         await loadContacts();
       }
-      setNewContact({ name: '', email: '', phone: '', company: '', status: 'Prospect', priceLevel: getPriceTierLabel(1), legacyNumber: '', accountOwnerNumber: user.email || '', address: '', notes: '', tags: [], ptdSales: '', ptdGpPercent: '', ytdSales: '', ytdGpPercent: '', lyrSales: '', lyrGpPercent: '' });
+      setNewContact({ name: '', email: '', phone: '', company: '', status: 'Prospect', priceLevel: getPriceTierLabel(1), legacyNumber: '', accountOwnerNumber: user.email || '', address: '', city: '', province: '', postalCode: '', notes: '', tags: [], ptdSales: '', ptdGpPercent: '', ytdSales: '', ytdGpPercent: '', lyrSales: '', lyrGpPercent: '' });
       setTagInput('');
       setIsAddDialogOpen(false);
     } catch (error: any) {
@@ -442,6 +451,9 @@ export function Contacts({ user }: ContactsProps) {
         legacyNumber: editingContact.legacyNumber,
         accountOwnerNumber: editingContact.accountOwnerNumber,
         address: editingContact.address,
+        city: editingContact.city,
+        province: editingContact.province,
+        postalCode: editingContact.postalCode,
         notes: editingContact.notes,
         tags: editingContact.tags,
         ptdSales: editingContact.ptdSales,
@@ -805,6 +817,33 @@ export function Contacts({ user }: ContactsProps) {
                   placeholder="Optional"
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-city">City</Label>
+                <Input
+                  id="edit-city"
+                  value={editingContact?.city || ''}
+                  onChange={(e) => setEditingContact(editingContact ? { ...editingContact, city: e.target.value } : null)}
+                  placeholder="Optional"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-province">Province / State</Label>
+                <Input
+                  id="edit-province"
+                  value={editingContact?.province || ''}
+                  onChange={(e) => setEditingContact(editingContact ? { ...editingContact, province: e.target.value } : null)}
+                  placeholder="Optional"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-postalCode">Postal / Zip Code</Label>
+                <Input
+                  id="edit-postalCode"
+                  value={editingContact?.postalCode || ''}
+                  onChange={(e) => setEditingContact(editingContact ? { ...editingContact, postalCode: e.target.value } : null)}
+                  placeholder="Optional"
+                />
+              </div>
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="edit-notes">Notes</Label>
                 <Textarea
@@ -1009,6 +1048,33 @@ export function Contacts({ user }: ContactsProps) {
                       id="address"
                       value={newContact.address}
                       onChange={(e) => setNewContact({ ...newContact, address: e.target.value })}
+                      placeholder="Optional"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="city">City</Label>
+                    <Input
+                      id="city"
+                      value={newContact.city}
+                      onChange={(e) => setNewContact({ ...newContact, city: e.target.value })}
+                      placeholder="Optional"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="province">Province / State</Label>
+                    <Input
+                      id="province"
+                      value={newContact.province}
+                      onChange={(e) => setNewContact({ ...newContact, province: e.target.value })}
+                      placeholder="Optional"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="postalCode">Postal / Zip Code</Label>
+                    <Input
+                      id="postalCode"
+                      value={newContact.postalCode}
+                      onChange={(e) => setNewContact({ ...newContact, postalCode: e.target.value })}
                       placeholder="Optional"
                     />
                   </div>
@@ -1455,6 +1521,33 @@ export function Contacts({ user }: ContactsProps) {
                 id="edit-address"
                 value={editingContact?.address || ''}
                 onChange={(e) => setEditingContact(editingContact ? { ...editingContact, address: e.target.value } : null)}
+                placeholder="Optional"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-city-2">City</Label>
+              <Input
+                id="edit-city-2"
+                value={editingContact?.city || ''}
+                onChange={(e) => setEditingContact(editingContact ? { ...editingContact, city: e.target.value } : null)}
+                placeholder="Optional"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-province-2">Province / State</Label>
+              <Input
+                id="edit-province-2"
+                value={editingContact?.province || ''}
+                onChange={(e) => setEditingContact(editingContact ? { ...editingContact, province: e.target.value } : null)}
+                placeholder="Optional"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-postalCode-2">Postal / Zip Code</Label>
+              <Input
+                id="edit-postalCode-2"
+                value={editingContact?.postalCode || ''}
+                onChange={(e) => setEditingContact(editingContact ? { ...editingContact, postalCode: e.target.value } : null)}
                 placeholder="Optional"
               />
             </div>

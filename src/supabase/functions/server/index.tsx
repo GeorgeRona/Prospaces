@@ -280,7 +280,8 @@ app.get(`${PREFIX}/profiles`, async (c) => {
     }
     const { data, error } = await query;
     if (error) return c.json({ error: error.message }, 500);
-    return c.json({ profiles: data || [] });
+    console.log(`[profiles] Returning ${data?.length || 0} profiles for role=${auth.profile.role}, org=${auth.profile.organization_id}`);
+    return c.json({ profiles: data || [], source: 'server' });
   } catch (err: any) { return c.json({ error: err.message }, 500); }
 });
 
@@ -288,16 +289,196 @@ app.get(`${PREFIX}/profiles/ensure`, async (c) => {
   try {
     const auth = await authenticateUser(c);
     if (auth.error) return c.json({ error: auth.error }, auth.status);
-    const { data: existing } = await auth.supabase.from('profiles').select('id').eq('id', auth.user.id).maybeSingle();
-    if (existing) return c.json({ created: false, profileId: existing.id });
+    const { data: existing } = await auth.supabase.from('profiles').select('*').eq('id', auth.user.id).maybeSingle();
+    if (existing) {
+      // If user_metadata has needs_password_change or a different org than what's on the profile,
+      // it means admin just created/updated this user — sync the profile to match.
+      const metaOrg = auth.user.user_metadata?.organizationId;
+      const metaNeedsPw = auth.user.user_metadata?.needs_password_change === true;
+      const orgMismatch = metaOrg && metaOrg !== existing.organization_id;
+      const pwMissing = metaNeedsPw && !existing.needs_password_change;
+
+      if (orgMismatch || pwMissing) {
+        const updates: any = { updated_at: new Date().toISOString() };
+        if (orgMismatch) {
+          // Verify the metadata org actually exists before overwriting
+          const { data: orgCheck } = await auth.supabase.from('organizations').select('id').eq('id', metaOrg).maybeSingle();
+          if (orgCheck) {
+            updates.organization_id = metaOrg;
+            console.log(`[profiles/ensure] Fixing org mismatch: ${existing.organization_id} -> ${metaOrg}`);
+          }
+        }
+        if (pwMissing) {
+          updates.needs_password_change = true;
+          console.log(`[profiles/ensure] Setting needs_password_change=true from metadata`);
+        }
+        const { data: updated } = await auth.supabase.from('profiles')
+          .update(updates).eq('id', auth.user.id).select().single();
+        if (updated) return c.json({ created: false, profileId: updated.id, profile: updated, fixed: true });
+      }
+      return c.json({ created: false, profileId: existing.id, profile: existing });
+    }
+
+    // Also check by email in case of ID mismatch
+    if (auth.user.email) {
+      const { data: byEmail } = await auth.supabase.from('profiles').select('*').eq('email', auth.user.email.toLowerCase()).maybeSingle();
+      if (byEmail) {
+        // Build update payload: fix ID + sync org and needs_password_change from metadata
+        const metaOrg = auth.user.user_metadata?.organizationId;
+        const metaNeedsPw = auth.user.user_metadata?.needs_password_change === true;
+        const updatePayload: any = { id: auth.user.id, updated_at: new Date().toISOString() };
+        if (metaNeedsPw) updatePayload.needs_password_change = true;
+        if (metaOrg && metaOrg !== byEmail.organization_id) {
+          const { data: orgCheck } = await auth.supabase.from('organizations').select('id').eq('id', metaOrg).maybeSingle();
+          if (orgCheck) updatePayload.organization_id = metaOrg;
+        }
+        const { data: updated, error: updateErr } = await auth.supabase.from('profiles')
+          .update(updatePayload)
+          .eq('email', auth.user.email.toLowerCase())
+          .select().single();
+        if (updated && !updateErr) {
+          return c.json({ created: false, profileId: updated.id, profile: updated, fixed: 'id_mismatch' });
+        }
+        return c.json({ created: false, profileId: byEmail.id, profile: byEmail, note: 'id_mismatch_unfixed' });
+      }
+    }
+
+    // Resolve a valid organization_id
+    let orgId = auth.user.user_metadata?.organizationId || null;
+    if (orgId) {
+      const { data: orgCheck } = await auth.supabase.from('organizations').select('id').eq('id', orgId).maybeSingle();
+      if (!orgCheck) {
+        console.log(`[profiles/ensure] Org ${orgId} from metadata doesn't exist, will find/create one`);
+        orgId = null;
+      }
+    }
+    if (!orgId) {
+      const { data: anyOrg } = await auth.supabase.from('organizations').select('id').limit(1).maybeSingle();
+      if (anyOrg) {
+        orgId = anyOrg.id;
+        console.log(`[profiles/ensure] Using existing org: ${orgId}`);
+      } else {
+        const newOrgId = crypto.randomUUID();
+        const { data: createdOrg, error: orgErr } = await auth.supabase.from('organizations').insert({
+          id: newOrgId, name: `${auth.user.email?.split('@')[0] || 'User'}'s Organization`, created_at: new Date().toISOString(),
+        }).select().single();
+        if (createdOrg && !orgErr) {
+          orgId = createdOrg.id;
+          console.log(`[profiles/ensure] Created new org: ${orgId}`);
+        } else {
+          console.error(`[profiles/ensure] Failed to create org: ${orgErr?.message}`);
+          return c.json({ error: `Cannot create organization: ${orgErr?.message}` }, 500);
+        }
+      }
+    }
+
+    // Carry over needs_password_change from user_metadata (set by create-user endpoint)
+    const needsPwChange = auth.user.user_metadata?.needs_password_change === true;
+
     const { data: np, error } = await auth.supabase.from('profiles').insert([{
       id: auth.user.id, email: auth.user.email, name: auth.user.user_metadata?.name || auth.user.email,
-      role: auth.user.user_metadata?.role || 'standard_user', organization_id: auth.user.user_metadata?.organizationId,
+      role: auth.user.user_metadata?.role || 'standard_user', organization_id: orgId,
+      needs_password_change: needsPwChange,
       status: 'active', created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     }]).select().single();
-    if (error) return c.json({ error: error.message }, 500);
-    return c.json({ created: true, profileId: np?.id });
-  } catch (err: any) { return c.json({ error: err.message }, 500); }
+    if (error) {
+      console.error(`[profiles/ensure] Profile insert error: ${error.code} ${error.message}`);
+      return c.json({ error: error.message, code: error.code }, 500);
+    }
+    return c.json({ created: true, profileId: np?.id, profile: np });
+  } catch (err: any) {
+    console.error(`[profiles/ensure] Exception: ${err.message}`);
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+// ── SYNC AUTH USERS → PROFILES ──────────────────────────────────────────
+app.get(`${PREFIX}/profiles/find-missing`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+    if (auth.profile.role !== 'super_admin' && auth.profile.role !== 'admin') {
+      return c.json({ error: 'Forbidden' }, 403);
+    }
+    const targetOrg = c.req.query('organization_id') || auth.profile.organization_id;
+    if (!targetOrg) return c.json({ error: 'No organization context' }, 400);
+
+    const { data: { users: authUsers }, error: listErr } = await auth.supabase.auth.admin.listUsers({ perPage: 1000 });
+    if (listErr) return c.json({ error: `Failed to list auth users: ${listErr.message}` }, 500);
+
+    const { data: orgProfiles } = await auth.supabase.from('profiles').select('id, email').eq('organization_id', targetOrg);
+    const profileIds = new Set((orgProfiles || []).map((p: any) => p.id));
+    const profileEmails = new Set((orgProfiles || []).map((p: any) => p.email?.toLowerCase()));
+
+    const missing: any[] = [];
+    for (const au of (authUsers || [])) {
+      const metaOrg = au.user_metadata?.organizationId;
+      if (metaOrg !== targetOrg) continue;
+      if (profileIds.has(au.id)) continue;
+      if (au.email && profileEmails.has(au.email.toLowerCase())) continue;
+      missing.push({ id: au.id, email: au.email, name: au.user_metadata?.name || au.email, role: au.user_metadata?.role || 'standard_user', created_at: au.created_at });
+    }
+
+    const wrongOrg: any[] = [];
+    const { data: allProfiles } = await auth.supabase.from('profiles').select('id, email, organization_id, name, role');
+    for (const au of (authUsers || [])) {
+      const metaOrg = au.user_metadata?.organizationId;
+      if (metaOrg !== targetOrg) continue;
+      const prof = (allProfiles || []).find((p: any) => p.id === au.id || p.email?.toLowerCase() === au.email?.toLowerCase());
+      if (prof && prof.organization_id !== targetOrg) {
+        wrongOrg.push({ id: au.id, email: au.email, name: au.user_metadata?.name || prof.name || au.email, role: au.user_metadata?.role || prof.role || 'standard_user', currentOrg: prof.organization_id, profileId: prof.id });
+      }
+    }
+
+    return c.json({ missing, wrongOrg, orgId: targetOrg });
+  } catch (err: any) {
+    console.error('[profiles/find-missing] Error:', err);
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+app.post(`${PREFIX}/profiles/fix-missing`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+    if (auth.profile.role !== 'super_admin' && auth.profile.role !== 'admin') {
+      return c.json({ error: 'Forbidden' }, 403);
+    }
+    const { users, organizationId } = await c.req.json();
+    if (!users || !Array.isArray(users) || !organizationId) {
+      return c.json({ error: 'users array and organizationId required' }, 400);
+    }
+    if (auth.profile.role !== 'super_admin' && auth.profile.organization_id !== organizationId) {
+      return c.json({ error: 'Forbidden: wrong organization' }, 403);
+    }
+
+    const results: any[] = [];
+    for (const u of users) {
+      try {
+        const { data, error } = await auth.supabase.from('profiles').upsert({
+          id: u.id, email: u.email?.toLowerCase(), name: u.name || u.email,
+          role: u.role || 'standard_user', organization_id: organizationId,
+          status: 'active', updated_at: new Date().toISOString(),
+        }, { onConflict: 'id' }).select().single();
+
+        if (error) {
+          const { error: updateErr } = await auth.supabase.from('profiles')
+            .update({ id: u.id, organization_id: organizationId, status: 'active', updated_at: new Date().toISOString() })
+            .eq('email', u.email?.toLowerCase());
+          results.push({ email: u.email, success: !updateErr, error: updateErr?.message });
+        } else {
+          results.push({ email: u.email, success: true });
+        }
+      } catch (err: any) {
+        results.push({ email: u.email, success: false, error: err.message });
+      }
+    }
+
+    return c.json({ results, fixed: results.filter(r => r.success).length });
+  } catch (err: any) {
+    console.error('[profiles/fix-missing] Error:', err);
+    return c.json({ error: err.message }, 500);
+  }
 });
 
 // ── SETTINGS ────────────────────────────────────────────────────────────
@@ -1517,22 +1698,80 @@ app.delete(`${PREFIX}/email-accounts/:id`, async (c) => {
 // ── UTILITY ─────────────────────────────────────────────────────────────
 app.post(`${PREFIX}/create-user`, async (c) => {
   try {
-    const { email, name, role, organizationId, tempPassword } = await c.req.json();
+    const { email, name, role, organizationId, tempPassword, organizationName } = await c.req.json();
     if (!email || !tempPassword) return c.json({ error: 'Missing fields' }, 400);
     const supabase = getSupabase();
+
+    // Verify the organization exists; auto-create the row if missing
+    if (organizationId) {
+      const { data: orgCheck } = await supabase.from('organizations').select('id').eq('id', organizationId).maybeSingle();
+      if (!orgCheck) {
+        console.log(`[create-user] Organization ${organizationId} not in table – auto-creating row`);
+        const { error: orgErr } = await supabase.from('organizations').insert({
+          id: organizationId,
+          name: organizationName || organizationId || 'Organization',
+          created_at: new Date().toISOString(),
+        });
+        if (orgErr) {
+          // Ignore duplicate-key (23505) – another request may have created it concurrently
+          if (orgErr.code !== '23505') {
+            console.error(`[create-user] Failed to auto-create org: ${orgErr.code} ${orgErr.message}`);
+            return c.json({ error: `Failed to initialize organization: ${orgErr.message}` }, 500);
+          }
+        }
+      }
+    }
+
     const { data: { users: existing } } = await supabase.auth.admin.listUsers();
     const found = existing?.find((u: any) => u.email?.toLowerCase() === email.toLowerCase());
     let uid: string;
     if (found) {
       uid = found.id;
-      await supabase.auth.admin.updateUserById(uid, { password: tempPassword, user_metadata: { name, role, organizationId } });
+      await supabase.auth.admin.updateUserById(uid, { password: tempPassword, email_confirm: true, user_metadata: { name, role, organizationId, needs_password_change: true } });
     } else {
-      const { data, error } = await supabase.auth.admin.createUser({ email: email.toLowerCase(), password: tempPassword, user_metadata: { name, role, organizationId }, email_confirm: true });
+      const { data, error } = await supabase.auth.admin.createUser({ email: email.toLowerCase(), password: tempPassword, user_metadata: { name, role, organizationId, needs_password_change: true }, email_confirm: true });
       if (error) return c.json({ error: error.message }, 500);
       uid = data.user.id;
     }
-    await supabase.from('profiles').upsert({ id: uid, email: email.toLowerCase(), name, role, organization_id: organizationId, status: 'active', updated_at: new Date().toISOString() }, { onConflict: 'id' });
+
+    // Fix ID mismatch: if a profile exists for this email with a different ID, update it
+    const { data: existingProfile } = await supabase.from('profiles').select('id, email').eq('email', email.toLowerCase()).maybeSingle();
+    if (existingProfile && existingProfile.id !== uid) {
+      console.log(`[create-user] Existing profile ID ${existingProfile.id} differs from auth ID ${uid}. Updating...`);
+      await supabase.from('profiles').update({ id: uid, name, role, organization_id: organizationId, needs_password_change: true, updated_at: new Date().toISOString() }).eq('email', email.toLowerCase());
+      return c.json({ success: true, userId: uid });
+    }
+
+    const { error: upsertError } = await supabase.from('profiles').upsert({
+      id: uid, email: email.toLowerCase(), name, role, organization_id: organizationId,
+      status: 'active', needs_password_change: true, updated_at: new Date().toISOString(),
+    }, { onConflict: 'id' });
+    if (upsertError) {
+      console.error(`[create-user] Profile upsert error: ${upsertError.code} ${upsertError.message}`);
+      return c.json({ error: `User auth created but profile failed: ${upsertError.message}`, userId: uid }, 500);
+    }
     return c.json({ success: true, userId: uid });
+  } catch (err: any) { return c.json({ error: err.message }, 500); }
+});
+
+// ── CONFIRM EMAIL (auto-fix unconfirmed admin-created users) ────────────
+app.post(`${PREFIX}/confirm-email`, async (c) => {
+  try {
+    const { email } = await c.req.json();
+    if (!email) return c.json({ error: 'Missing email' }, 400);
+    const supabase = getSupabase();
+    // Verify a profile exists for this email (only fix known users, not random requests)
+    const { data: profile } = await supabase.from('profiles').select('id').eq('email', email.toLowerCase()).maybeSingle();
+    if (!profile) return c.json({ error: 'No profile found' }, 404);
+    // Find the auth user
+    const { data: { users } } = await supabase.auth.admin.listUsers();
+    const authUser = users?.find((u: any) => u.email?.toLowerCase() === email.toLowerCase());
+    if (!authUser) return c.json({ error: 'No auth user found' }, 404);
+    // Confirm their email
+    const { error } = await supabase.auth.admin.updateUserById(authUser.id, { email_confirm: true });
+    if (error) return c.json({ error: error.message }, 500);
+    console.log(`[confirm-email] Confirmed email for ${email}`);
+    return c.json({ success: true });
   } catch (err: any) { return c.json({ error: err.message }, 500); }
 });
 

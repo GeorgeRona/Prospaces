@@ -496,7 +496,7 @@ export function AppContent() {
               {currentView === 'inventory' && <Inventory user={user} />}
               {currentView === 'reports' && <Reports user={user} organization={organization} />}
               {currentView === 'team-dashboard' && <ManagerDashboard user={user} organization={organization} />}
-              {currentView === 'users' && <Users user={user} />}
+              {currentView === 'users' && <Users user={user} organization={organization} onOrganizationUpdate={setOrganization} />}
               {currentView === 'tenants' && <Tenants user={user} />}
               {currentView === 'settings' && <Settings user={user} organization={organization} onUserUpdate={setUser} onOrganizationUpdate={setOrganization} />}
               {currentView === 'security' && <Security user={user} />}

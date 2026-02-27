@@ -1,6 +1,6 @@
 import { Button } from './ui/button';
 import { RefreshCw, CheckCircle, AlertCircle, Copy, ExternalLink } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from 'sonner@2.0.3';
 import { createClient } from '../utils/supabase/client';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { copyToClipboard } from '../utils/clipboard';

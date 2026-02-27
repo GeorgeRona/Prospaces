@@ -13,7 +13,7 @@ import { getUserDefaults, extractConversionFactors, getOrgConversionFactors, ext
 import { GarageConfig } from '../../types/garage';
 import { Ruler, Package, Printer, FileText, Box, Layers, Warehouse, Settings } from 'lucide-react';
 import { Button } from '../ui/button';
-import { toast } from 'sonner';
+import { toast } from 'sonner@2.0.3';
 import type { User } from '../../App';
 import { PermissionGate } from '../PermissionGate';
 

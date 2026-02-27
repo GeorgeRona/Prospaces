@@ -6,7 +6,7 @@ import { Label } from './ui/label';
 import { Alert, AlertDescription } from './ui/alert';
 import { AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { createClient } from '../utils/supabase/client';
-import { toast } from 'sonner';
+import { toast } from 'sonner@2.0.3';
 
 interface ChangePasswordDialogProps {
   open: boolean;
@@ -66,9 +66,10 @@ export function ChangePasswordDialog({ open, onClose, userId }: ChangePasswordDi
     try {
       const supabase = createClient();
 
-      // Update password using Supabase Auth
+      // Update password and clear needs_password_change from user metadata
       const { error: updateError } = await supabase.auth.updateUser({
-        password: newPassword
+        password: newPassword,
+        data: { needs_password_change: false },
       });
 
       if (updateError) {

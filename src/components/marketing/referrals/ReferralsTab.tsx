@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { ReferralSystemSetup } from './ReferralSystemSetup';
 import { createClient } from '../../../utils/supabase/client';
-import { toast } from 'sonner';
+import { toast } from 'sonner@2.0.3';
 import type { User } from '../../../App';
 
 interface ReferralsTabProps {

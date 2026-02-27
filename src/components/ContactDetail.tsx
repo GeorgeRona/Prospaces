@@ -60,7 +60,7 @@ import {
   downloadDocumentClient,
   type Document 
 } from '../utils/documents-client';
-import { toast } from 'sonner';
+import { toast } from 'sonner@2.0.3';
 import { appointmentsAPI } from '../utils/api';
 
 interface Contact {
@@ -1032,13 +1032,19 @@ export function ContactDetail({ contact, user, onBack, onEdit }: ContactDetailPr
               <p className="text-gray-900">{contact.accountOwnerNumber}</p>
             </div>
           )}
-          {contact.address && (
+          {(contact.address || contact.city || contact.province || contact.postalCode) && (
             <div className="md:col-span-2">
               <div className="flex items-center gap-2 text-gray-600 mb-1">
                 <MapPin className="h-4 w-4" />
                 <span className="text-sm">Address</span>
               </div>
-              <p className="text-gray-900">{contact.address}</p>
+              <p className="text-gray-900 whitespace-pre-line">
+                {[
+                  contact.address,
+                  [contact.city, contact.province].filter(Boolean).join(', '),
+                  contact.postalCode
+                ].filter(Boolean).join('\n')}
+              </p>
             </div>
           )}
           {contact.notes && (

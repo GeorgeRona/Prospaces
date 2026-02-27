@@ -3,7 +3,7 @@ import type { User } from '../App';
 import { PermissionGate } from './PermissionGate';
 import { contactsAPI, inventoryAPI, bidsAPI } from '../utils/api';
 import { clearOwnerProfileCache } from '../utils/contacts-client';
-import { toast } from 'sonner';
+import { toast } from 'sonner@2.0.3';
 import * as XLSX from 'xlsx';
 import { createClient } from '../utils/supabase/client';
 import { projectId } from '../utils/supabase/info';
@@ -67,6 +67,9 @@ const DATABASE_FIELDS = {
     { value: 'status', label: 'Status', required: false },
     { value: 'priceLevel', label: 'Price Level', required: false },
     { value: 'address', label: 'Address', required: false },
+    { value: 'city', label: 'City', required: false },
+    { value: 'province', label: 'Province / State', required: false },
+    { value: 'postalCode', label: 'Postal / Zip Code', required: false },
     { value: 'notes', label: 'Notes', required: false },
     { value: 'legacyNumber', label: 'Legacy #', required: false },
     { value: 'accountOwnerNumber', label: 'Account Owner #', required: false },
@@ -472,7 +475,10 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       'company': ['company name', 'business', 'business name', 'organization', 'firm', 'employer'],
       'status': ['contact status', 'customer status', 'account status', 'customer type'],
       'priceLevel': ['price level', 'pricing level', 'pricing tier', 'customer tier', 'discount level', 'price group', 'pricing group'],
-      'address': ['street address', 'mailing address', 'billing address', 'street', 'addr', 'location', 'full address'],
+      'address': ['street address', 'mailing address', 'billing address', 'street', 'addr', 'location', 'full address', 'address line', 'address 1', 'address1', 'street address 1'],
+      'city': ['city', 'town', 'municipality', 'city/town'],
+      'province': ['province', 'state', 'province/state', 'prov', 'st', 'region', 'province or state', 'state/province'],
+      'postalCode': ['postal code', 'zip code', 'zip', 'postal', 'postcode', 'post code', 'postal/zip', 'zip/postal'],
       'legacyNumber': ['legacy #', 'legacy number', 'legacy no', 'customer #', 'customer number', 'cust #', 'cust no', 'account #', 'account number', 'acct #', 'acct no', 'old id', 'old #', 'customer id', 'cust id'],
       'accountOwnerNumber': ['account owner #', 'account owner', 'owner #', 'owner number', 'sales rep', 'sales rep #', 'rep #', 'assigned to', 'salesperson', 'salesperson #'],
       'ptdSales': ['ptd sales', 'period to date sales', 'ptd $', 'current period sales'],
@@ -829,7 +835,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
   // Import individual contact
   const importContact = async (contact: any, rowNum: number, errors: string[], preloadedAuth?: { userId: string; profile: any }) => {
     // Only name is strictly required — email is optional for customer imports
-    const contactName = contact.name ? String(contact.name).trim() : '';
+    let contactName = contact.name ? String(contact.name).trim() : '';
     if (!contactName) {
       // Check if the row is effectively empty (no meaningful data at all)
       const hasAnyData = Object.values(contact).some(
@@ -840,7 +846,25 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
         console.log(`Row ${rowNum}: Skipping empty row`);
         return { action: 'skipped' as const };
       }
-      throw new Error('Missing required field: Name');
+      // Try to derive a name from other fields before giving up
+      const fallbackCompany = contact.company ? String(contact.company).trim() : '';
+      const fallbackEmail = contact.email ? String(contact.email).trim() : '';
+      const fallbackLegacy = contact.legacyNumber ? String(contact.legacyNumber).trim() : '';
+      if (fallbackCompany) {
+        contactName = fallbackCompany;
+        console.log(`Row ${rowNum}: No name — using company "${contactName}" as fallback`);
+      } else if (fallbackEmail) {
+        contactName = fallbackEmail;
+        console.log(`Row ${rowNum}: No name — using email "${contactName}" as fallback`);
+      } else if (fallbackLegacy) {
+        contactName = `Legacy #${fallbackLegacy}`;
+        console.log(`Row ${rowNum}: No name — using legacy number as fallback`);
+      } else {
+        // Row has some data but nothing usable as a name — skip with warning
+        console.warn(`Row ${rowNum}: Skipping row with data but no name, company, email, or legacy # — likely a summary/footer row`);
+        errors.push(`Row ${rowNum}: Skipped — no Name, Company, Email, or Legacy # to identify contact`);
+        return { action: 'skipped' as const };
+      }
     }
 
     // Clean the contact data - remove fields that don't exist in database
@@ -862,6 +886,9 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
 
     // Add optional fields only if they have values
     if (contact.address) cleanContact.address = String(contact.address).trim();
+    if (contact.city) cleanContact.city = String(contact.city).trim();
+    if (contact.province) cleanContact.province = String(contact.province).trim();
+    if (contact.postalCode) cleanContact.postalCode = String(contact.postalCode).trim();
     if (contact.notes) cleanContact.notes = String(contact.notes).trim();
     if (contact.legacyNumber) cleanContact.legacyNumber = String(contact.legacyNumber).trim();
     if (contact.accountOwnerNumber) cleanContact.accountOwnerNumber = String(contact.accountOwnerNumber).trim();
@@ -973,9 +1000,9 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       const contacts = response.contacts || [];
 
       const csvContent = [
-        'name,email,phone,company,address,status,priceLevel,notes,legacyNumber,accountOwnerNumber,ptdSales,ptdGpPercent,ytdSales,ytdGpPercent,lyrSales,lyrGpPercent',
+        'name,email,phone,company,address,city,province,postalCode,status,priceLevel,notes,legacyNumber,accountOwnerNumber,ptdSales,ptdGpPercent,ytdSales,ytdGpPercent,lyrSales,lyrGpPercent',
         ...contacts.map((c: any) => 
-          `"${c.name}","${c.email}","${c.phone || ''}","${c.company || ''}","${c.address || ''}","${c.status || ''}","${c.priceLevel || ''}","${c.notes || ''}","${c.legacyNumber || ''}","${c.accountOwnerNumber || ''}","${c.ptdSales || ''}","${c.ptdGpPercent || ''}","${c.ytdSales || ''}","${c.ytdGpPercent || ''}","${c.lyrSales || ''}","${c.lyrGpPercent || ''}"`
+          `"${c.name}","${c.email}","${c.phone || ''}","${c.company || ''}","${c.address || ''}","${c.city || ''}","${c.province || ''}","${c.postalCode || ''}","${c.status || ''}","${c.priceLevel || ''}","${c.notes || ''}","${c.legacyNumber || ''}","${c.accountOwnerNumber || ''}","${c.ptdSales || ''}","${c.ptdGpPercent || ''}","${c.ytdSales || ''}","${c.ytdGpPercent || ''}","${c.lyrSales || ''}","${c.lyrGpPercent || ''}"`
         )
       ].join('\n');
 

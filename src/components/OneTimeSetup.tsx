@@ -1,6 +1,6 @@
 import { Card, CardContent } from './ui/card';
 import { Database, ExternalLink, RefreshCw } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from 'sonner@2.0.3';
 import { createClient } from '../utils/supabase/client';
 import { copyToClipboard } from '../utils/clipboard';
 

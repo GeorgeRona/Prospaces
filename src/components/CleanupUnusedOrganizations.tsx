@@ -3,7 +3,7 @@ import { createClient } from '../utils/supabase/client';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { AlertTriangle, Trash2, Users, Building2, CheckCircle2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from 'sonner@2.0.3';
 
 interface Organization {
   id: string;

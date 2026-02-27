@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button } from '../../ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../ui/card';
 import { CheckCircle2, Copy, AlertTriangle, Database } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from 'sonner@2.0.3';
 import { copyToClipboard as clipboardCopy } from '../../../utils/clipboard';
 
 export function ReferralSystemSetup({ onComplete }: { onComplete: () => void }) {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { emailAPI } from '../utils/api';
-import { toast } from 'sonner';
+import { toast } from 'sonner@2.0.3';
 import { createClient } from '../utils/supabase/client';
 import { projectId, publicAnonKey } from '../utils/supabase/info.tsx';
 import { getServerHeaders } from '../utils/server-headers';

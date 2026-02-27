@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Alert, AlertDescription } from './ui/alert';
 import { CheckCircle2, Copy, Database } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from 'sonner@2.0.3';
 import { copyToClipboard } from '../utils/clipboard';
 
 const SQL_MIGRATION = `-- Create email_custom_folders table for user-defined email folders

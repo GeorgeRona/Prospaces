@@ -1702,6 +1702,10 @@
     max-width: 200px;
   }
 
+  .max-w-\[250px\] {
+    max-width: 250px;
+  }
+
   .max-w-\[300px\] {
     max-width: 300px;
   }
@@ -5650,6 +5654,12 @@
   }
 
   @media (hover: hover) {
+    .hover\:text-blue-600:hover {
+      color: var(--color-blue-600);
+    }
+  }
+
+  @media (hover: hover) {
     .hover\:text-blue-700:hover {
       color: var(--color-blue-700);
     }
@@ -5682,6 +5692,12 @@
   @media (hover: hover) {
     .hover\:text-green-300:hover {
       color: var(--color-green-300);
+    }
+  }
+
+  @media (hover: hover) {
+    .hover\:text-green-700:hover {
+      color: var(--color-green-700);
     }
   }
 

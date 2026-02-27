@@ -5,7 +5,7 @@ import { Badge } from './ui/badge';
 import { Alert, AlertDescription } from './ui/alert';
 import { Database, HardDrive, CheckCircle2, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
 import { migrateUserDefaultsFromLocalStorage, getUserDefaults } from '../utils/project-wizard-defaults-client';
-import { toast } from 'sonner';
+import { toast } from 'sonner@2.0.3';
 
 interface PlannerDefaultsMigrationStatusProps {
   userId: string;

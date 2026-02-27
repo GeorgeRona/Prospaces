@@ -503,7 +503,7 @@ export const contactsAPI = {
 // Users APIs - use direct Supabase client
 export const usersAPI = {
   getAll: () => getAllUsersClient(),
-  invite: (data: { email: string; name: string; role: string }) => inviteUserClient(data),
+  invite: (data: { email: string; name: string; role: string; organizationName?: string }) => inviteUserClient(data),
   update: (id: string, data: any) => updateUserClient(id, data),
   delete: (id: string) => deleteUserClient(id),
   resetPassword: (userId: string, newPassword: string) => resetPasswordClient(userId, newPassword),

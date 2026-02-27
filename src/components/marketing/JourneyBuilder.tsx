@@ -26,7 +26,7 @@ import {
 } from '../ui/dropdown-menu';
 import type { User } from '../../App';
 import { journeysAPI } from '../../utils/api';
-import { toast } from 'sonner';
+import { toast } from 'sonner@2.0.3';
 
 interface JourneyBuilderProps {
   user: User;

@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { toast } from 'sonner';
+import { toast } from 'sonner@2.0.3';
 import { createClient } from '../utils/supabase/client';
 import { contactsAPI, inventoryAPI, bidsAPI } from '../utils/api';
 import type { User } from '../App';

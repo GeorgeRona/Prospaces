@@ -1,6 +1,6 @@
 import { Alert, AlertDescription } from './ui/alert';
 import { Copy, CheckCircle2, ExternalLink } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from 'sonner@2.0.3';
 
 export function ProfilesTableFix() {
   const [copied, setCopied] = useState(false);

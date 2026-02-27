@@ -5,7 +5,7 @@ import { Alert, AlertDescription } from './ui/alert';
 import { Badge } from './ui/badge';
 import { RefreshCw, AlertTriangle, CheckCircle2, Database, Wrench } from 'lucide-react';
 import { createClient } from '../utils/supabase/client';
-import { toast } from 'sonner';
+import { toast } from 'sonner@2.0.3';
 
 interface InvalidOrgDiagnostic {
   totalUsers: number;

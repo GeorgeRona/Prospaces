@@ -56,6 +56,7 @@ export async function handleCreateUser(c: any) {
         authUserId,
         {
           password: tempPassword,
+          email_confirm: true, // Ensure email is confirmed so user can sign in
           user_metadata: {
             name,
             role,

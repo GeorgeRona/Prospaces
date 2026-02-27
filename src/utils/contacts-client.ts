@@ -105,6 +105,7 @@ async function getExistingContactColumns(supabase: any): Promise<Set<string>> {
     ['tags'],
     ['price_level'],
     ['ptd_sales', 'ptd_gp_percent', 'ytd_sales', 'ytd_gp_percent', 'lyr_sales', 'lyr_gp_percent'],
+    ['city', 'province', 'postal_code'],
     ['created_by'],
   ];
 
@@ -221,6 +222,15 @@ function transformToDbFormat(contactData: any) {
     delete transformed.lyrGpPercent;
   }
   
+  // Transform location fields
+  // city and province are already snake_case — no rename needed
+  if ('postalCode' in transformed) {
+    if (transformed.postalCode) {
+      transformed.postal_code = transformed.postalCode;
+    }
+    delete transformed.postalCode;
+  }
+
   // Note: address and notes are already in snake_case in the database
   // so no transformation needed for these fields
   
@@ -347,6 +357,13 @@ function transformFromDbFormat(contactData: any) {
     transformed.lyrGpPercent = transformed.lyr_gp_percent;
     delete transformed.lyr_gp_percent;
   }
+
+  // Transform location fields
+  if ('postal_code' in transformed) {
+    transformed.postalCode = transformed.postal_code;
+    delete transformed.postal_code;
+  }
+  // city and province are already the same in both formats
   
   return transformed;
 }
@@ -615,7 +632,7 @@ export async function upsertContactByLegacyNumberClient(contactData: any, preloa
     // Transform data from camelCase to snake_case
     const transformedData = transformToDbFormat(contactData);
 
-    // ── Capture financial data BEFORE filtering strips it ──────────────
+    // ── Capture financial + location data BEFORE filtering strips it ────
     const financialExtras: Record<string, any> = {};
     const finFields = ['ptd_sales', 'ptd_gp_percent', 'ytd_sales', 'ytd_gp_percent', 'lyr_sales', 'lyr_gp_percent'];
     for (const f of finFields) {
@@ -623,9 +640,16 @@ export async function upsertContactByLegacyNumberClient(contactData: any, preloa
         financialExtras[f] = Number(transformedData[f]);
       }
     }
+    // Location fields — stored as strings, not numbers
+    const locationFields = ['city', 'province', 'postal_code'];
+    for (const f of locationFields) {
+      if (transformedData[f] !== undefined && transformedData[f] !== null && String(transformedData[f]).trim() !== '') {
+        financialExtras[f] = String(transformedData[f]).trim();
+      }
+    }
     const hasFinancialExtras = Object.keys(financialExtras).length > 0;
     if (hasFinancialExtras) {
-      console.log(`[upsert] Captured financial extras before filtering:`, Object.keys(financialExtras));
+      console.log(`[upsert] Captured extras before filtering:`, Object.keys(financialExtras));
     }
 
     // ── Helper: persist financial extras to KV via server PATCH ────────

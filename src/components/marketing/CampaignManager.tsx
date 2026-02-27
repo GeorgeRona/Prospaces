@@ -11,7 +11,7 @@ import { Badge } from '../ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
 import { Plus, Mail, MessageSquare, Facebook, Instagram, MoreVertical, Edit, Pause, Play, Copy, Trash2, BarChart, Send, Globe, ExternalLink, ChevronDown } from 'lucide-react';
 import { campaignsAPI } from '../../utils/api';
-import { toast } from 'sonner';
+import { toast } from 'sonner@2.0.3';
 import { copyToClipboard } from '../../utils/clipboard';
 import type { User } from '../../App';
 import { canAdd, canChange, canDelete } from '../../utils/permissions';

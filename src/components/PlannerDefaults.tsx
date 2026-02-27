@@ -19,7 +19,7 @@ import {
 import { InventoryCombobox } from './InventoryCombobox';
 import { PlannerDefaultsQuickHelp } from './PlannerDefaultsQuickHelp';
 import { STANDARD_LUMBER_LENGTHS } from '../utils/lumberLengths';
-import { toast } from 'sonner';
+import { toast } from 'sonner@2.0.3';
 
 interface PlannerDefaultsProps {
   organizationId: string;

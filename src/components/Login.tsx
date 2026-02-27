@@ -140,6 +140,38 @@ export function Login({ onLogin, onBack }: LoginProps) {
               .maybeSingle();
             
             if (existingProfile) {
+              // Profile exists — the issue may be an unconfirmed email in Supabase Auth.
+              // Try to auto-confirm via server endpoint, then retry sign-in once.
+              console.log('🔧 Profile exists but login failed. Attempting auto-confirm email fix...');
+              try {
+                const confirmResp = await fetch(
+                  `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/confirm-email`,
+                  {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${publicAnonKey}` },
+                    body: JSON.stringify({ email }),
+                  }
+                );
+                if (confirmResp.ok) {
+                  console.log('✅ Email confirmed server-side. Retrying sign-in...');
+                  // Retry sign-in after confirming email
+                  const { data: retryData, error: retryError } = await supabase.auth.signInWithPassword({ email, password });
+                  if (!retryError && retryData?.session && retryData?.user) {
+                    // Success! Replace signInData reference by re-assigning and continuing
+                    console.log('✅ Retry sign-in successful after email confirmation fix!');
+                    // We can't reassign const, so we throw a special marker to re-run
+                    // Instead, just proceed inline with the retry data
+                    Object.assign(signInData || {}, retryData);
+                    // Clear the error so we fall through to the success path
+                    // We need to break out of this error handler — use a goto-like pattern
+                    throw { __retrySuccess: true, signInData: retryData };
+                  }
+                }
+              } catch (confirmErr: any) {
+                if (confirmErr?.__retrySuccess) throw confirmErr;
+                console.warn('⚠️ Auto-confirm attempt failed:', confirmErr);
+              }
+
               if (!existingProfile.email_confirmed) {
                 throw new Error('EMAIL_NOT_CONFIRMED');
               } else {
@@ -147,6 +179,7 @@ export function Login({ onLogin, onBack }: LoginProps) {
               }
             }
           } catch (checkError: any) {
+            if (checkError?.__retrySuccess) throw checkError;
             if (checkError.message === 'EMAIL_NOT_CONFIRMED' || checkError.message === 'INVALID_CREDENTIALS') {
               throw checkError;
             }
@@ -164,158 +197,73 @@ export function Login({ onLogin, onBack }: LoginProps) {
 
       console.log('✅ Sign in successful!')
 
-      // Get user profile from database
-      let { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', signInData.user.id)
-        .single();
+      // Always call /profiles/ensure first — it finds or creates the profile,
+      // and auto-fixes org mismatches and missing needs_password_change from admin metadata
+      let profile: any = null;
 
-      console.log('📋 Profile fetched:', profile);
-      console.log('🔐 needs_password_change value:', profile?.needs_password_change);
-      console.log('🔐 needs_password_change type:', typeof profile?.needs_password_change);
+      try {
+        console.log('📋 Calling /profiles/ensure for profile resolution...');
+        const serverResp = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/profiles/ensure`,
+          {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${publicAnonKey}`,
+              'X-User-Token': signInData.session.access_token,
+            },
+          }
+        );
+        const serverResult = await serverResp.json();
+        console.log('Server /profiles/ensure response:', serverResp.status, serverResult);
 
-      // If profile doesn't exist, create it automatically
-      if (profileError || !profile) {
-        console.log('Profile not found, creating automatically...');
-        
-        // Create organization for new user
-        const orgId = crypto.randomUUID();
-        let orgIdToUse = orgId;
-        
-        try {
-          const { data: org, error: orgError } = await supabase
-            .from('organizations')
-            .insert({
-              id: orgId,
-              name: `${signInData.user.email?.split('@')[0]}'s Organization`,
-              created_at: new Date().toISOString(),
-            })
-            .select()
-            .single();
+        if (serverResp.ok && serverResult.profile) {
+          profile = serverResult.profile;
+          console.log('✅ Profile resolved via server:', profile.id, 'org:', profile.organization_id, 'needs_pw:', profile.needs_password_change);
 
-          if (orgError) {
-            // Check if it's an RLS policy error
-            if (orgError.code === '42501') {
-              console.log('⚠️ RLS policy blocking organization creation. Using fallback org ID.');
-            } else if (!orgError.message.includes('duplicate')) {
-              console.log('Organization creation issue:', orgError.message);
-            }
-          } else if (org) {
-            orgIdToUse = org.id;
-            console.log('✅ Organization created:', org);
-
-            // New self-registered org defaults to Single User mode
+          // If server created a new profile with a new org, set org mode to single
+          if (serverResult.created) {
             try {
-              await setOrgMode(orgIdToUse, 'single');
-              console.log('✅ Org mode set to single for new self-registered org:', orgIdToUse);
+              await setOrgMode(profile.organization_id, 'single');
+              console.log('✅ Org mode set to single for new self-registered org');
             } catch (modeErr) {
               console.warn('⚠️ Failed to set org mode to single (non-critical):', modeErr);
             }
           }
-        } catch (orgCreationError) {
-          console.log('Organization creation skipped. Using fallback org ID.');
-        }
-
-        // Create the profile
-        const { data: newProfile, error: newProfileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: signInData.user.id,
-            email: signInData.user.email || email,
-            name: signInData.user.user_metadata?.name || email.split('@')[0],
-            role: signInData.user.user_metadata?.role || 'standard_user',
-            organization_id: orgIdToUse,
-            status: 'active',
-            created_at: new Date().toISOString(),
-          })
-          .select()
-          .single();
-
-        if (newProfileError) {
-          // If profile already exists (duplicate email), fetch it instead
-          if (newProfileError.code === '23505') {
-            console.log('Profile already exists (duplicate email), fetching existing profile...');
-            const { data: existingProfile, error: fetchError } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('email', signInData.user.email || email)
-              .single();
-            
-            if (fetchError || !existingProfile) {
-              console.error('Failed to fetch existing profile:', fetchError);
-              throw new Error('Failed to retrieve user profile. Please try again or contact support.');
-            }
-            
-            // Check if the profile ID matches the auth user ID
-            if (existingProfile.id !== signInData.user.id) {
-              console.warn('⚠️ Profile ID mismatch detected!');
-              console.warn('Auth User ID:', signInData.user.id);
-              console.warn('Profile User ID:', existingProfile.id);
-              console.warn('Calling server to fix profile mismatch with elevated permissions...');
-              
-              // Call server endpoint to fix profile mismatch with elevated permissions
-              try {
-                const response = await fetch(
-                  `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/fix-profile-mismatch`,
-                  {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'Authorization': `Bearer ${publicAnonKey}`,
-                    },
-                    body: JSON.stringify({
-                      email: signInData.user.email || email,
-                      currentUserId: signInData.user.id,
-                      oldUserId: existingProfile.id,
-                    }),
-                  }
-                );
-
-                const result = await response.json();
-
-                if (!response.ok || !result.success) {
-                  console.error('❌ Server failed to fix profile mismatch:', result.error);
-                  // Fallback: use existing profile data with correct auth ID
-                  profile = {
-                    ...existingProfile,
-                    id: signInData.user.id,
-                  };
-                } else {
-                  console.log('✅ Server successfully fixed profile mismatch');
-                  profile = result.profile;
-                }
-              } catch (fetchError: any) {
-                console.error('❌ Failed to call server endpoint:', fetchError);
-                // Fallback: use existing profile data with correct auth ID
-                profile = {
-                  ...existingProfile,
-                  id: signInData.user.id,
-                };
-              }
-            } else {
-              profile = existingProfile;
-              console.log('✅ Using existing profile:', profile);
-            }
-          } else if (newProfileError.code === 'PGRST205' || newProfileError.code === '23503') {
-            // Check if it's a database structure error
-            console.error('❌ Database structure error creating profile:', newProfileError);
-            setShowDatabaseSetup(true);
-            throw new Error('Failed to create user profile. Please try again or contact support.');
-          } else {
-            // Log the full error details for debugging
-            console.error('❌ Error creating profile:', newProfileError);
-            console.error('Error code:', newProfileError.code);
-            console.error('Error message:', newProfileError.message);
-            console.error('Error details:', newProfileError.details);
-            console.error('Error hint:', newProfileError.hint);
-            throw new Error(`Failed to create user profile: ${newProfileError.message || 'Unknown error'}. Please try again or contact support.`);
+        } else if (serverResp.ok && serverResult.profileId) {
+          // Server created/found the profile but didn't return full data — re-fetch
+          const { data: refetched } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', signInData.user.id)
+            .maybeSingle();
+          if (refetched) {
+            profile = refetched;
+            console.log('✅ Profile re-fetched after server ensure:', profile.id);
           }
         } else {
-          profile = newProfile;
-          console.log('✅ Profile created successfully:', profile);
+          console.warn('⚠️ Server /profiles/ensure did not return profile:', serverResult.error);
         }
+      } catch (ensureErr) {
+        console.warn('Server-side profile ensure failed, falling back to client-side fetch:', ensureErr);
       }
+
+      // Fallback: fetch profile directly from client
+      if (!profile) {
+        console.log('📋 Falling back to client-side profile fetch...');
+        const { data: clientProfile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', signInData.user.id)
+          .maybeSingle();
+        profile = clientProfile;
+      }
+
+      if (!profile) {
+        throw new Error('Could not load or create your user profile. Please contact your administrator.');
+      }
+
+      console.log('🔐 needs_password_change value:', profile.needs_password_change);
+      console.log('🔐 needs_password_change type:', typeof profile.needs_password_change);
 
       // Check if user needs to change password
       if (profile.needs_password_change) {
@@ -324,9 +272,10 @@ export function Login({ onLogin, onBack }: LoginProps) {
         const user: User = {
           id: signInData.user.id,
           email: signInData.user.email || email,
-          name: profile.name || 'User',
+          full_name: profile.name || 'User',
           role: (profile.role as UserRole) || 'standard_user',
-          organizationId: profile.organization_id || 'default',
+          organization_id: profile.organization_id,
+          organizationId: profile.organization_id,
         };
         console.log('👤 Pending user object:', user);
         setPendingUser({ user, token: signInData.session.access_token });
@@ -347,9 +296,10 @@ export function Login({ onLogin, onBack }: LoginProps) {
       const user: User = {
         id: signInData.user.id,
         email: signInData.user.email || email,
-        name: profile.name || 'User',
+        full_name: profile.name || 'User',
         role: (profile.role as UserRole) || 'standard_user',
-        organizationId: profile.organization_id || 'default',
+        organization_id: profile.organization_id,
+        organizationId: profile.organization_id,
         avatar_url: avatarUrl,
       };
 
@@ -366,6 +316,84 @@ export function Login({ onLogin, onBack }: LoginProps) {
 
       onLogin(user, signInData.session.access_token);
     } catch (err: any) {
+      // Handle retry-success from auto-confirm flow: re-run the sign-in success path
+      if (err?.__retrySuccess && err.signInData) {
+        console.log('🔄 Processing retry-success after email confirmation fix');
+        try {
+          const retrySignIn = err.signInData;
+          let { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', retrySignIn.user.id)
+            .single();
+
+          if (!profile) {
+            // Delegate profile creation to server-side endpoint (uses service role key,
+            // properly handles org resolution, and sets needs_password_change from metadata)
+            console.log('🔄 Retry path: Profile not found. Delegating to server-side /profiles/ensure...');
+            try {
+              const serverResp = await fetch(
+                `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/profiles/ensure`,
+                {
+                  method: 'GET',
+                  headers: {
+                    'Authorization': `Bearer ${publicAnonKey}`,
+                    'X-User-Token': retrySignIn.session.access_token,
+                  },
+                }
+              );
+              const serverResult = await serverResp.json();
+              if (serverResp.ok && serverResult.profile) {
+                profile = serverResult.profile;
+                console.log('✅ Profile resolved via server in retry path:', profile.id);
+              } else if (serverResp.ok && serverResult.profileId) {
+                const { data: refetched } = await supabase
+                  .from('profiles')
+                  .select('*')
+                  .eq('id', retrySignIn.user.id)
+                  .maybeSingle();
+                if (refetched) profile = refetched;
+              }
+            } catch (ensureErr) {
+              console.warn('Server-side profile ensure failed in retry path:', ensureErr);
+            }
+          }
+
+          // Check if user needs to change password
+          if (profile?.needs_password_change) {
+            const user: User = {
+              id: retrySignIn.user.id,
+              email: retrySignIn.user.email || email,
+              full_name: profile.name || 'User',
+              role: (profile.role as UserRole) || 'standard_user',
+              organization_id: profile.organization_id,
+              organizationId: profile.organization_id,
+            };
+            setPendingUser({ user, token: retrySignIn.session.access_token });
+            setShowChangePassword(true);
+            setIsLoading(false);
+            return;
+          }
+
+          const user: User = {
+            id: retrySignIn.user.id,
+            email: retrySignIn.user.email || email,
+            full_name: profile?.name || 'User',
+            role: (profile?.role as UserRole) || 'standard_user',
+            organization_id: profile?.organization_id,
+            organizationId: profile?.organization_id,
+            avatar_url: profile?.avatar_url,
+          };
+          onLogin(user, retrySignIn.session.access_token);
+          return;
+        } catch (retryErr: any) {
+          console.error('Error in retry-success path:', retryErr);
+          setError('Sign in failed after email confirmation fix. Please try again.');
+          setIsLoading(false);
+          return;
+        }
+      }
+
       // Only log unexpected errors to console to avoid alarm
       if (err.message !== 'INVALID_CREDENTIALS' && 
           err.message !== 'EMAIL_NOT_CONFIRMED' && 

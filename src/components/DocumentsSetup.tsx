@@ -1,6 +1,6 @@
 import { Alert, AlertDescription } from './ui/alert';
 import { CheckCircle, AlertCircle, Database, FolderOpen, Copy, ExternalLink } from 'lucide-react';
-import { toast } from 'sonner';
+import { toast } from 'sonner@2.0.3';
 import { copyToClipboard } from '../utils/clipboard';
 
 const MIGRATION_SQL = `-- ============================================================================

@@ -15,7 +15,7 @@ import { Plus, TrendingUp, Star, Mail, MousePointer, FileText, Calendar, Edit, T
 import { Slider } from '../ui/slider';
 import type { User } from '../../App';
 import { getLeadScores, getLeadScoreStats, getScoringRules, createScoringRule, deleteScoringRule } from '../../utils/marketing-client';
-import { toast } from 'sonner';
+import { toast } from 'sonner@2.0.3';
 
 interface LeadScoringProps {
   user: User;
