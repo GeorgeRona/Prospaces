@@ -727,8 +727,8 @@ export function Inventory({ user }: InventoryProps) {
             />
           )}
           
-          {/* Duplicate Cleaner — always mounted; self-hides if no duplicates */}
-          {organizationId && (
+          {/* Duplicate Cleaner — only shown for admin/super_admin; self-hides if no duplicates */}
+          {organizationId && (user.role === 'admin' || user.role === 'super_admin') && (
             <InventoryDuplicateCleaner
               organizationId={organizationId}
               onCleanupComplete={() => {
