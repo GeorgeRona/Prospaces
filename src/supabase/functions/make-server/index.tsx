@@ -33,8 +33,11 @@ fixProfileMismatch(app);
 backgroundJobs(app);
 
 // Health check endpoint
+app.get('/', (c) => {
+  return c.json({ status: 'ok', app: 'ProSpaces CRM', server: 'make-server', timestamp: new Date().toISOString() });
+});
 app.get('/health', (c) => {
-  console.log('🏥 Health check endpoint hit');
+  console.log('Health check endpoint hit');
   return c.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 

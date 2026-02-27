@@ -185,6 +185,16 @@ export function MemberLogin({ onLogin, onBack }: MemberLoginProps) {
         organizationId: profile.organization_id,
       };
 
+      // Update last_login timestamp in profiles
+      try {
+        await supabase
+          .from('profiles')
+          .update({ last_login: new Date().toISOString(), status: 'active' })
+          .eq('id', signInData.user.id);
+      } catch (lastLoginErr) {
+        console.warn('⚠️ Failed to update last_login (non-critical):', lastLoginErr);
+      }
+
       onLogin(user, signInData.session.access_token);
     } catch (err: any) {
       console.error('Member login error:', err);

@@ -1,22 +1,11 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner@2.0.3';
 import { Security } from './Security';
-import { TestDataGenerator } from './TestDataGenerator';
 import { ThemeSelector } from './ThemeSelector';
-import { FindLarryContacts } from './FindLarryContacts';
-import { BidsTableMigration } from './BidsTableMigration';
-import { ThemeMigration } from './ThemeMigration';
-import { FullCRMDatabaseSetup } from './FullCRMDatabaseSetup';
-import { AddMissingColumns } from './AddMissingColumns';
-import { OrganizationFeatureMigration } from './OrganizationFeatureMigration';
 import { ProjectWizardSettings } from './ProjectWizardSettings';
-import { ReassignContacts } from './admin/ReassignContacts';
 import { DataDiagnostic } from './DataDiagnostic';
 import { AIToggleSwitch } from './AIToggleSwitch';
-import { EmailCustomFoldersMigration } from './EmailCustomFoldersMigration';
 import { PlannerDefaultsMigrationStatus } from './PlannerDefaultsMigrationStatus';
-import { TestUserDefaults } from './TestUserDefaults';
-import { PlannerMigrationValidator } from './PlannerMigrationValidator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -694,15 +683,12 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
             <TabsTrigger value="profile" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Profile</TabsTrigger>
             <TabsTrigger value="notifications" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Notifications</TabsTrigger>
             {canManageSettings && <TabsTrigger value="organization" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Organization</TabsTrigger>}
-            {canManageSettings && <TabsTrigger value="features" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Features</TabsTrigger>}
             {canAccessSecurity && <TabsTrigger value="permissions" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Permissions</TabsTrigger>}
             {canManageSettings && <TabsTrigger value="diagnostics" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Diagnostics</TabsTrigger>}
-            <TabsTrigger value="email-debug" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Email Status</TabsTrigger>
             <TabsTrigger value="appearance" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Appearance</TabsTrigger>
             {(userMode === 'single' || canManageSettings) && <TabsTrigger value="billing" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Billing</TabsTrigger>}
             {isSuperAdmin && <TabsTrigger value="billing-plans" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Billing Plans</TabsTrigger>}
             {canManageSettings && <TabsTrigger value="api-access" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">API Access</TabsTrigger>}
-            {canManageSettings && <TabsTrigger value="testdata" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Test Data</TabsTrigger>}
           </TabsList>
         </div>
 
@@ -1233,63 +1219,6 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
           </TabsContent>
         )}
 
-        {canManageSettings && (
-          <TabsContent value="features" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Eye className="h-5 w-5" />
-                  Module Features
-                </CardTitle>
-                <p className="text-sm text-gray-500 mt-2">
-                  Enable or disable modules for your organization. Changes take effect after users refresh their browser.
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="flex items-center justify-between py-3 border-b">
-                  <div className="space-y-0.5">
-                    <Label className="text-base">AI Suggestions</Label>
-                    <p className="text-sm text-gray-500">
-                      Intelligent task recommendations based on your CRM data
-                    </p>
-                    <p className="text-xs text-gray-400 font-mono mt-1">
-                      Organization ID: {user.organizationId}
-                    </p>
-                  </div>
-                  <AIToggleSwitch
-                    organizationId={user.organizationId}
-                    onOrganizationUpdate={onOrganizationUpdate}
-                    organization={organization}
-                  />
-                </div>
-
-                <Alert>
-                  <AlertDescription>
-                    <p className="text-sm font-medium mb-2">
-                      If you get an error when enabling features:
-                    </p>
-                    <ol className="list-decimal list-inside text-sm space-y-1">
-                      <li>Go to the <strong>Test Data</strong> tab</li>
-                      <li>Find the <strong>Organization Feature Migration</strong> card</li>
-                      <li>Click "Copy SQL" and run it in your Supabase SQL Editor</li>
-                      <li>Come back here and click "Enable AI Module" again</li>
-                      <li><strong>Refresh your browser</strong> (F5 or Cmd+R)</li>
-                    </ol>
-                  </AlertDescription>
-                </Alert>
-
-                <Alert className="bg-blue-50 border-blue-200">
-                  <AlertDescription>
-                    <p className="text-sm text-blue-900">
-                      <strong>Note:</strong> After enabling, you MUST refresh your browser to see the AI Suggestions menu item appear in the sidebar.
-                    </p>
-                  </AlertDescription>
-                </Alert>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        )}
-
         {canAccessSecurity && (
           <TabsContent value="permissions" className="space-y-4">
             <Security user={user} />
@@ -1300,9 +1229,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
           <DataDiagnostic />
         </TabsContent>
 
-        <TabsContent value="email-debug" className="space-y-4">
-          <EmailDebug />
-        </TabsContent>
+
 
         <TabsContent value="appearance" className="space-y-4">
           <Card>
@@ -1361,47 +1288,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
             <ApiAccess user={user} hasAccess={subHasFeature('api-access')} />
           </TabsContent>
         )}
-
-        {canManageSettings && (
-          <TabsContent value="testdata" className="space-y-4">
-            <BidsTableMigration />
-            
-            <TestDataGenerator />
-            
-            {/* Diagnostic Tool for Finding Lost Contacts */}
-            <FindLarryContacts />
-            
-            {/* Full CRM Database Setup */}
-            <FullCRMDatabaseSetup />
-            
-            {/* Add Missing Columns */}
-            <AddMissingColumns />
-            
-            {/* Organization Feature Migration */}
-            <OrganizationFeatureMigration />
-            
-            {/* Email Custom Folders Migration */}
-            <EmailCustomFoldersMigration />
-            
-            {/* Theme Migration */}
-            <ThemeMigration />
-            
-            {/* Reassign Contacts */}
-            <ReassignContacts />
-            
-            {/* Test User Defaults API */}
-            <TestUserDefaults 
-              userId={user.id}
-              organizationId={user.organizationId}
-            />
-            
-            {/* Comprehensive Planner Migration Validator */}
-            <PlannerMigrationValidator 
-              userId={user.id}
-              organizationId={user.organizationId}
-            />
-          </TabsContent>
-        )}
+        {/* end tabs */}
       </Tabs>
 
       {alert && (

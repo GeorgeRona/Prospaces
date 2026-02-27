@@ -157,6 +157,7 @@ export function Users({ user }: UsersProps) {
       const mappedUsers = data.map(user => ({
         ...user,
         organizationId: user.organization_id,
+        lastLogin: user.last_login,
       }));
 
       setUsers(mappedUsers);

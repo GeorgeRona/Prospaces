@@ -353,6 +353,17 @@ export function Login({ onLogin, onBack }: LoginProps) {
         avatar_url: avatarUrl,
       };
 
+      // Update last_login timestamp in profiles
+      try {
+        await supabase
+          .from('profiles')
+          .update({ last_login: new Date().toISOString(), status: 'active' })
+          .eq('id', signInData.user.id);
+        console.log('✅ last_login and status updated');
+      } catch (lastLoginErr) {
+        console.warn('⚠️ Failed to update last_login (non-critical):', lastLoginErr);
+      }
+
       onLogin(user, signInData.session.access_token);
     } catch (err: any) {
       // Only log unexpected errors to console to avoid alarm

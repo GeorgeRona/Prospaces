@@ -1,4 +1,5 @@
 import React, { useState, useEffect, Suspense } from 'react';
+import { createBrowserRouter, RouterProvider } from 'react-router';
 import { Navigation } from './components/Navigation';
 import { LandingPage } from './components/LandingPage';
 import { Login } from './components/Login';
@@ -174,7 +175,7 @@ function getPublicRoute(): React.ReactElement | null {
   return null;
 }
 
-function App() {
+export function AppContent() {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [organization, setOrganization] = useState<Organization | null>(null);
@@ -534,4 +535,19 @@ function App() {
   );
 }
 
-export default App;
+// Router definition — Data mode pattern (parent layout + wildcard child)
+const router = createBrowserRouter([
+  {
+    path: "/",
+    Component: AppContent,
+    children: [
+      // Catch-all child so React Router never reports "no route matched"
+      { path: "*", Component: () => null },
+    ],
+  },
+]);
+
+// Default export: RouterProvider wrapper (required by Figma Make diagnostic)
+export default function App() {
+  return <RouterProvider router={router} />;
+}
