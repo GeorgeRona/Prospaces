@@ -1,4 +1,5 @@
 import { Hono } from 'npm:hono';
+// Force reload
 import { cors } from 'npm:hono/cors';
 import { logger } from 'npm:hono/logger';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
@@ -12,6 +13,7 @@ import { contactsAPI } from './contacts-api.ts';
 import { inventoryDiagnostic } from './inventory-diagnostic.ts';
 import { auditAPI } from './audit-api.ts';
 import { tenantsAPI as tenantsAPIRoutes } from './tenants-api.ts';
+import { debugSubscriptions } from './debug-subscriptions.ts';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ProSpaces CRM — Consolidated Edge Function (v5 — 2025-02-21)
@@ -133,6 +135,9 @@ contactsAPI(app);
 
 // ── TENANTS (server-side CRUD bypassing RLS for super_admin) ──
 tenantsAPIRoutes(app);
+
+// ── DEBUG ROUTES ──
+debugSubscriptions(app);
 
 // ── ORG STATS (for Tenants / Organizations module) ─────────────────────
 // Returns user counts and contact counts per organization, bypassing RLS
@@ -2520,4 +2525,5 @@ app.all('*', (c) => {
 
 // ── Mount with prefix stripping for both deployment targets ─────────────
 console.log('[v5] ProSpaces CRM server starting — single-app architecture');
+
 Deno.serve(app.fetch);

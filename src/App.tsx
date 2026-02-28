@@ -1,4 +1,5 @@
 import React, { useState, useEffect, Suspense } from 'react';
+import { projectId } from './utils/supabase/info';
 import { createBrowserRouter, RouterProvider } from 'react-router';
 import { Navigation } from './components/Navigation';
 import { LandingPage } from './components/LandingPage';
@@ -549,5 +550,12 @@ const router = createBrowserRouter([
 
 // Default export: RouterProvider wrapper (required by Figma Make diagnostic)
 export default function App() {
+  useEffect(() => {
+    // Auto-fix organization ID mismatch for RONA Atlantic
+    fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/fix-rona-org`, {
+      method: 'POST',
+    }).catch(console.error);
+  }, []);
+
   return <RouterProvider router={router} />;
 }

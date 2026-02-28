@@ -9,6 +9,7 @@ import { CancelConfirmDialog } from './CancelConfirmDialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Card, CardContent } from '../ui/card';
 import { Badge } from '../ui/badge';
+import { Button } from '../ui/button';
 import { Alert, AlertDescription } from '../ui/alert';
 import { Loader2, CreditCard, Receipt, LayoutGrid, AlertTriangle, Sparkles } from 'lucide-react';
 import type { User } from '../../App';
@@ -165,9 +166,11 @@ export function SubscriptionBilling({ user, planRefreshKey }: SubscriptionBillin
       {/* Demo Banner */}
       <Alert className="border-amber-200 bg-amber-50">
         <Sparkles className="h-4 w-4 text-amber-600" />
-        <AlertDescription className="text-amber-800">
-          <strong>Demo Mode:</strong> This subscription system uses demonstration pricing. No real charges are processed.
-          Payment information is simulated for testing purposes.
+        <AlertDescription className="text-amber-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <span>
+            <strong>Demo Mode:</strong> This subscription system uses demonstration pricing. No real charges are processed.
+            Payment information is simulated for testing purposes.
+          </span>
         </AlertDescription>
       </Alert>
 

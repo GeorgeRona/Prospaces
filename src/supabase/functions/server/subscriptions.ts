@@ -891,4 +891,45 @@ export function subscriptions(app: Hono) {
     }
   });
 
+  // POST /subscriptions/fix-mismatch — finds the correct org with Enterprise plan and moves user there
+  app.post(`${PREFIX}/subscriptions/fix-mismatch`, async (c) => {
+    try {
+      const accessToken = extractUserToken(c);
+      if (!accessToken) return c.json({ error: 'Unauthorized' }, 401);
+
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      );
+
+      const { data: { user }, error } = await supabase.auth.getUser(accessToken);
+      if (error || !user) return c.json({ error: 'Unauthorized' }, 401);
+
+      // Find ANY subscription with 'enterprise' plan
+      const allSubs: any[] = await kv.getByPrefix('subscription:');
+      const enterpriseSub = allSubs.find(sub => sub.plan_id === 'enterprise');
+
+      if (!enterpriseSub) {
+        return c.json({ error: 'No Enterprise subscription found in system' }, 404);
+      }
+
+      const correctOrgId = enterpriseSub.organization_id;
+      
+      // Update profile
+      await supabase.from('profiles')
+        .update({ organization_id: correctOrgId })
+        .eq('id', user.id);
+        
+      // Update metadata
+      await supabase.auth.admin.updateUserById(user.id, {
+        user_metadata: { organizationId: correctOrgId }
+      });
+
+      return c.json({ success: true, message: 'Moved to Enterprise organization', orgId: correctOrgId });
+    } catch (error: any) {
+      console.error('[subscriptions] Error fixing mismatch:', error);
+      return c.json({ error: error.message }, 500);
+    }
+  });
+
 }
