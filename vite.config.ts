@@ -10,6 +10,7 @@
       alias: {
         'sonner@2.0.3': 'sonner',
         'react-hook-form@7.55.0': 'react-hook-form',
+        'figma:asset/be5b4222007ecc637bb5194974d9567e1b72e1de.png': path.resolve(__dirname, './src/assets/be5b4222007ecc637bb5194974d9567e1b72e1de.png'),
         '@supabase/supabase-js@2': '@supabase/supabase-js',
         '@jsr/supabase__supabase-js@2.49.8': '@jsr/supabase__supabase-js',
         '@jsr/supabase__supabase-js@2': '@jsr/supabase__supabase-js',

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
+import logo3d from 'figma:asset/be5b4222007ecc637bb5194974d9567e1b72e1de.png';
 import { 
   Building2, 
   Users, 
@@ -154,41 +155,53 @@ export function LandingPage({ onGetStarted, onMemberLogin }: LandingPageProps) {
 
   return (
     <div className="min-h-screen bg-white light">
-      {/* Top bar - Member Login */}
-      {onMemberLogin && (
-        <div className="absolute top-0 right-0 z-20 p-4 sm:p-6">
+      {/* Top bar - Logo and Member Login */}
+      <div className="absolute top-0 left-0 right-0 z-20 p-4 sm:p-6 flex justify-between items-center max-w-7xl mx-auto w-full">
+        <div className="flex items-center gap-3">
+          <img src={logo3d} alt="ProSpaces Logo" className="h-10 w-10 sm:h-12 sm:w-12" />
+          <span className="text-xl font-bold text-gray-900 tracking-tight hidden sm:block">ProSpaces CRM</span>
+        </div>
+
+        {onMemberLogin && (
           <button
             onClick={onMemberLogin}
-            className="text-sm font-medium text-white/70 hover:text-white transition-colors flex items-center gap-1.5"
+            className="text-sm font-medium text-gray-600 hover:text-purple-600 transition-colors flex items-center gap-2 bg-white/80 hover:bg-gray-50 backdrop-blur-md px-5 py-2.5 rounded-full border border-gray-200 shadow-sm"
           >
-            <Lock className="h-3.5 w-3.5" />
+            <Lock className="h-4 w-4" />
             Member Login
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Hero Section */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600">
-        <div className="absolute inset-0 bg-black/10"></div>
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 sm:py-32">
+      <div className="relative overflow-hidden bg-white">
+        {/* Subtle background blob for visual interest but keeping center white for logo */}
+        <div className="absolute top-0 right-0 -mr-20 -mt-20 w-96 h-96 bg-purple-100 rounded-full blur-3xl opacity-50"></div>
+        <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-96 h-96 bg-blue-100 rounded-full blur-3xl opacity-50"></div>
+
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-16 sm:pt-40 sm:pb-24">
           <div className="text-center">
-            <div className="inline-flex items-center gap-3 mb-8">
-              <div className="h-16 w-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                <Building2 className="h-10 w-10 text-white" />
-              </div>
-              <h1 className="text-5xl sm:text-6xl text-white">ProSpaces CRM</h1>
+            <div className="flex flex-col items-center justify-center mb-10">
+              <img 
+                src={logo3d} 
+                alt="ProSpaces Logo" 
+                className="relative h-40 w-40 sm:h-52 sm:w-52 hover:scale-105 transition-transform duration-500 ease-out"
+              />
             </div>
-            <p className="text-xl sm:text-2xl text-white/90 mb-4 max-w-3xl mx-auto">
+            <h1 className="text-5xl sm:text-7xl text-gray-900 font-bold tracking-tight mb-6">
+              ProSpaces CRM
+            </h1>
+            <p className="text-xl sm:text-2xl text-gray-600 mb-4 max-w-3xl mx-auto">
               Complete solution for sales, marketing, and project management. Designed from the ground up for the Home Renovations Industry.
             </p>
-            <p className="text-lg text-white/80 mb-12 max-w-2xl mx-auto">
+            <p className="text-lg text-gray-500 mb-12 max-w-2xl mx-auto">
               Streamline your business operations with our all-in-one CRM platform. 
               Track opportunities, manage contacts, automate marketing, and close more deals.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button 
                 onClick={onGetStarted}
-                className="bg-white text-purple-600 hover:bg-gray-100 px-8 py-6 text-lg group"
+                className="bg-purple-600 text-white hover:bg-purple-700 px-8 py-6 text-lg group shadow-lg shadow-purple-200"
               >
                 Get Started Free
                 <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
@@ -196,22 +209,15 @@ export function LandingPage({ onGetStarted, onMemberLogin }: LandingPageProps) {
             </div>
           </div>
         </div>
-
-        {/* Decorative waves */}
-        <div className="absolute bottom-0 left-0 right-0">
-          <svg viewBox="0 0 1440 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M0 120L60 110C120 100 240 80 360 70C480 60 600 60 720 65C840 70 960 80 1080 85C1200 90 1320 90 1380 90L1440 90V120H1380C1320 120 1200 120 1080 120C960 120 840 120 720 120C600 120 480 120 360 120C240 120 120 120 60 120H0V120Z" fill="white"/>
-          </svg>
-        </div>
       </div>
 
       {/* Stats Section */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-16 relative z-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-24">
           {stats.map((stat, index) => {
             const Icon = stat.icon;
             return (
-              <Card key={index} className="border-0 shadow-lg">
+              <Card key={index} className="border border-gray-100 shadow-xl">
                 <CardContent className="pt-6 text-center">
                   <Icon className="h-8 w-8 mx-auto mb-2 text-purple-600" />
                   <p className="text-3xl font-bold text-gray-900 mb-1">{stat.value}</p>
@@ -319,10 +325,8 @@ export function LandingPage({ onGetStarted, onMemberLogin }: LandingPageProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="flex items-center gap-3 mb-4 md:mb-0">
-              <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-                <Building2 className="h-6 w-6 text-white" />
-              </div>
-              <span className="text-xl">ProSpaces CRM</span>
+              <img src={logo3d} alt="ProSpaces Logo" className="h-10 w-10 rounded-lg" />
+              <span className="text-xl font-bold">ProSpaces CRM</span>
             </div>
             <div className="flex flex-col items-center md:items-end gap-2">
               <div className="flex items-center gap-4 text-sm">
