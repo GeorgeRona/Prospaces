@@ -974,8 +974,8 @@
     margin-top: auto;
   }
 
-  .-mr-1 {
-    margin-right: calc(var(--spacing) * -1);
+  .-mr-2 {
+    margin-right: calc(var(--spacing) * -2);
   }
 
   .-mr-20 {
@@ -2388,6 +2388,11 @@
     border-left-width: 4px;
   }
 
+  .border-l-\[3px\] {
+    border-left-style: var(--tw-border-style);
+    border-left-width: 3px;
+  }
+
   .border-dashed {
     --tw-border-style: dashed;
     border-style: dashed;
@@ -2658,6 +2663,10 @@
     }
   }
 
+  .border-yellow-100 {
+    border-color: var(--color-yellow-100);
+  }
+
   .border-yellow-200 {
     border-color: var(--color-yellow-200);
   }
@@ -2674,8 +2683,8 @@
     border-color: var(--color-yellow-500);
   }
 
-  .border-t-blue-600 {
-    border-top-color: var(--color-blue-600);
+  .border-t-purple-600 {
+    border-top-color: var(--color-purple-600);
   }
 
   .border-t-transparent {
@@ -5461,12 +5470,6 @@
   }
 
   @media (hover: hover) {
-    .hover\:bg-indigo-100:hover {
-      background-color: var(--color-indigo-100);
-    }
-  }
-
-  @media (hover: hover) {
     .hover\:bg-indigo-600:hover {
       background-color: var(--color-indigo-600);
     }
@@ -7578,6 +7581,12 @@
   }
 
   @media print {
+    .print\:max-w-none {
+      max-width: none;
+    }
+  }
+
+  @media print {
     .print\:origin-top {
       transform-origin: top;
     }
@@ -7642,9 +7651,30 @@
   }
 
   @media print {
+    .print\:border-0 {
+      border-style: var(--tw-border-style);
+      border-width: 0;
+    }
+  }
+
+  @media print {
     .print\:border-2 {
       border-style: var(--tw-border-style);
       border-width: 2px;
+    }
+  }
+
+  @media print {
+    .print\:border-t-2 {
+      border-top-style: var(--tw-border-style);
+      border-top-width: 2px;
+    }
+  }
+
+  @media print {
+    .print\:border-b-2 {
+      border-bottom-style: var(--tw-border-style);
+      border-bottom-width: 2px;
     }
   }
 
@@ -7661,14 +7691,38 @@
   }
 
   @media print {
+    .print\:bg-slate-100 {
+      background-color: var(--color-slate-100);
+    }
+  }
+
+  @media print {
+    .print\:bg-transparent {
+      background-color: #0000;
+    }
+  }
+
+  @media print {
     .print\:bg-white {
       background-color: var(--color-white);
     }
   }
 
   @media print {
+    .print\:p-0 {
+      padding: calc(var(--spacing) * 0);
+    }
+  }
+
+  @media print {
     .print\:p-2 {
       padding: calc(var(--spacing) * 2);
+    }
+  }
+
+  @media print {
+    .print\:p-6 {
+      padding: calc(var(--spacing) * 6);
     }
   }
 

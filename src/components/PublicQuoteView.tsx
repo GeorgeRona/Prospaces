@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle, Printer, Download, Mail } from 'lucide-react';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from './ui/card';
+import logo3d from 'figma:asset/be5b4222007ecc637bb5194974d9567e1b72e1de.png';
 
 interface PublicQuoteViewProps {
   // No props needed, reads from URL
@@ -114,78 +115,93 @@ export function PublicQuoteView() {
   const projectName = data.projectName || data.project_name;
 
   return (
-    <div className="min-h-screen bg-slate-100 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto">
-        <Card className="shadow-lg border-t-4 border-t-blue-600">
-          <CardHeader className="bg-slate-50 border-b">
+    <div className="min-h-screen bg-slate-100 py-8 px-4 sm:px-6 lg:px-8 print:bg-white print:p-0">
+      <div className="max-w-4xl mx-auto print:max-w-none">
+        
+        {/* Actions Bar - Hidden on Print */}
+        <div className="mb-6 flex justify-between items-center print:hidden">
+          <div className="flex items-center gap-3">
+             <img src={logo3d} alt="ProSpaces Logo" className="h-8 w-8 rounded-lg" />
+             <span className="font-bold text-slate-700">ProSpaces CRM</span>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => window.print()}>
+              <Printer className="h-4 w-4 mr-2" />
+              Print
+            </Button>
+            <Button onClick={() => window.print()}>
+              <Download className="h-4 w-4 mr-2" />
+              Download PDF
+            </Button>
+          </div>
+        </div>
+
+        <Card className="shadow-lg border-t-4 border-t-purple-600 print:shadow-none print:border-0">
+          <CardHeader className="bg-slate-50 border-b print:bg-white print:border-b-2">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900">{title}</h1>
-                    <p className="text-sm text-slate-500 mt-1">
-                        Issued: {new Date(data.created_at || data.createdAt).toLocaleDateString()}
-                    </p>
+                <div className="flex items-center gap-4">
+                    <img src={logo3d} alt="Company Logo" className="h-16 w-16 object-contain rounded-xl" />
+                    <div>
+                        <h1 className="text-2xl font-bold text-slate-900">{title}</h1>
+                        <p className="text-sm text-slate-500 mt-1">
+                            Issued: {new Date(data.created_at || data.createdAt).toLocaleDateString()}
+                        </p>
+                    </div>
                 </div>
                 <div className="text-right">
-                    <div className="text-sm text-slate-500">Total Amount</div>
-                    <div className="text-3xl font-bold text-blue-600">{formatCurrency(totalAmount)}</div>
+                    <div className="text-sm text-slate-500 uppercase tracking-wider font-semibold">Total Amount</div>
+                    <div className="text-3xl font-bold text-purple-600">{formatCurrency(totalAmount)}</div>
+                    <div className="text-xs text-slate-400 mt-1">{data.status === 'accepted' ? 'Paid / Accepted' : 'Valid until ' + new Date(validUntil).toLocaleDateString()}</div>
                 </div>
             </div>
           </CardHeader>
           <CardContent className="p-0">
             {/* Header / Meta Info */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
+            <div className="grid grid-cols-2 gap-8 p-8 print:p-6">
                 <div>
-                    <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2">To</h3>
-                    <div className="font-medium">{contactName}</div>
+                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Bill To</h3>
+                    <div className="font-semibold text-lg text-slate-900">{contactName}</div>
                     <div className="text-slate-600">{contactEmail}</div>
                 </div>
-                {validUntil && (
-                    <div>
-                        <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2">Valid Until</h3>
-                        <div>{new Date(validUntil).toLocaleDateString()}</div>
-                    </div>
-                )}
+                <div className="text-right">
+                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Payable To</h3>
+                    <div className="font-semibold text-lg text-slate-900">{organizationName}</div>
+                    <div className="text-slate-600">ProSpaces CRM Platform</div>
+                </div>
             </div>
 
             {/* Line Items Table */}
             <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                     <thead>
-                        <tr className="bg-slate-50 border-y border-slate-200">
-                            <th className="py-3 px-6 font-semibold text-slate-700">Item</th>
-                            <th className="py-3 px-6 font-semibold text-slate-700">Description</th>
-                            <th className="py-3 px-6 font-semibold text-slate-700 text-center">Qty</th>
-                            <th className="py-3 px-6 font-semibold text-slate-700 text-right">Price</th>
-                            <th className="py-3 px-6 font-semibold text-slate-700 text-right">Total</th>
+                        <tr className="bg-slate-50 border-y border-slate-200 print:bg-slate-100">
+                            <th className="py-3 px-6 font-semibold text-slate-700 text-sm uppercase tracking-wider">Item</th>
+                            <th className="py-3 px-6 font-semibold text-slate-700 text-sm uppercase tracking-wider">Description</th>
+                            <th className="py-3 px-6 font-semibold text-slate-700 text-center text-sm uppercase tracking-wider">Qty</th>
+                            <th className="py-3 px-6 font-semibold text-slate-700 text-right text-sm uppercase tracking-wider">Price</th>
+                            <th className="py-3 px-6 font-semibold text-slate-700 text-right text-sm uppercase tracking-wider">Total</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                         {lineItems?.map((item: any, index: number) => (
-                            <tr key={index} className="hover:bg-slate-50/50">
-                                <td className="py-4 px-6 font-medium">{item.itemName || item.title || item.item_name || 'Item'}</td>
-                                <td className="py-4 px-6 text-slate-600">{item.description}</td>
-                                <td className="py-4 px-6 text-center">{item.quantity || 1}</td>
+                            <tr key={index} className="hover:bg-slate-50/50 print:break-inside-avoid">
+                                <td className="py-4 px-6 font-medium text-slate-800">{item.itemName || item.title || item.item_name || 'Item'}</td>
+                                <td className="py-4 px-6 text-slate-600 text-sm">{item.description}</td>
+                                <td className="py-4 px-6 text-center text-slate-600">{item.quantity || 1}</td>
                                 <td className="py-4 px-6 text-right font-mono text-slate-600">
                                     {formatCurrency(item.unitPrice || item.price || item.unit_price)}
                                 </td>
-                                <td className="py-4 px-6 text-right font-mono font-medium">
+                                <td className="py-4 px-6 text-right font-mono font-medium text-slate-900">
                                     {formatCurrency(item.total || ((item.quantity || 1) * (item.unitPrice || item.price || item.unit_price)))}
                                 </td>
                             </tr>
                         ))}
-                        {(!lineItems || lineItems.length === 0) && (
-                            <tr>
-                                <td colSpan={5} className="py-8 text-center text-slate-500">
-                                    No items listed.
-                                </td>
-                            </tr>
-                        )}
                     </tbody>
                 </table>
             </div>
 
             {/* Totals */}
-            <div className="p-6 bg-slate-50/50 border-t border-slate-200">
+            <div className="p-6 bg-slate-50/50 border-t border-slate-200 print:bg-transparent">
                 <div className="flex flex-col gap-2 ml-auto max-w-xs">
                     <div className="flex justify-between text-slate-600">
                         <span>Subtotal:</span>
@@ -203,7 +219,7 @@ export function PublicQuoteView() {
                             <span>-{formatCurrency(discountAmount)}</span>
                         </div>
                     )}
-                    <div className="flex justify-between font-bold text-lg text-slate-900 border-t border-slate-300 pt-2 mt-2">
+                    <div className="flex justify-between font-bold text-xl text-slate-900 border-t-2 border-slate-300 pt-3 mt-2">
                         <span>Total:</span>
                         <span>{formatCurrency(totalAmount)}</span>
                     </div>
@@ -212,24 +228,28 @@ export function PublicQuoteView() {
             
             {/* Notes */}
             {data.notes && (
-                <div className="p-6 border-t border-slate-200">
-                    <h3 className="text-sm font-semibold text-slate-900 mb-2">Notes</h3>
-                    <p className="text-slate-600 text-sm whitespace-pre-wrap">{data.notes}</p>
+                <div className="p-6 border-t border-slate-200 print:break-inside-avoid">
+                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Notes</h3>
+                    <p className="text-slate-700 text-sm whitespace-pre-wrap bg-yellow-50 p-4 rounded-lg border border-yellow-100 print:border-0 print:bg-transparent print:p-0">
+                        {data.notes}
+                    </p>
                 </div>
             )}
             
              {/* Terms */}
-            {data.terms && (
-                <div className="p-6 border-t border-slate-200 bg-slate-50">
-                    <h3 className="text-sm font-semibold text-slate-900 mb-2">Terms & Conditions</h3>
-                    <p className="text-slate-600 text-xs whitespace-pre-wrap">{data.terms}</p>
+            {(data.terms || true) && (
+                <div className="p-6 border-t border-slate-200 bg-slate-50 print:bg-white print:border-t-2">
+                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Terms & Conditions</h3>
+                    <p className="text-slate-500 text-xs whitespace-pre-wrap leading-relaxed">
+                        {data.terms || "Payment is due within 30 days. Please include the quote number on your check. Thank you for your business!"}
+                    </p>
                 </div>
             )}
           </CardContent>
         </Card>
         
-        <div className="mt-8 text-center text-slate-500 text-sm">
-            &copy; {new Date().getFullYear()} {organizationName}. All rights reserved.
+        <div className="mt-8 text-center text-slate-400 text-xs print:hidden">
+            &copy; {new Date().getFullYear()} {organizationName}. Powered by ProSpaces CRM.
         </div>
       </div>
     </div>

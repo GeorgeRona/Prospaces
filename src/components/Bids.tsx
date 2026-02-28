@@ -1068,6 +1068,45 @@ export function Bids({ user }: BidsProps) {
     }).length,
   };
 
+  // 📊 Advanced Analytics: Win Rate & Pipeline
+  const winRate = useMemo(() => {
+    const closedDeals = quotes.filter(q => ['accepted', 'rejected', 'expired', 'completed'].includes(q.status));
+    if (closedDeals.length === 0) return 0;
+    const wins = closedDeals.filter(q => ['accepted', 'completed'].includes(q.status)).length;
+    return Math.round((wins / closedDeals.length) * 100);
+  }, [quotes]);
+
+  const pipelineValue = useMemo(() => {
+    return quotes
+      .filter(q => ['draft', 'sent', 'viewed'].includes(q.status))
+      .reduce((sum, q) => sum + q.total, 0);
+  }, [quotes]);
+
+  // 🤖 Automation: Check for expired quotes
+  useEffect(() => {
+    if (isLoading || quotes.length === 0) return;
+
+    const checkExpired = async () => {
+      const now = new Date();
+      const expiredQuotes = quotes.filter(q => {
+        const isValidDate = q.validUntil && !isNaN(new Date(q.validUntil).getTime());
+        return isValidDate && 
+               new Date(q.validUntil) < now && 
+               ['draft', 'sent', 'viewed'].includes(q.status);
+      });
+
+      if (expiredQuotes.length > 0) {
+        console.log(`🤖 Auto-expiring ${expiredQuotes.length} quotes...`);
+        for (const quote of expiredQuotes) {
+          await handleStatusChange(quote, 'expired');
+        }
+        showAlert('success', `Auto-expired ${expiredQuotes.length} overdue quotes`);
+      }
+    };
+
+    checkExpired();
+  }, [quotes.length, isLoading]); // Depend on length to avoid loops, assuming loadData updates it
+
   return (
     <PermissionGate user={user} module="bids" action="view">
     <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
@@ -1103,8 +1142,13 @@ export function Bids({ user }: BidsProps) {
               <div>
                 <p className="text-sm text-gray-600">Total Deals</p>
                 <p className="text-2xl text-gray-900 mt-1">{stats.total}</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Win Rate: <span className={winRate >= 50 ? "text-green-600 font-medium" : "text-orange-600"}>{winRate}%</span>
+                </p>
               </div>
-              <FileText className="h-8 w-8 text-blue-600" />
+              <div className="h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center">
+                <FileText className="h-5 w-5 text-blue-600" />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -1112,10 +1156,13 @@ export function Bids({ user }: BidsProps) {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Value</p>
-                <p className="text-2xl text-gray-900 mt-1">${stats.totalValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                <p className="text-sm text-gray-600">Pipeline Value</p>
+                <p className="text-2xl text-gray-900 mt-1">${pipelineValue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+                <p className="text-xs text-gray-400 mt-1">Active opportunities</p>
               </div>
-              <DollarSign className="h-8 w-8 text-green-600" />
+              <div className="h-10 w-10 rounded-full bg-indigo-50 flex items-center justify-center">
+                <ShoppingCart className="h-5 w-5 text-indigo-600" />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -1124,9 +1171,12 @@ export function Bids({ user }: BidsProps) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Accepted Value</p>
-                <p className="text-2xl text-gray-900 mt-1">${stats.acceptedValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+                <p className="text-2xl text-gray-900 mt-1">${stats.acceptedValue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
+                <p className="text-xs text-gray-400 mt-1">Closed won revenue</p>
               </div>
-              <DollarSign className="h-8 w-8 text-purple-600" />
+              <div className="h-10 w-10 rounded-full bg-green-50 flex items-center justify-center">
+                <DollarSign className="h-5 w-5 text-green-600" />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -1136,8 +1186,11 @@ export function Bids({ user }: BidsProps) {
               <div>
                 <p className="text-sm text-gray-600">Open Deals</p>
                 <p className="text-2xl text-gray-900 mt-1">{stats.open}</p>
+                 <p className="text-xs text-gray-400 mt-1">{stats.pending} pending sent</p>
               </div>
-              <Send className="h-8 w-8 text-orange-600" />
+              <div className="h-10 w-10 rounded-full bg-orange-50 flex items-center justify-center">
+                <Send className="h-5 w-5 text-orange-600" />
+              </div>
             </div>
           </CardContent>
         </Card>

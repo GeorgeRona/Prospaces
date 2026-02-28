@@ -5,7 +5,7 @@ import { TouchBackend } from 'react-dnd-touch-backend';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
-import { Calendar, DollarSign, User, MoreVertical, Eye, FileText, AlertCircle, Send } from 'lucide-react';
+import { Calendar, DollarSign, User, MoreVertical, Eye, FileText, AlertCircle, Send, Clock, TrendingUp } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from './ui/dropdown-menu';
 
 // Duplicate interface to avoid circular dependency
@@ -95,15 +95,39 @@ const DealCard = ({
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
+      maximumFractionDigits: 0,
     }).format(amount);
   };
+
+  // Calculate Probability
+  const getProbability = (status: string) => {
+    switch (status) {
+      case 'draft': return 10;
+      case 'sent': return 40;
+      case 'viewed': return 60;
+      case 'accepted': return 100;
+      case 'completed': return 100;
+      case 'rejected': return 0;
+      case 'expired': return 0;
+      default: return 0;
+    }
+  };
+  const probability = getProbability(quote.status);
+
+  // Calculate Urgency & Staleness
+  const daysUntilExpiration = Math.ceil((new Date(quote.validUntil).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+  const isUrgent = daysUntilExpiration > 0 && daysUntilExpiration <= 3;
+  const isExpired = daysUntilExpiration <= 0;
+  
+  const daysSinceUpdate = Math.floor((new Date().getTime() - new Date(quote.updatedAt).getTime()) / (1000 * 60 * 60 * 24));
+  const isStale = daysSinceUpdate > 7 && ['draft', 'sent', 'viewed'].includes(quote.status);
 
   return (
     <div
       ref={drag}
-      className={`mb-2 touch-none ${isDragging ? 'opacity-50' : 'opacity-100'}`}
+      className={`mb-3 touch-none ${isDragging ? 'opacity-50' : 'opacity-100'}`}
     >
-      <Card className="bg-white shadow-sm hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing border-l-4" 
+      <Card className="bg-white shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing border-l-[3px] group relative overflow-hidden" 
         style={{ 
           borderLeftColor: 
             quote.status === 'accepted' ? '#22c55e' : 
@@ -115,15 +139,35 @@ const DealCard = ({
             '#9ca3af' 
         }}
       >
-        <CardContent className="p-2 space-y-2">
+        <CardContent className="p-3 space-y-2.5">
           <div className="flex justify-between items-start gap-2">
-            <h4 className="font-semibold text-xs text-gray-900 line-clamp-2 leading-tight">
-              {quote.title}
-            </h4>
+            <div className="space-y-1">
+              <h4 className="font-medium text-sm text-gray-900 line-clamp-2 leading-tight group-hover:text-blue-600 transition-colors">
+                {quote.title}
+              </h4>
+              <div className="flex flex-wrap gap-1.5">
+                {isUrgent && (
+                  <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 border-orange-200 text-orange-600 bg-orange-50 flex items-center gap-1">
+                    <Clock className="h-2.5 w-2.5" />
+                    Expiring
+                  </Badge>
+                )}
+                {isStale && (
+                  <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 border-gray-200 text-gray-500 bg-gray-50">
+                    Stale ({daysSinceUpdate}d)
+                  </Badge>
+                )}
+                {quote.total > 5000 && (
+                  <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 border-green-200 text-green-600 bg-green-50">
+                    High Value
+                  </Badge>
+                )}
+              </div>
+            </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-6 w-6 p-0 -mr-1">
-                  <MoreVertical className="h-3 w-3" />
+                <Button variant="ghost" size="sm" className="h-6 w-6 p-0 -mr-2 text-gray-400 hover:text-gray-600">
+                  <MoreVertical className="h-3.5 w-3.5" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="bg-white">
@@ -145,29 +189,39 @@ const DealCard = ({
             </DropdownMenu>
           </div>
 
-          <div className="flex items-center justify-between text-xs text-gray-500">
-            <span className="font-mono">{quote.quoteNumber}</span>
-            <div className="flex items-center gap-1 font-medium text-gray-900">
-              <DollarSign className="h-3 w-3 text-gray-400" />
-              {formatCurrency(quote.total)}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-gray-900 font-semibold">
+              <span className="text-base">{formatCurrency(quote.total)}</span>
             </div>
+            {['draft', 'sent', 'viewed'].includes(quote.status) && (
+              <div className="flex items-center gap-1 text-[10px] text-gray-500" title="Win Probability">
+                <TrendingUp className={`h-3 w-3 ${probability > 50 ? 'text-green-500' : 'text-gray-400'}`} />
+                <span>{probability}%</span>
+              </div>
+            )}
           </div>
 
-          <div className="flex items-center gap-2 text-xs text-gray-600">
-            <User className="h-3 w-3 text-gray-400" />
+          <div className="flex items-center gap-2 text-xs text-gray-500">
+            <User className="h-3 w-3" />
             <span className="truncate max-w-[140px]">{quote.contactName || 'No Contact'}</span>
           </div>
 
-          <div className="flex items-center justify-between pt-1">
-            <div className="flex items-center gap-1 text-[10px] text-gray-400">
-              <Calendar className="h-3 w-3" />
-              {new Date(quote.createdAt).toLocaleDateString()}
+          <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-[10px] text-gray-400">
+            <div className="flex items-center gap-1">
+              <span className="font-mono">{quote.quoteNumber}</span>
+              <span>•</span>
+              <span>{new Date(quote.createdAt).toLocaleDateString()}</span>
             </div>
-            {isViewed && (
-              <Badge variant="secondary" className="h-5 px-1.5 text-[10px] bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-0 flex gap-1">
+            
+            {isViewed ? (
+              <div className="flex items-center gap-1 text-indigo-600 font-medium bg-indigo-50 px-1.5 py-0.5 rounded-full">
                 <Eye className="h-2.5 w-2.5" /> Viewed
-              </Badge>
-            )}
+              </div>
+            ) : quote.status === 'sent' ? (
+              <div className="flex items-center gap-1 text-blue-600 font-medium bg-blue-50 px-1.5 py-0.5 rounded-full">
+                <Send className="h-2.5 w-2.5" /> Sent
+              </div>
+            ) : null}
           </div>
         </CardContent>
       </Card>
