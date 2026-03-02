@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import type { User } from '../../App';
 import { createClient } from '../../utils/supabase/client';
+import { MetricCard } from '../MetricCard';
 
 interface ManagerSummaryReportsProps {
   user: User;
@@ -332,32 +333,24 @@ export function ManagerSummaryReports({ user, showCost = false }: ManagerSummary
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {kpis.map((kpi) => {
           const Icon = kpi.icon;
+          const colorMap: Record<string, string> = {
+            blue: 'bg-blue-600',
+            green: 'bg-green-600',
+            purple: 'bg-purple-600',
+            emerald: 'bg-emerald-600',
+            orange: 'bg-orange-500',
+            indigo: 'bg-indigo-600',
+          };
+          
           return (
-            <Card key={kpi.title}>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-600">{kpi.title}</p>
-                    <p className="text-2xl mt-2 text-gray-900">{kpi.value}</p>
-                    <div className="flex items-center gap-1 mt-2">
-                      {kpi.trend === 'up' ? (
-                        <TrendingUp className="h-3 w-3 text-green-600" />
-                      ) : (
-                        <TrendingDown className="h-3 w-3 text-red-600" />
-                      )}
-                      <span className={`text-xs ${
-                        kpi.trend === 'up' ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {kpi.change}
-                      </span>
-                    </div>
-                  </div>
-                  <div className={`h-12 w-12 rounded-lg bg-${kpi.color}-100 flex items-center justify-center`}>
-                    <Icon className={`h-6 w-6 text-${kpi.color}-600`} />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <MetricCard 
+              key={kpi.title}
+              title={kpi.title} 
+              value={kpi.value} 
+              icon={<Icon className="h-4 w-4" />}
+              className={`${colorMap[kpi.color] || 'bg-gray-600'} text-white`}
+              description={`${kpi.trend === 'up' ? '↑' : '↓'} ${kpi.change}`}
+            />
           );
         })}
       </div>

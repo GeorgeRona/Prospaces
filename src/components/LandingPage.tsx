@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
-import logo3d from 'figma:asset/be5b4222007ecc637bb5194974d9567e1b72e1de.png';
+import logo3d from 'figma:asset/4cd72a4f09d0fbe8ab643136b41fdb815e72afdb.png';
 import { 
   Building2, 
   Users, 

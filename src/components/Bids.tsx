@@ -36,6 +36,7 @@ import {
 import { useDebounce } from '../utils/useDebounce';
 import { advancedSearch } from '../utils/advanced-search';
 import { EmailQuoteDialog } from './EmailQuoteDialog';
+import { MetricCard } from './MetricCard';
 
 import { DealsKanban } from './DealsKanban';
 
@@ -1202,64 +1203,34 @@ export function Bids({ user }: BidsProps) {
 
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Deals</p>
-                <p className="text-2xl text-gray-900 mt-1">{stats.total}</p>
-                <p className="text-xs text-gray-400 mt-1">
-                  Win Rate: <span className={winRate >= 50 ? "text-green-600 font-medium" : "text-orange-600"}>{winRate}%</span>
-                </p>
-              </div>
-              <div className="h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center">
-                <FileText className="h-5 w-5 text-blue-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Pipeline Value</p>
-                <p className="text-2xl text-gray-900 mt-1">${pipelineValue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
-                <p className="text-xs text-gray-400 mt-1">Active opportunities</p>
-              </div>
-              <div className="h-10 w-10 rounded-full bg-indigo-50 flex items-center justify-center">
-                <ShoppingCart className="h-5 w-5 text-indigo-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Accepted Value</p>
-                <p className="text-2xl text-gray-900 mt-1">${stats.acceptedValue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</p>
-                <p className="text-xs text-gray-400 mt-1">Closed won revenue</p>
-              </div>
-              <div className="h-10 w-10 rounded-full bg-green-50 flex items-center justify-center">
-                <DollarSign className="h-5 w-5 text-green-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Open Deals</p>
-                <p className="text-2xl text-gray-900 mt-1">{stats.open}</p>
-                 <p className="text-xs text-gray-400 mt-1">{stats.pending} pending sent</p>
-              </div>
-              <div className="h-10 w-10 rounded-full bg-orange-50 flex items-center justify-center">
-                <Send className="h-5 w-5 text-orange-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <MetricCard 
+          title="Total Deals" 
+          value={stats.total.toString()}
+          icon={<FileText className="h-4 w-4" />}
+          className="bg-blue-600 text-white"
+          description={`Win Rate: ${winRate}%`}
+        />
+        <MetricCard 
+          title="Pipeline Value" 
+          value={`$${pipelineValue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
+          icon={<ShoppingCart className="h-4 w-4" />}
+          className="bg-indigo-600 text-white"
+          description="Active opportunities"
+        />
+        <MetricCard 
+          title="Accepted Value" 
+          value={`$${stats.acceptedValue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`}
+          icon={<DollarSign className="h-4 w-4" />}
+          className="bg-green-600 text-white"
+          description="Closed won revenue"
+        />
+        <MetricCard 
+          title="Open Deals" 
+          value={stats.open.toString()}
+          icon={<Send className="h-4 w-4" />}
+          className="bg-orange-500 text-white"
+          description={`${stats.pending} pending sent`}
+        />
       </div>
 
       {/* Filters */}

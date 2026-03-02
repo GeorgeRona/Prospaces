@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Badge } from '../ui/badge';
-import { TrendingUp, TrendingDown, Clock, DollarSign } from 'lucide-react';
+import { TrendingUp, TrendingDown, Clock, DollarSign, Target, FileText } from 'lucide-react';
 import type { User } from '../../App';
 import { createClient } from '../../utils/supabase/client';
+import { MetricCard } from '../MetricCard';
 
 interface BidProposalReportsProps {
   user: User;
@@ -164,65 +165,34 @@ export function BidProposalReports({ user, showCost = false }: BidProposalReport
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Overall Win Rate</p>
-                <p className="text-2xl mt-2 text-gray-900">{stats.winRate}%</p>
-                <div className="flex items-center gap-1 mt-2">
-                  <TrendingUp className="h-3 w-3 text-green-600" />
-                  <span className="text-xs text-green-600">+5% vs last month</span>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Deals Created</p>
-                <p className="text-2xl mt-2 text-gray-900">{stats.totalBids}</p>
-                <div className="flex items-center gap-1 mt-2">
-                  <TrendingUp className="h-3 w-3 text-green-600" />
-                  <span className="text-xs text-green-600">+12 this month</span>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Avg Deal Value</p>
-                <p className="text-2xl mt-2 text-gray-900">${(stats.avgValue / 1000).toFixed(0)}K</p>
-                <div className="flex items-center gap-1 mt-2">
-                  <TrendingUp className="h-3 w-3 text-green-600" />
-                  <span className="text-xs text-green-600">+$3K</span>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Avg Cycle Time</p>
-                <p className="text-2xl mt-2 text-gray-900">{stats.avgCycle} days</p>
-                <div className="flex items-center gap-1 mt-2">
-                  <TrendingDown className="h-3 w-3 text-green-600" />
-                  <span className="text-xs text-green-600">-2 days faster</span>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <MetricCard 
+          title="Overall Win Rate" 
+          value={`${stats.winRate}%`} 
+          icon={<TrendingUp className="h-4 w-4" />}
+          className="bg-blue-600 text-white"
+          description="↑ +5% vs last month"
+        />
+        <MetricCard 
+          title="Total Deals Created" 
+          value={stats.totalBids.toString()} 
+          icon={<FileText className="h-4 w-4" />}
+          className="bg-indigo-600 text-white"
+          description="↑ +12 this month"
+        />
+        <MetricCard 
+          title="Avg Deal Value" 
+          value={`$${(stats.avgValue / 1000).toFixed(0)}K`} 
+          icon={<DollarSign className="h-4 w-4" />}
+          className="bg-green-600 text-white"
+          description="↑ +$3K"
+        />
+        <MetricCard 
+          title="Avg Cycle Time" 
+          value={`${stats.avgCycle} days`} 
+          icon={<Clock className="h-4 w-4" />}
+          className="bg-orange-500 text-white"
+          description="↓ -2 days faster"
+        />
       </div>
 
       {/* Win Rate by Sales Rep */}

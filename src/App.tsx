@@ -35,6 +35,7 @@ const GaragePlanner = React.lazy(() => import('./components/planners/GaragePlann
 const ShedPlanner = React.lazy(() => import('./components/planners/ShedPlanner').then(m => ({ default: m.ShedPlanner })));
 const RoofPlanner = React.lazy(() => import('./components/planners/RoofPlanner').then(m => ({ default: m.RoofPlanner })));
 import { ThemeProvider } from './components/ThemeProvider';
+
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { PWAInstallPrompt } from './components/PWAInstallPrompt';
 import { FaviconGenerator } from './components/FaviconGenerator';
@@ -407,55 +408,42 @@ export function AppContent() {
     );
   }
 
-  if (!session || !user) {
-    const handleMemberLogin = async (user: User, token: string) => {
-      await initializePermissions(user.role);
-      if (user.organizationId || user.organization_id) {
-        const orgId = user.organizationId || user.organization_id;
-        const { data: org } = await supabase
-          .from('organizations')
-          .select('*')
-          .eq('id', orgId!)
-          .single();
-        if (org) setOrganization(org);
-      }
-      setUser(user);
-      setCurrentView('dashboard');
-    };
-
-    if (currentView === 'member-login') {
-      return (
-        <MemberLogin
-          onLogin={handleMemberLogin}
-          onBack={() => setCurrentView('landing')}
-        />
-      );
+  const handleMemberLogin = async (user: User, token: string) => {
+    await initializePermissions(user.role);
+    if (user.organizationId || user.organization_id) {
+      const orgId = user.organizationId || user.organization_id;
+      const { data: org } = await supabase
+        .from('organizations')
+        .select('*')
+        .eq('id', orgId!)
+        .single();
+      if (org) setOrganization(org);
     }
+    
+    setUser(user);
+    setCurrentView('dashboard');
+  };
 
-    return currentView === 'login' ? (
-      <Login onBack={() => setCurrentView('landing')} onLogin={async (user, token) => {
-        // Initialize permissions for this user's role BEFORE setting user state
-        await initializePermissions(user.role);
-        
-        // Load organization if user has one
-        if (user.organizationId || user.organization_id) {
-          const orgId = user.organizationId || user.organization_id;
-          const { data: org } = await supabase
-            .from('organizations')
-            .select('*')
-            .eq('id', orgId)
-            .single();
-
-          if (org) {
-            setOrganization(org);
-          }
-        }
-        
-        setUser(user);
-        setCurrentView('dashboard');
-      }} />
-    ) : (
-      <LandingPage onGetStarted={() => setCurrentView('login')} onMemberLogin={() => setCurrentView('member-login')} />
+  if (!session || !user) {
+    return (
+      <ErrorBoundary>
+        <ThemeProvider userId={user?.id}>
+          <Toaster />
+          {currentView === 'member-login' ? (
+            <MemberLogin
+              onLogin={handleMemberLogin}
+              onBack={() => setCurrentView('landing')}
+            />
+          ) : currentView === 'login' ? (
+            <Login 
+              onBack={() => setCurrentView('landing')} 
+              onLogin={handleMemberLogin} 
+            />
+          ) : (
+            <LandingPage onGetStarted={() => setCurrentView('login')} onMemberLogin={() => setCurrentView('member-login')} />
+          )}
+        </ThemeProvider>
+      </ErrorBoundary>
     );
   }
 

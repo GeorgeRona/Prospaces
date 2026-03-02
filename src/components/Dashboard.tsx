@@ -8,7 +8,13 @@ import {
   AlertCircle,
   CheckCircle2,
   Clock,
-  Calendar
+  Calendar,
+  TrendingUp,
+  Briefcase,
+  Target,
+  Users,
+  Layers,
+  BarChart3
 } from 'lucide-react';
 import { ExplicitChartContainer } from './ui/ExplicitChartContainer';
 import { 
@@ -21,7 +27,10 @@ import {
   PieChart, 
   Pie, 
   Cell, 
-  Legend 
+  Legend,
+  ResponsiveContainer,
+  AreaChart,
+  Area
 } from 'recharts';
 import { bidsAPI, quotesAPI, appointmentsAPI, tasksAPI } from '../utils/api';
 import { canView } from '../utils/permissions';
@@ -30,6 +39,8 @@ import { createClient } from '../utils/supabase/client';
 import type { User } from '../App';
 import { PermissionGate } from './PermissionGate';
 import { DailyBriefingPopup } from './DailyBriefingPopup';
+import { useTheme } from './ThemeProvider';
+import { MetricCard } from './MetricCard';
 
 interface DashboardProps {
   user: User;
@@ -38,6 +49,7 @@ interface DashboardProps {
 }
 
 export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
+  const { theme } = useTheme();
   const [metrics, setMetrics] = useState({
     totalSales: 0,
     winRate: 0,
@@ -311,177 +323,231 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
   };
 
   // Colors for charts
-  const PIPELINE_COLORS = ['#0ea5e9', '#6366f1', '#8b5cf6', '#ec4899', '#14b8a6'];
-  const LOSS_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#10b981'];
+  const PIPELINE_COLORS = [
+    theme.colors.primary, 
+    theme.colors.info, 
+    theme.colors.accent, 
+    theme.colors.success, 
+    theme.colors.warning
+  ];
+  
+  const LOSS_COLORS = [
+    theme.colors.error, 
+    theme.colors.warning, 
+    theme.colors.info, 
+    theme.colors.textMuted, 
+    theme.colors.primary
+  ];
 
   return (
     <PermissionGate user={user} module="dashboard" action="view">
-    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 bg-gray-50 min-h-screen">
+    <div className="p-4 sm:p-6 space-y-6 min-h-screen bg-background text-foreground">
       
       {/* Daily AI Briefing Popup */}
       <DailyBriefingPopup user={user} onNavigate={onNavigate} organization={organization} />
 
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+        <div className="flex items-center space-x-2">
+          <Button variant="outline" size="sm" onClick={loadDashboardData} disabled={isLoading}>
+            <Activity className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        </div>
+      </div>
+
       {/* Top Metrics Row 1 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard 
-          title="Total sales" 
+          title="Total Sales" 
           value={`$${(metrics.totalSales / 1000).toFixed(2)}k`} 
-          className="bg-indigo-600 text-white min-w-0" 
+          icon={<DollarSign className="h-4 w-4" />}
+          className="bg-indigo-600 text-white"
+          description="Total revenue from won deals"
         />
         <MetricCard 
-          title="Win rate" 
+          title="Win Rate" 
           value={`${metrics.winRate.toFixed(1)}%`} 
-          className="bg-blue-900 text-white min-w-0" 
+          icon={<TrendingUp className="h-4 w-4" />}
+          className="bg-blue-900 text-white"
+          description="Percentage of closed deals won"
         />
         <MetricCard 
-          title="Close rate" 
+          title="Close Rate" 
           value={`${metrics.closeRate.toFixed(1)}%`} 
-          className="bg-sky-600 text-white min-w-0" 
+          icon={<Target className="h-4 w-4" />}
+          className="bg-sky-600 text-white"
+          description="Estimated conversion rate"
         />
         <MetricCard 
-          title="Avg days to close" 
+          title="Avg Days to Close" 
           value={metrics.avgDaysToClose.toFixed(1)} 
-          className="bg-teal-500 text-white min-w-0" 
+          icon={<Clock className="h-4 w-4" />}
+          className="bg-teal-500 text-white"
+          description="Average deal duration"
         />
       </div>
 
       {/* Top Metrics Row 2 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard 
-          title="Pipeline value" 
+          title="Pipeline Value" 
           value={`$${(metrics.pipelineValue / 1000).toFixed(2)}k`} 
-          className="bg-indigo-500 text-white min-w-0" 
+          icon={<BarChart3 className="h-4 w-4" />}
+          className="bg-indigo-500 text-white"
+          description="Total value of open deals"
         />
         <MetricCard 
-          title="Open deals" 
+          title="Open Deals" 
           value={metrics.openDeals.toString()} 
-          className="bg-blue-800 text-white min-w-0" 
+          icon={<Briefcase className="h-4 w-4" />}
+          className="bg-blue-800 text-white"
+          description="Active opportunities"
         />
         <MetricCard 
-          title="Weighted value" 
+          title="Weighted Value" 
           value={`$${(metrics.weightedValue / 1000).toFixed(2)}k`} 
-          className="bg-sky-500 text-white min-w-0" 
+          icon={<Layers className="h-4 w-4" />}
+          className="bg-sky-500 text-white"
+          description="Probability-adjusted value"
         />
         <MetricCard 
-          title="Avg open deal age" 
+          title="Avg Deal Age" 
           value={metrics.avgOpenDealAge.toFixed(1)} 
-          className="bg-emerald-500 text-white min-w-0" 
+          icon={<Calendar className="h-4 w-4" />}
+          className="bg-emerald-500 text-white"
+          description="Days since creation"
         />
       </div>
 
       {/* Charts Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-7 gap-6">
         
-        {/* Won Deals Trend (Line Chart) - Spans 2 cols */}
-        <Card className="lg:col-span-2 shadow-sm border-0 min-w-0">
+        {/* Won Deals Trend (Line Chart) - Spans 4 cols */}
+        <Card className="lg:col-span-4 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-gray-700">Won deals (last 12 months)</CardTitle>
+            <CardTitle>Won Deals Trend</CardTitle>
           </CardHeader>
           <CardContent>
-            {/* Absolute positioning trick for Recharts */}
-            <div className="relative h-[300px] w-full min-w-0">
-              <div className="absolute inset-0">
-                <ExplicitChartContainer>
-                  <LineChart data={charts.wonDeals} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#6b7280'}} />
-                    <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{fill: '#6b7280'}} width={40} />
-                    <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{fill: '#6b7280'}} width={40} />
-                    <Tooltip />
-                    <Legend />
-                    <Line yAxisId="left" type="monotone" dataKey="value" stroke="#0ea5e9" strokeWidth={3} dot={{r: 4}} name="Closed Value ($)" />
-                    <Line yAxisId="right" type="monotone" dataKey="deals" stroke="#38bdf8" strokeWidth={3} dot={{r: 4}} name="Won Deals (Qty)" />
-                  </LineChart>
-                </ExplicitChartContainer>
-              </div>
+            <div className="h-[300px] w-full">
+              <ExplicitChartContainer>
+                <AreaChart data={charts.wonDeals} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={theme.colors.primary} stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor={theme.colors.primary} stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: 'var(--muted-foreground)'}} fontSize={12} />
+                  <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{fill: 'var(--muted-foreground)'}} width={40} fontSize={12} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)', borderRadius: '8px' }}
+                    itemStyle={{ color: 'var(--foreground)' }}
+                  />
+                  <Legend />
+                  <Area 
+                    yAxisId="left" 
+                    type="monotone" 
+                    dataKey="value" 
+                    stroke={theme.colors.primary} 
+                    fillOpacity={1} 
+                    fill="url(#colorValue)" 
+                    name="Closed Value ($)" 
+                  />
+                </AreaChart>
+              </ExplicitChartContainer>
             </div>
           </CardContent>
         </Card>
 
-        {/* Sales Pipeline (Donut) - Spans 1 col */}
-        <Card className="lg:col-span-1 shadow-sm border-0 min-w-0">
+        {/* Sales Pipeline (Donut) - Spans 3 cols */}
+        <Card className="lg:col-span-3 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-gray-700">Sales pipeline</CardTitle>
+            <CardTitle>Sales Pipeline</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="relative h-[300px] w-full min-w-0">
-              <div className="absolute inset-0">
-                <ExplicitChartContainer>
-                  <PieChart margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-                    <Pie
-                      data={charts.pipeline}
-                      cx="50%"
-                      cy="40%"
-                      innerRadius="50%"
-                      outerRadius="70%"
-                      paddingAngle={5}
-                      dataKey="value"
-                    >
-                      {charts.pipeline.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={PIPELINE_COLORS[index % PIPELINE_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend verticalAlign="bottom" height={72} iconType="circle" wrapperStyle={{ bottom: 0 }} />
-                  </PieChart>
-                </ExplicitChartContainer>
-              </div>
+            <div className="h-[300px] w-full flex items-center justify-center">
+              <ExplicitChartContainer>
+                <PieChart>
+                  <Pie
+                    data={charts.pipeline}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {charts.pipeline.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={PIPELINE_COLORS[index % PIPELINE_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)', borderRadius: '8px' }}
+                    itemStyle={{ color: 'var(--foreground)' }}
+                  />
+                  <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                </PieChart>
+              </ExplicitChartContainer>
             </div>
           </CardContent>
         </Card>
 
-        {/* Deals Projection (Line Chart) - Spans 2 cols */}
-        <Card className="lg:col-span-2 shadow-sm border-0 min-w-0">
+        {/* Deals Projection (Line Chart) - Spans 4 cols */}
+        <Card className="lg:col-span-4 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-gray-700">Deals projection (future 12 months)</CardTitle>
+            <CardTitle>Revenue Projection</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="relative h-[300px] w-full min-w-0">
-              <div className="absolute inset-0">
-                <ExplicitChartContainer>
-                  <LineChart data={charts.projection} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#6b7280'}} />
-                    <YAxis axisLine={false} tickLine={false} tick={{fill: '#6b7280'}} width={40} />
-                    <Tooltip />
-                    <Legend />
-                    <Line type="monotone" dataKey="projected" stroke="#0ea5e9" strokeWidth={3} dot={false} name="Projected Value" />
-                    <Line type="monotone" dataKey="actual" stroke="#38bdf8" strokeWidth={3} dot={false} name="Actual / Target" />
-                  </LineChart>
-                </ExplicitChartContainer>
-              </div>
+            <div className="h-[300px] w-full">
+              <ExplicitChartContainer>
+                <LineChart data={charts.projection} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: 'var(--muted-foreground)'}} fontSize={12} />
+                  <YAxis axisLine={false} tickLine={false} tick={{fill: 'var(--muted-foreground)'}} width={40} fontSize={12} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)', borderRadius: '8px' }}
+                    itemStyle={{ color: 'var(--foreground)' }}
+                  />
+                  <Legend />
+                  <Line type="monotone" dataKey="projected" stroke={theme.colors.info} strokeWidth={2} dot={false} name="Projected" />
+                  <Line type="monotone" dataKey="actual" stroke={theme.colors.primary} strokeWidth={2} dot={false} name="Actual" />
+                </LineChart>
+              </ExplicitChartContainer>
             </div>
           </CardContent>
         </Card>
 
-        {/* Deal Loss Reasons (Donut) - Spans 1 col */}
-        <Card className="lg:col-span-1 shadow-sm border-0 min-w-0">
+        {/* Deal Loss Reasons (Donut) - Spans 3 cols */}
+        <Card className="lg:col-span-3 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-gray-700">Deal loss reasons</CardTitle>
+            <CardTitle>Loss Reasons</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="relative h-[300px] w-full min-w-0">
-              <div className="absolute inset-0">
-                <ExplicitChartContainer>
-                  <PieChart margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-                    <Pie
-                      data={charts.lossReasons}
-                      cx="50%"
-                      cy="40%"
-                      innerRadius="50%"
-                      outerRadius="70%"
-                      paddingAngle={5}
-                      dataKey="value"
-                    >
-                      {charts.lossReasons.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={LOSS_COLORS[index % LOSS_COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend verticalAlign="bottom" height={72} iconType="circle" wrapperStyle={{ bottom: 0 }} />
-                  </PieChart>
-                </ExplicitChartContainer>
-              </div>
+            <div className="h-[300px] w-full flex items-center justify-center">
+              <ExplicitChartContainer>
+                <PieChart>
+                  <Pie
+                    data={charts.lossReasons}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {charts.lossReasons.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={LOSS_COLORS[index % LOSS_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)', borderRadius: '8px' }}
+                    itemStyle={{ color: 'var(--foreground)' }}
+                  />
+                  <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                </PieChart>
+              </ExplicitChartContainer>
             </div>
           </CardContent>
         </Card>
@@ -493,10 +559,10 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
         
         {/* Tasks Section */}
         {hasModuleAccess('tasks') && (
-          <Card className="shadow-sm border-0">
+          <Card className="shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-gray-700 flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5 text-indigo-600" />
+              <CardTitle className="flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-primary" />
                 My Tasks
               </CardTitle>
               <Button 
@@ -509,9 +575,12 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
             </CardHeader>
             <CardContent>
               {tasks.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">No tasks found</p>
+                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                  <CheckCircle2 className="h-8 w-8 mb-2 opacity-20" />
+                  <p>No pending tasks</p>
+                </div>
               ) : (
-                <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                   {tasks.slice(0, 10).map((task) => (
                     <TaskItem key={task.id} task={task} />
                   ))}
@@ -523,10 +592,10 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
 
         {/* Appointments Section */}
         {hasModuleAccess('appointments') && (
-          <Card className="shadow-sm border-0">
+          <Card className="shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-gray-700 flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-blue-600" />
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-info" />
                 Upcoming Appointments
               </CardTitle>
               <Button 
@@ -539,9 +608,12 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
             </CardHeader>
             <CardContent>
               {appointments.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">No appointments scheduled</p>
+                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                  <Calendar className="h-8 w-8 mb-2 opacity-20" />
+                  <p>No appointments scheduled</p>
+                </div>
               ) : (
-                <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                   {appointments.slice(0, 10).map((appointment) => (
                     <AppointmentItem key={appointment.id} appointment={appointment} />
                   ))}
@@ -555,17 +627,6 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
 
     </div>
     </PermissionGate>
-  );
-}
-
-function MetricCard({ title, value, className }: { title: string, value: string, className?: string }) {
-  return (
-    <Card className={`border-0 shadow-sm ${className}`}>
-      <CardContent className="p-6">
-        <p className="text-sm font-medium opacity-90">{title}</p>
-        <p className="text-3xl font-bold mt-2">{value}</p>
-      </CardContent>
-    </Card>
   );
 }
 

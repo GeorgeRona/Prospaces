@@ -1,6 +1,17 @@
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { ExplicitChartContainer } from "../ui/ExplicitChartContainer";
 import { 
+  DollarSign, 
+  TrendingUp, 
+  Target, 
+  Clock, 
+  BarChart3, 
+  Briefcase, 
+  Layers, 
+  Calendar 
+} from 'lucide-react';
+import { MetricCard } from '../MetricCard';
+import { 
   LineChart, 
   Line, 
   XAxis, 
@@ -42,48 +53,64 @@ export function OverviewTab({ metrics, charts }: OverviewTabProps) {
       {/* Top Metrics Row 1 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard 
-          title="Total sales" 
+          title="Total Sales" 
           value={`$${(metrics.totalSales / 1000).toFixed(2)}k`} 
+          icon={<DollarSign className="h-4 w-4" />}
           className="bg-indigo-600 text-white min-w-0" 
+          description="Total revenue from won deals"
         />
         <MetricCard 
-          title="Win rate" 
+          title="Win Rate" 
           value={`${metrics.winRate.toFixed(1)}%`} 
+          icon={<TrendingUp className="h-4 w-4" />}
           className="bg-blue-900 text-white min-w-0" 
+          description="Percentage of closed deals won"
         />
         <MetricCard 
-          title="Close rate" 
+          title="Close Rate" 
           value={`${metrics.closeRate.toFixed(1)}%`} 
+          icon={<Target className="h-4 w-4" />}
           className="bg-sky-600 text-white min-w-0" 
+          description="Estimated conversion rate"
         />
         <MetricCard 
-          title="Avg days to close" 
+          title="Avg Days to Close" 
           value={metrics.avgDaysToClose.toFixed(1)} 
+          icon={<Clock className="h-4 w-4" />}
           className="bg-teal-500 text-white min-w-0" 
+          description="Average deal duration"
         />
       </div>
 
       {/* Top Metrics Row 2 */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard 
-          title="Pipeline value" 
+          title="Pipeline Value" 
           value={`$${(metrics.pipelineValue / 1000).toFixed(2)}k`} 
+          icon={<BarChart3 className="h-4 w-4" />}
           className="bg-indigo-500 text-white min-w-0" 
+          description="Total value of open deals"
         />
         <MetricCard 
-          title="Open deals" 
+          title="Open Deals" 
           value={metrics.openDeals.toString()} 
+          icon={<Briefcase className="h-4 w-4" />}
           className="bg-blue-800 text-white min-w-0" 
+          description="Active opportunities"
         />
         <MetricCard 
-          title="Weighted value" 
+          title="Weighted Value" 
           value={`$${(metrics.weightedValue / 1000).toFixed(2)}k`} 
+          icon={<Layers className="h-4 w-4" />}
           className="bg-sky-500 text-white min-w-0" 
+          description="Probability-adjusted value"
         />
         <MetricCard 
-          title="Avg open deal age" 
+          title="Avg Deal Age" 
           value={metrics.avgOpenDealAge.toFixed(1)} 
+          icon={<Calendar className="h-4 w-4" />}
           className="bg-emerald-500 text-white min-w-0" 
+          description="Days since creation"
         />
       </div>
 
@@ -206,16 +233,5 @@ export function OverviewTab({ metrics, charts }: OverviewTabProps) {
 
       </div>
     </div>
-  );
-}
-
-function MetricCard({ title, value, className }: { title: string, value: string, className?: string }) {
-  return (
-    <Card className={`border-0 shadow-sm ${className}`}>
-      <CardContent className="p-6">
-        <p className="text-sm font-medium opacity-90">{title}</p>
-        <p className="text-3xl font-bold mt-2">{value}</p>
-      </CardContent>
-    </Card>
   );
 }

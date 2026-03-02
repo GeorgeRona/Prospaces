@@ -6,6 +6,7 @@ import type { User } from '../../App';
 import { campaignsAPI, contactsAPI, journeysAPI } from '../../utils/api';
 import { getDealActivities, type DealActivity } from '../../utils/marketing-client';
 import { Skeleton } from '../ui/skeleton';
+import { MetricCard } from '../MetricCard';
 
 interface MarketingDashboardProps {
   user: User;
@@ -38,14 +39,7 @@ export function MarketingDashboard({ user }: MarketingDashboardProps) {
 
         const campaigns = campaignsData.campaigns || [];
         const contacts = contactsData.contacts || [];
-        const journeys = journeysData || []; // journeysAPI.getAll returns array directly? Let's check api.ts
-
-        // Check api.ts for journeysAPI.getAll return type
-        // It calls getJourneys from marketing-client.ts which returns { journeys: ... } from server OR array if using old method?
-        // Wait, I checked api.ts earlier:
-        // export const journeysAPI = { getAll: (organizationId) => getJourneys(organizationId) }
-        // And marketing-client.ts getJourneys returns Promise<Journey[]> (array).
-        // So journeysData is Journey[].
+        const journeys = journeysData || [];
 
         // Calculate stats
         const activeCampaignsCount = campaigns.filter((c: any) => c.status === 'active' || c.status === 'Active').length;
@@ -141,8 +135,6 @@ export function MarketingDashboard({ user }: MarketingDashboardProps) {
     },
   ];
 
-  const topPerformingContent: any[] = []; // Placeholder
-
   const getActivityIcon = (eventType: string) => {
     switch (eventType) {
       case 'deal_email_sent': return <Send className="h-4 w-4 text-blue-600" />;
@@ -197,31 +189,25 @@ export function MarketingDashboard({ user }: MarketingDashboardProps) {
         ) : (
         dashboardStats.map((stat) => {
           const Icon = stat.icon;
+          const colorMap: Record<string, string> = {
+            'bg-blue-100': 'bg-blue-600',
+            'bg-green-100': 'bg-green-600',
+            'bg-purple-100': 'bg-purple-600',
+            'bg-orange-100': 'bg-orange-500',
+            'bg-emerald-100': 'bg-emerald-600',
+            'bg-indigo-100': 'bg-indigo-600',
+          };
+          const bgColor = colorMap[stat.bgColor] || 'bg-gray-600';
+
           return (
-            <Card key={stat.title}>
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-600">{stat.title}</p>
-                    <p className="text-2xl mt-2 text-gray-900">{stat.value}</p>
-                    <div className="flex items-center gap-1 mt-2">
-                      {stat.trend === 'up' && <TrendingUp className="h-3 w-3 text-green-600" />}
-                      {stat.trend === 'down' && <TrendingDown className="h-3 w-3 text-red-600" />}
-                      <span className={`text-xs ${
-                        stat.trend === 'up' ? 'text-green-600' : 
-                        stat.trend === 'down' ? 'text-red-600' : 
-                        'text-gray-500'
-                      }`}>
-                        {stat.change}
-                      </span>
-                    </div>
-                  </div>
-                  <div className={`h-12 w-12 rounded-lg ${stat.bgColor} flex items-center justify-center`}>
-                    <Icon className={`h-6 w-6 ${stat.textColor}`} />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <MetricCard
+              key={stat.title}
+              title={stat.title}
+              value={stat.value}
+              icon={<Icon className="h-4 w-4" />}
+              className={`${bgColor} text-white`}
+              description={`${stat.trend === 'up' ? '↑ ' : stat.trend === 'down' ? '↓ ' : ''}${stat.change}`}
+            />
           );
         })
         )}
@@ -265,7 +251,7 @@ export function MarketingDashboard({ user }: MarketingDashboardProps) {
           </CardContent>
         </Card>
 
-        {/* Lead Funnel Overview - Simplified visualization using stats */}
+        {/* Lead Funnel Overview */}
         <Card>
           <CardHeader>
             <CardTitle>Lead Funnel Overview</CardTitle>
@@ -275,7 +261,6 @@ export function MarketingDashboard({ user }: MarketingDashboardProps) {
               {[
                 { stage: 'Total Leads', count: stats.totalLeads, percentage: 100, barClass: 'bg-blue-500' },
                 { stage: 'Sent Campaigns', count: recentCampaigns.reduce((sum, c) => sum + (c.sent_count || c.sent || 0), 0), percentage: stats.totalLeads > 0 ? Math.min(100, (recentCampaigns.reduce((sum, c) => sum + (c.sent_count || c.sent || 0), 0) / stats.totalLeads) * 100) : 0, barClass: 'bg-indigo-500' },
-                // Approximating 'Qualified' as Opened for now
                 { stage: 'Engaged (Opened)', count: recentCampaigns.reduce((sum, c) => sum + (c.opened_count || c.opened || 0), 0), percentage: stats.totalLeads > 0 ? Math.min(100, (recentCampaigns.reduce((sum, c) => sum + (c.opened_count || c.opened || 0), 0) / stats.totalLeads) * 100) : 0, barClass: 'bg-purple-500' },
                 { stage: 'Conversions', count: recentCampaigns.reduce((sum, c) => sum + (c.converted_count || c.converted || 0), 0), percentage: stats.totalLeads > 0 ? Math.min(100, (recentCampaigns.reduce((sum, c) => sum + (c.converted_count || c.converted || 0), 0) / stats.totalLeads) * 100) : 0, barClass: 'bg-green-500' },
               ].map((stage, index) => (
