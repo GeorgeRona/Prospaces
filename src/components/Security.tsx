@@ -76,7 +76,6 @@ export function Security({ user }: SecurityProps) {
     { id: 'contacts', name: 'Contacts', icon: '👥' },
     { id: 'tasks', name: 'Tasks', icon: '✓' },
     { id: 'appointments', name: 'Appointments', icon: '📅' },
-    { id: 'opportunities', name: 'Opportunities', icon: '🎯' },
     { id: 'bids', name: 'Deals', icon: '📄' },
     { id: 'quotes', name: 'Quotes', icon: '💰' },
     { id: 'notes', name: 'Notes', icon: '📝' },

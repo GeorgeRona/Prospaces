@@ -74,6 +74,13 @@ function calculateRoofArea(config: RoofConfig): number {
       roofArea = totalLength * totalWidth * multiplier;
   }
   
+  // Add dormer roof area
+  if (config.hasDormers && config.dormers && config.dormers.length > 0) {
+    for (const dormer of config.dormers) {
+      roofArea += dormer.width * dormer.depth * multiplier;
+    }
+  }
+  
   return roofArea;
 }
 
@@ -350,6 +357,94 @@ export function calculateMaterials(config: RoofConfig): RoofMaterials {
     unit: 'pieces',
     notes: 'For plumbing vent pipes',
   });
+
+  // Dormer flashing and additional materials
+  if (config.hasDormers && config.dormers && config.dormers.length > 0) {
+    const dormerCount = config.dormers.length;
+    
+    // Step flashing for dormer side walls (each dormer has 2 sides)
+    const totalDormerSideLength = config.dormers.reduce((sum, d) => sum + d.depth * 2, 0);
+    const stepFlashingPieces = Math.ceil(totalDormerSideLength / 0.5); // ~6" per piece
+    flashing.push({
+      category: 'Flashing',
+      description: 'Step Flashing for Dormers (6" pieces)',
+      quantity: stepFlashingPieces,
+      unit: 'pieces',
+      notes: `${dormerCount} dormer(s) — step flashing along ${totalDormerSideLength.toFixed(0)} linear feet of side walls`,
+    });
+
+    // Counter flashing for dormer faces
+    const totalDormerFaceWidth = config.dormers.reduce((sum, d) => sum + d.width, 0);
+    const counterFlashingPieces = Math.ceil(totalDormerFaceWidth / 10);
+    flashing.push({
+      category: 'Flashing',
+      description: 'Counter Flashing for Dormer Faces (10\' pieces)',
+      quantity: counterFlashingPieces,
+      unit: 'pieces',
+      notes: `${totalDormerFaceWidth.toFixed(0)} linear feet across dormer front walls`,
+    });
+
+    // Window units for dormers that have windows
+    const windowDormers = config.dormers.filter(d => d.hasWindow);
+    if (windowDormers.length > 0) {
+      // Window flashing/drip cap
+      flashing.push({
+        category: 'Flashing',
+        description: 'Window Drip Cap Flashing',
+        quantity: windowDormers.length,
+        unit: 'pieces',
+        notes: 'Head flashing above each dormer window',
+      });
+    }
+
+    // Additional sheathing for dormer cheek walls and roof
+    const dormerSheathingArea = config.dormers.reduce((sum, d) => {
+      // Two cheek walls + dormer roof surface
+      const cheekArea = d.depth * d.height * 2;
+      const roofArea = d.width * d.depth * 1.2; // ~20% extra for pitch
+      return sum + cheekArea + roofArea;
+    }, 0);
+    const dormerSheathingSheets = Math.ceil(dormerSheathingArea / 32);
+    if (dormerSheathingSheets > 0) {
+      roofDeck.push({
+        category: 'Roof Deck',
+        description: '7/16" OSB Sheathing for Dormers (4\'x8\' sheets)',
+        quantity: dormerSheathingSheets,
+        unit: 'sheets',
+        notes: `Sheathing for ${dormerCount} dormer cheek walls and roofs (${dormerSheathingArea.toFixed(0)} sq ft)`,
+      });
+    }
+
+    // Additional shingles for dormer roofs
+    const dormerRoofSquares = config.dormers.reduce((sum, d) => {
+      return sum + (d.width * d.depth * getPitchMultiplier(config.pitch)) / 100;
+    }, 0);
+    if (dormerRoofSquares > 0) {
+      const bundlesPerSq = shingleType === 'metal' ? 1 : shingleType === 'designer' ? 4 : shingleType === 'cedar-shake' ? 5 : 3;
+      const dormerBundles = Math.ceil(dormerRoofSquares * bundlesPerSq * 1.15); // 15% waste for small areas
+      shingles.push({
+        category: 'Roofing',
+        description: `Additional ${shingleType === 'metal' ? 'Metal Panels' : 'Shingles'} for Dormers`,
+        quantity: dormerBundles,
+        unit: shingleType === 'metal' ? 'panels' : 'bundles',
+        notes: `${dormerRoofSquares.toFixed(2)} squares for ${dormerCount} dormer roof(s) with 15% waste`,
+      });
+    }
+
+    // Dormer ridge cap (for gable and hip dormers)
+    const ridgeDormers = config.dormers.filter(d => d.style === 'gable' || d.style === 'hip');
+    if (ridgeDormers.length > 0) {
+      const dormerRidgeLength = ridgeDormers.reduce((sum, d) => sum + d.depth, 0);
+      const dormerRidgeBundles = Math.ceil(dormerRidgeLength / 35);
+      ridgeAndHip.push({
+        category: 'Ridge & Hip',
+        description: 'Ridge Cap for Dormers',
+        quantity: Math.max(1, dormerRidgeBundles),
+        unit: 'bundles',
+        notes: `${dormerRidgeLength.toFixed(0)} linear feet of dormer ridge`,
+      });
+    }
+  }
   
   // 6. VENTILATION
   const ventilation: MaterialItem[] = [];
@@ -410,6 +505,32 @@ export function calculateMaterials(config: RoofConfig): RoofMaterials {
     unit: 'tubes',
     notes: 'For sealing around flashing and penetrations',
   });
+
+  // Dormer hardware and framing materials
+  if (config.hasDormers && config.dormers && config.dormers.length > 0) {
+    const dormerCount = config.dormers.length;
+
+    // Dormer framing lumber (headers, cheeks, ridge board)
+    hardware.push({
+      category: 'Hardware',
+      description: 'Dormer Framing Kit (2x6 headers, jack rafters, cripple studs)',
+      quantity: dormerCount,
+      unit: 'kits',
+      notes: `Framing package for ${dormerCount} dormer(s) — includes headers, trimmer rafters, and face studs`,
+    });
+
+    // Window units for dormers that have windows
+    const windowDormers = config.dormers.filter(d => d.hasWindow);
+    if (windowDormers.length > 0) {
+      hardware.push({
+        category: 'Hardware',
+        description: 'Dormer Window Unit (pre-hung, double-hung)',
+        quantity: windowDormers.length,
+        unit: 'units',
+        notes: `Pre-hung window units for ${windowDormers.length} dormer(s)`,
+      });
+    }
+  }
   
   return {
     roofDeck,

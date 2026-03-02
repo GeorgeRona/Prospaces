@@ -4,6 +4,20 @@ export type ShingleType = 'architectural' | '3-tab' | 'designer' | 'metal' | 'ce
 export type UnderlaymentType = 'felt-15' | 'felt-30' | 'synthetic' | 'ice-and-water';
 export type Unit = 'feet' | 'meters';
 
+export type DormerStyle = 'gable' | 'shed' | 'hip' | 'eyebrow' | 'flat';
+export type DormerPosition = 'left' | 'center' | 'right';
+
+export interface DormerConfig {
+  id: string;
+  style: DormerStyle;
+  width: number;       // Width of dormer face (feet), typically 3-8 ft
+  height: number;      // Height from roof slope to dormer ridge (feet), typically 4-6 ft
+  depth: number;       // How far dormer projects from roof slope (feet), typically 4-8 ft
+  horizontalPosition: DormerPosition; // Left, Center, or Right along the building length
+  side: 'front' | 'back'; // Which slope of the roof (front or back)
+  hasWindow: boolean;
+}
+
 export interface RoofConfig {
   // Building dimensions
   length: number; // building length in feet or meters
@@ -34,6 +48,10 @@ export interface RoofConfig {
   hasChimney?: boolean;
   chimneyCount?: number;
   
+  // Dormers
+  hasDormers?: boolean;
+  dormers?: DormerConfig[];
+
   // Waste factor (typically 10-15% for shingles)
   wasteFactor: number; // as decimal (e.g., 0.10 for 10%)
   

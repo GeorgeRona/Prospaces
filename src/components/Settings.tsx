@@ -76,6 +76,8 @@ import { ApiAccess } from './subscription/ApiAccess';
 import { useSubscription } from '../hooks/useSubscription';
 import { getOrgMode, setOrgMode } from '../utils/settings-client';
 import type { OrgUserMode } from '../utils/settings-client';
+import { WorkflowSettingsDialog } from './settings/WorkflowSettingsDialog';
+import { CustomFieldsDialog } from './settings/CustomFieldsDialog';
 
 export function Settings({ user, organization, onUserUpdate, onOrganizationUpdate }: SettingsProps) {
   const [orgName, setOrgName] = useState('ProSpaces Organization');
@@ -92,6 +94,8 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
   const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [showDatabaseWarning, setShowDatabaseWarning] = useState(false);
   const [showLayoutDialog, setShowLayoutDialog] = useState(false);
+  const [showWorkflowDialog, setShowWorkflowDialog] = useState(false);
+  const [showCustomFieldsDialog, setShowCustomFieldsDialog] = useState(false);
   const [planRefreshKey, setPlanRefreshKey] = useState(0);
   const [notifications, setNotifications] = useState({
     email: true,
@@ -656,6 +660,16 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
   return (
     <PermissionGate user={user} module="settings" action="view">
     <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+      <WorkflowSettingsDialog 
+        open={showWorkflowDialog} 
+        onOpenChange={setShowWorkflowDialog} 
+        organizationId={user.organizationId}
+      />
+      <CustomFieldsDialog
+        open={showCustomFieldsDialog}
+        onOpenChange={setShowCustomFieldsDialog}
+        organizationId={user.organizationId}
+      />
       {/* Database Warning Banner */}
       {showDatabaseWarning && (
         <Alert className="bg-yellow-50 border-yellow-200">
@@ -896,12 +910,12 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                   <div className="space-y-2">
                     <Label>Custom Fields</Label>
                     <p className="text-sm text-gray-500">Add custom fields to your CRM data types</p>
-                    <Button type="button" variant="outline">Manage Custom Fields</Button>
+                    <Button type="button" variant="outline" onClick={() => setShowCustomFieldsDialog(true)}>Manage Custom Fields</Button>
                   </div>
                   <div className="space-y-2">
                     <Label>Workflows</Label>
                     <p className="text-sm text-gray-500">Configure automated workflows and statuses</p>
-                    <Button type="button" variant="outline">Configure Workflows</Button>
+                    <Button type="button" variant="outline" onClick={() => setShowWorkflowDialog(true)}>Configure Workflows</Button>
                   </div>
                   <Button type="submit" disabled={isSavingOrg}>
                     {isSavingOrg ? 'Saving...' : 'Save Organization Settings'}

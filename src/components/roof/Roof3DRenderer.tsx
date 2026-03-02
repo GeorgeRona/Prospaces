@@ -24,6 +24,16 @@ interface Roof3DRendererProps {
   config: RoofConfig;
 }
 
+// Helper: convert dormer horizontalPosition to a percentage along building length
+function dormerPositionToPercent(pos: string): number {
+  switch (pos) {
+    case 'left': return 25;
+    case 'right': return 75;
+    case 'center':
+    default: return 50;
+  }
+}
+
 export function Roof3DRenderer({ config }: Roof3DRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<{
@@ -542,6 +552,166 @@ export function Roof3DRenderer({ config }: Roof3DRendererProps) {
       scene.add(vent);
     }
 
+    // Dormers (if configured)
+    if (config.hasDormers && config.dormers && config.dormers.length > 0) {
+      const dormerWallMat = new MeshStandardMaterial({ 
+        color: 0xf0ead6,
+        roughness: 0.8,
+        side: DoubleSide
+      });
+      const dormerRoofMat = new MeshStandardMaterial({ 
+        color: roofColor,
+        roughness: config.shingleType === 'metal' ? 0.2 : 0.95,
+        metalness: config.shingleType === 'metal' ? 0.7 : 0.0
+      });
+      const windowMat = new MeshStandardMaterial({ 
+        color: 0x87ceeb,
+        transparent: true,
+        opacity: 0.6,
+        metalness: 0.8,
+        roughness: 0.1
+      });
+
+      for (const dormer of config.dormers) {
+        const dW = dormer.width * scale;
+        const dH = dormer.height * scale;
+        const dD = dormer.depth * scale;
+
+        // Calculate position on roof
+        const posAlongLength = -buildingLength / 2 + (buildingLength * dormerPositionToPercent(dormer.horizontalPosition) / 100);
+        const roofAngle = Math.atan2(roofRise, buildingWidth / 2);
+        
+        // Position partway up the roof slope
+        const slopeProgress = 0.4;
+        const baseYPos = wallHeight + roofRise * slopeProgress;
+        const xOffset = dormer.side === 'front' 
+          ? -(buildingWidth / 2) * (1 - slopeProgress) 
+          : (buildingWidth / 2) * (1 - slopeProgress);
+
+        // Front wall of dormer
+        const frontWallGeom = new BoxGeometry(dW, dH, 0.08);
+        const frontWall = new Mesh(frontWallGeom, dormerWallMat);
+        const frontZ = dormer.side === 'front' ? xOffset - dD / 2 : xOffset + dD / 2;
+        frontWall.position.set(posAlongLength, baseYPos + dH / 2, dormer.side === 'front' ? xOffset - dD : xOffset + dD);
+        frontWall.castShadow = true;
+        frontWall.receiveShadow = true;
+        scene.add(frontWall);
+
+        // Side walls
+        const sideWallGeom = new BoxGeometry(0.08, dH, dD);
+        const leftSideWall = new Mesh(sideWallGeom, dormerWallMat);
+        leftSideWall.position.set(posAlongLength - dW / 2, baseYPos + dH / 2, dormer.side === 'front' ? xOffset - dD / 2 : xOffset + dD / 2);
+        leftSideWall.castShadow = true;
+        scene.add(leftSideWall);
+
+        const rightSideWall = new Mesh(sideWallGeom, dormerWallMat);
+        rightSideWall.position.set(posAlongLength + dW / 2, baseYPos + dH / 2, dormer.side === 'front' ? xOffset - dD / 2 : xOffset + dD / 2);
+        rightSideWall.castShadow = true;
+        scene.add(rightSideWall);
+
+        // Dormer roof based on style
+        if (dormer.style === 'gable') {
+          const dormerRoofRise = dH * 0.4;
+          const dormerRoofLen = Math.sqrt(Math.pow(dW / 2, 2) + Math.pow(dormerRoofRise, 2));
+          const dormerRoofAngle = Math.atan2(dormerRoofRise, dW / 2);
+
+          const leftRoofGeom = new BoxGeometry(dormerRoofLen, 0.06, dD + 0.1);
+          const leftDRoof = new Mesh(leftRoofGeom, dormerRoofMat);
+          leftDRoof.position.set(posAlongLength - dW / 4, baseYPos + dH + dormerRoofRise / 2, dormer.side === 'front' ? xOffset - dD / 2 : xOffset + dD / 2);
+          leftDRoof.rotation.z = dormerRoofAngle;
+          leftDRoof.castShadow = true;
+          scene.add(leftDRoof);
+
+          const rightDRoof = new Mesh(leftRoofGeom, dormerRoofMat);
+          rightDRoof.position.set(posAlongLength + dW / 4, baseYPos + dH + dormerRoofRise / 2, dormer.side === 'front' ? xOffset - dD / 2 : xOffset + dD / 2);
+          rightDRoof.rotation.z = -dormerRoofAngle;
+          rightDRoof.castShadow = true;
+          scene.add(rightDRoof);
+
+        } else if (dormer.style === 'shed') {
+          const shedRise = dH * 0.3;
+          const shedLen = Math.sqrt(dD * dD + shedRise * shedRise);
+          const shedAngle = Math.atan2(shedRise, dD);
+
+          const shedRoofGeom = new BoxGeometry(dW + 0.1, 0.06, shedLen);
+          const shedRoof = new Mesh(shedRoofGeom, dormerRoofMat);
+          shedRoof.position.set(posAlongLength, baseYPos + dH + shedRise / 2, dormer.side === 'front' ? xOffset - dD / 2 : xOffset + dD / 2);
+          shedRoof.rotation.x = dormer.side === 'front' ? shedAngle : -shedAngle;
+          shedRoof.castShadow = true;
+          scene.add(shedRoof);
+
+        } else if (dormer.style === 'hip') {
+          // Simplified hip — use a box approximation
+          const hipH = dH * 0.35;
+          const hipRoofGeom = new BoxGeometry(dW * 0.6, 0.06, dD + 0.1);
+          const hipRoof = new Mesh(hipRoofGeom, dormerRoofMat);
+          hipRoof.position.set(posAlongLength, baseYPos + dH + hipH / 2, dormer.side === 'front' ? xOffset - dD / 2 : xOffset + dD / 2);
+          hipRoof.castShadow = true;
+          scene.add(hipRoof);
+
+          // Hip side panels
+          const hipSideGeom = new BoxGeometry(dW * 0.3, 0.06, dD * 0.6);
+          const hipLeft = new Mesh(hipSideGeom, dormerRoofMat);
+          hipLeft.position.set(posAlongLength - dW * 0.35, baseYPos + dH + hipH * 0.3, dormer.side === 'front' ? xOffset - dD / 2 : xOffset + dD / 2);
+          hipLeft.rotation.z = Math.atan2(hipH, dW * 0.3);
+          hipLeft.castShadow = true;
+          scene.add(hipLeft);
+
+          const hipRight = new Mesh(hipSideGeom, dormerRoofMat);
+          hipRight.position.set(posAlongLength + dW * 0.35, baseYPos + dH + hipH * 0.3, dormer.side === 'front' ? xOffset - dD / 2 : xOffset + dD / 2);
+          hipRight.rotation.z = -Math.atan2(hipH, dW * 0.3);
+          hipRight.castShadow = true;
+          scene.add(hipRight);
+
+        } else if (dormer.style === 'flat') {
+          const flatRoofGeom = new BoxGeometry(dW + 0.1, 0.08, dD + 0.1);
+          const flatRoof = new Mesh(flatRoofGeom, dormerRoofMat);
+          flatRoof.position.set(posAlongLength, baseYPos + dH + 0.04, dormer.side === 'front' ? xOffset - dD / 2 : xOffset + dD / 2);
+          flatRoof.castShadow = true;
+          scene.add(flatRoof);
+
+        } else if (dormer.style === 'eyebrow') {
+          // Approximate with a curved box
+          const eyebrowH = dH * 0.3;
+          const segments = 8;
+          for (let i = 0; i < segments; i++) {
+            const t = i / (segments - 1);
+            const angle = t * Math.PI;
+            const h = Math.sin(angle) * eyebrowH;
+            const segW = dW / segments;
+            const segGeom = new BoxGeometry(segW + 0.02, 0.06, dD + 0.1);
+            const seg = new Mesh(segGeom, dormerRoofMat);
+            seg.position.set(
+              posAlongLength - dW / 2 + segW * i + segW / 2,
+              baseYPos + dH + h,
+              dormer.side === 'front' ? xOffset - dD / 2 : xOffset + dD / 2
+            );
+            seg.castShadow = true;
+            scene.add(seg);
+          }
+        }
+
+        // Window
+        if (dormer.hasWindow) {
+          const winW = dW * 0.55;
+          const winH = dH * 0.6;
+          const winGeom = new BoxGeometry(winW, winH, 0.05);
+          const win = new Mesh(winGeom, windowMat);
+          win.position.set(posAlongLength, baseYPos + dH * 0.45, dormer.side === 'front' ? xOffset - dD - 0.05 : xOffset + dD + 0.05);
+          scene.add(win);
+
+          // Window frame
+          const frameMat = new MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 });
+          const frameTop = new Mesh(new BoxGeometry(winW + 0.06, 0.04, 0.06), frameMat);
+          frameTop.position.set(posAlongLength, baseYPos + dH * 0.45 + winH / 2, dormer.side === 'front' ? xOffset - dD - 0.05 : xOffset + dD + 0.05);
+          scene.add(frameTop);
+          const frameBottom = new Mesh(new BoxGeometry(winW + 0.06, 0.04, 0.06), frameMat);
+          frameBottom.position.set(posAlongLength, baseYPos + dH * 0.45 - winH / 2, dormer.side === 'front' ? xOffset - dD - 0.05 : xOffset + dD + 0.05);
+          scene.add(frameBottom);
+        }
+      }
+    }
+
     // Mouse controls
     let isDragging = false;
     let previousMousePosition = { x: 0, y: 0 };
@@ -652,6 +822,12 @@ export function Roof3DRenderer({ config }: Roof3DRendererProps) {
             <div className="text-xs text-slate-600">Material</div>
             <div className="font-bold text-slate-900">{config.shingleType}</div>
           </div>
+          {config.hasDormers && (config.dormers || []).length > 0 && (
+            <div>
+              <div className="text-xs text-slate-600">Dormers</div>
+              <div className="font-bold text-slate-900">{(config.dormers || []).length}</div>
+            </div>
+          )}
         </div>
       </div>
 

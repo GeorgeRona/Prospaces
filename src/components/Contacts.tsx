@@ -26,6 +26,7 @@ import { useDebounce } from '../utils/useDebounce';
 import { getPriceTierLabel, getActivePriceLevels } from '../lib/global-settings';
 import { useAudienceSegments } from '../hooks/useAudienceSegments';
 import { TagSelector } from './TagSelector';
+import { CustomFieldsRenderer } from './CustomFieldsRenderer';
 import { toast } from 'sonner@2.0.3';
 
 interface Contact {
@@ -52,6 +53,7 @@ interface Contact {
   postalCode?: string;
   notes?: string;
   tags?: string[];
+  customFields?: Record<string, any>;
 }
 
 interface ProjectManager {
@@ -114,6 +116,7 @@ export function Contacts({ user }: ContactsProps) {
     postalCode: '',
     notes: '',
     tags: [] as string[],
+    customFields: {} as Record<string, any>,
     ptdSales: '',
     ptdGpPercent: '',
     ytdSales: '',
@@ -298,32 +301,44 @@ export function Contacts({ user }: ContactsProps) {
     }
   };
 
-  // ⚡ Performance: Memoize filtered contacts to avoid re-filtering on every render
-  const filteredContacts = useMemo(() => {
-    let filtered = contacts.filter(Boolean);
-    
-    // Filter by tag
-    if (selectedTagFilter && selectedTagFilter !== 'all') {
-      filtered = filtered.filter(contact => 
-        contact?.tags && contact.tags.includes(selectedTagFilter)
-      );
-    }
-    
-    // Filter by search query
-    const query = debouncedSearchQuery.toLowerCase().trim();
-    if (query) {
-      filtered = filtered.filter(contact =>
-        (contact?.name || '').toLowerCase().includes(query) ||
-        (contact?.email || '').toLowerCase().includes(query) ||
-        (contact?.company || '').toLowerCase().includes(query) ||
-        (contact?.phone || '').includes(query) ||
-        (contact?.status || '').toLowerCase().includes(query) ||
-        (contact?.tags || []).some(tag => tag.toLowerCase().includes(query))
-      );
-    }
-    
-    return filtered;
-  }, [contacts, debouncedSearchQuery, selectedTagFilter]);
+    // ⚡ Performance: Memoize filtered contacts to avoid re-filtering on every render
+    const filteredContacts = useMemo(() => {
+      let filtered = contacts.filter(Boolean);
+      
+      // Filter by tag
+      if (selectedTagFilter && selectedTagFilter !== 'all') {
+        filtered = filtered.filter(contact => 
+          contact?.tags && contact.tags.includes(selectedTagFilter)
+        );
+      }
+      
+      // Filter by search query
+      const query = debouncedSearchQuery.toLowerCase().trim();
+      if (query) {
+        filtered = filtered.filter(contact => {
+          // Standard text search
+          const basicMatch = (
+            (contact?.name || '').toLowerCase().includes(query) ||
+            (contact?.email || '').toLowerCase().includes(query) ||
+            (contact?.company || '').toLowerCase().includes(query) ||
+            (contact?.phone || '').includes(query) ||
+            (contact?.status || '').toLowerCase().includes(query) ||
+            (contact?.tags || []).some(tag => tag.toLowerCase().includes(query))
+          );
+          
+          // Search in custom fields if not matched in basic fields
+          if (!basicMatch && contact?.customFields) {
+            return Object.values(contact.customFields).some(val => 
+              String(val).toLowerCase().includes(query)
+            );
+          }
+          
+          return basicMatch;
+        });
+      }
+      
+      return filtered;
+    }, [contacts, debouncedSearchQuery, selectedTagFilter]);
 
   // ⚡ Performance: Paginate filtered contacts - only render current page
   const paginatedContacts = useMemo(() => {
@@ -407,6 +422,7 @@ export function Contacts({ user }: ContactsProps) {
         postalCode: newContact.postalCode,
         notes: newContact.notes,
         tags: newContact.tags,
+        custom_fields: newContact.customFields,
         ptdSales: newContact.ptdSales ? parseFloat(newContact.ptdSales) : undefined,
         ptdGpPercent: newContact.ptdGpPercent ? parseFloat(newContact.ptdGpPercent) : undefined,
         ytdSales: newContact.ytdSales ? parseFloat(newContact.ytdSales) : undefined,
@@ -425,7 +441,7 @@ export function Contacts({ user }: ContactsProps) {
         console.warn('[Contacts] Create returned no contact object, reloading list...');
         await loadContacts();
       }
-      setNewContact({ name: '', email: '', phone: '', company: '', status: 'Prospect', priceLevel: getPriceTierLabel(1), legacyNumber: '', accountOwnerNumber: user.email || '', address: '', city: '', province: '', postalCode: '', notes: '', tags: [], ptdSales: '', ptdGpPercent: '', ytdSales: '', ytdGpPercent: '', lyrSales: '', lyrGpPercent: '' });
+      setNewContact({ name: '', email: '', phone: '', company: '', status: 'Prospect', priceLevel: getPriceTierLabel(1), legacyNumber: '', accountOwnerNumber: user.email || '', address: '', city: '', province: '', postalCode: '', notes: '', tags: [], customFields: {}, ptdSales: '', ptdGpPercent: '', ytdSales: '', ytdGpPercent: '', lyrSales: '', lyrGpPercent: '' });
       setTagInput('');
       setIsAddDialogOpen(false);
     } catch (error: any) {
@@ -1393,6 +1409,15 @@ export function Contacts({ user }: ContactsProps) {
                           )}
                         </div>
                       </td>
+                      <td className="py-3 px-4 hidden xl:table-cell">
+                        <CustomFieldsRenderer
+                          entityType="contact"
+                          organizationId={user.organizationId}
+                          values={contact.customFields || {}}
+                          onChange={() => {}} // Read-only in table
+                          className="mt-0 border-0 pt-0"
+                        />
+                      </td>
                       <td className="py-3 px-4 hidden md:table-cell">
                         <span className="text-sm text-gray-600">
                           {contact.createdAt ? new Date(contact.createdAt).toLocaleDateString('en-US', {
@@ -1608,6 +1633,21 @@ export function Contacts({ user }: ContactsProps) {
                 value={editingContact?.notes || ''}
                 onChange={(e) => setEditingContact(editingContact ? { ...editingContact, notes: e.target.value } : null)}
                 placeholder="Optional"
+              />
+            </div>
+            <div className="col-span-2">
+              <CustomFieldsRenderer
+                entityType="contact"
+                organizationId={user.organizationId}
+                values={editingContact?.customFields || {}}
+                onChange={(key, value) => {
+                  if (editingContact) {
+                    setEditingContact({
+                      ...editingContact,
+                      customFields: { ...(editingContact.customFields || {}), [key]: value }
+                    });
+                  }
+                }}
               />
             </div>
             <div className="col-span-2">

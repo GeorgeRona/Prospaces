@@ -88,6 +88,28 @@ app.get(`${PREFIX}/health`, (c) => {
   return c.json({ status: 'ok', version: 'v5-2025-02-21', timestamp: new Date().toISOString() });
 });
 
+// ── APPOINTMENT COUNT (for notification badge) ──────────────────────────
+app.get(`${PREFIX}/appointments/count`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+    const now = new Date().toISOString();
+    const { count, error } = await auth.supabase
+      .from('appointments')
+      .select('*', { count: 'exact', head: true })
+      .eq('owner_id', auth.user.id)
+      .gt('start_time', now);
+    if (error) {
+      console.log(`[appointments/count] Query error for user ${auth.user.id}: ${error.message}`);
+      return c.json({ count: 0 });
+    }
+    return c.json({ count: count || 0 });
+  } catch (err: any) {
+    console.log(`[appointments/count] Unexpected error: ${err.message}`);
+    return c.json({ count: 0 });
+  }
+});
+
 // ── PERMISSIONS ─────────────────────────────────────────────────────────
 app.get(`${PREFIX}/permissions`, async (c) => {
   try {

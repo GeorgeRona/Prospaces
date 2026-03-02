@@ -2,6 +2,16 @@ import React, { useRef, useEffect, useState } from 'react';
 import { RoofConfig } from '../../types/roof';
 import { formatRoofArea, getPitchDescription } from '../../utils/roofCalculations';
 
+// Helper: convert dormer horizontalPosition to a percentage along building length
+function dormerPositionToPercent(pos: string): number {
+  switch (pos) {
+    case 'left': return 25;
+    case 'right': return 75;
+    case 'center':
+    default: return 50;
+  }
+}
+
 interface RoofCanvasProps {
   config: RoofConfig;
 }
@@ -193,6 +203,87 @@ export function RoofCanvas({ config }: RoofCanvasProps) {
       }
     }
 
+    // Draw dormers (top view)
+    if (config.hasDormers && config.dormers && config.dormers.length > 0) {
+      for (const dormer of config.dormers) {
+        const dormerWidth = dormer.width * scale;
+        const dormerDepth = dormer.depth * scale;
+        const posAlongLength = x1 + (scaledLength * dormerPositionToPercent(dormer.horizontalPosition) / 100);
+        const dormerX = posAlongLength - dormerWidth / 2;
+
+        // Position dormer on front or back slope
+        let dormerY: number;
+        if (dormer.side === 'front') {
+          dormerY = y1 + scaledWidth * 0.1; // near top of front slope
+        } else {
+          dormerY = y2 - scaledWidth * 0.1 - dormerDepth; // near top of back slope
+        }
+
+        // Draw dormer outline
+        ctx.strokeStyle = '#7c3aed';
+        ctx.lineWidth = 2;
+        ctx.fillStyle = 'rgba(124, 58, 237, 0.08)';
+        ctx.fillRect(dormerX, dormerY, dormerWidth, dormerDepth);
+        ctx.strokeRect(dormerX, dormerY, dormerWidth, dormerDepth);
+
+        // Draw dormer ridge based on style
+        ctx.strokeStyle = '#a855f7';
+        ctx.lineWidth = 2;
+        if (dormer.style === 'gable') {
+          ctx.beginPath();
+          ctx.moveTo(dormerX, dormerY + dormerDepth / 2);
+          ctx.lineTo(dormerX + dormerWidth, dormerY + dormerDepth / 2);
+          ctx.stroke();
+        } else if (dormer.style === 'hip') {
+          ctx.beginPath();
+          ctx.moveTo(dormerX + dormerWidth * 0.2, dormerY + dormerDepth / 2);
+          ctx.lineTo(dormerX + dormerWidth * 0.8, dormerY + dormerDepth / 2);
+          ctx.stroke();
+          // Hip lines
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(dormerX, dormerY);
+          ctx.lineTo(dormerX + dormerWidth * 0.2, dormerY + dormerDepth / 2);
+          ctx.moveTo(dormerX + dormerWidth, dormerY);
+          ctx.lineTo(dormerX + dormerWidth * 0.8, dormerY + dormerDepth / 2);
+          ctx.stroke();
+        } else if (dormer.style === 'shed') {
+          // Slope indicator
+          ctx.setLineDash([4, 3]);
+          ctx.beginPath();
+          ctx.moveTo(dormerX, dormerY);
+          ctx.lineTo(dormerX + dormerWidth, dormerY + dormerDepth);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        } else if (dormer.style === 'eyebrow') {
+          // Curved line
+          ctx.beginPath();
+          ctx.moveTo(dormerX, dormerY + dormerDepth);
+          ctx.quadraticCurveTo(dormerX + dormerWidth / 2, dormerY - dormerDepth * 0.3, dormerX + dormerWidth, dormerY + dormerDepth);
+          ctx.stroke();
+        }
+
+        // Draw window if present
+        if (dormer.hasWindow) {
+          const winW = dormerWidth * 0.5;
+          const winH = dormerDepth * 0.4;
+          const winX = dormerX + (dormerWidth - winW) / 2;
+          const winY = dormerY + (dormerDepth - winH) / 2;
+          ctx.fillStyle = '#bfdbfe';
+          ctx.strokeStyle = '#1e40af';
+          ctx.lineWidth = 1;
+          ctx.fillRect(winX, winY, winW, winH);
+          ctx.strokeRect(winX, winY, winW, winH);
+        }
+
+        // Label
+        ctx.fillStyle = '#7c3aed';
+        ctx.font = '9px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${dormer.style}`, posAlongLength, dormerY - 3);
+      }
+    }
+
     // Draw dimensions
     ctx.strokeStyle = '#64748b';
     ctx.fillStyle = '#64748b';
@@ -231,6 +322,13 @@ export function RoofCanvas({ config }: RoofCanvasProps) {
       ctx.fillRect(padding, legendY, 15, 3);
       ctx.fillStyle = '#1e293b';
       ctx.fillText('Valley', padding + 20, legendY + 5);
+    }
+    if (config.hasDormers && (config.dormers || []).length > 0) {
+      legendY += 20;
+      ctx.fillStyle = '#7c3aed';
+      ctx.fillRect(padding, legendY, 15, 3);
+      ctx.fillStyle = '#1e293b';
+      ctx.fillText('Dormer', padding + 20, legendY + 5);
     }
   };
 
@@ -376,6 +474,91 @@ export function RoofCanvas({ config }: RoofCanvasProps) {
       ctx.fillStyle = '#451a03';
       ctx.fillRect(chimneyX - 12, chimneyTop - 5, 24, 5);
       ctx.strokeRect(chimneyX - 12, chimneyTop - 5, 24, 5);
+    }
+
+    // Draw dormers on front elevation
+    if (config.hasDormers && config.dormers && config.dormers.length > 0) {
+      const frontDormers = config.dormers.filter(d => d.side === 'front');
+      for (const dormer of frontDormers) {
+        const dw = dormer.width * scale;
+        const dh = dormer.height * scale * 0.6;
+        const posX = centerX - scaledLength / 2 + (scaledLength * dormerPositionToPercent(dormer.horizontalPosition) / 100);
+        // Position dormer partway up the roof slope
+        const slopeProgress = 0.4;
+        const dormerBaseY = baseY - buildingHeight - ridgeHeight * slopeProgress;
+        const dormerLeft = posX - dw / 2;
+
+        // Dormer front wall
+        ctx.fillStyle = '#f0ead6';
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 1.5;
+        ctx.fillRect(dormerLeft, dormerBaseY - dh, dw, dh);
+        ctx.strokeRect(dormerLeft, dormerBaseY - dh, dw, dh);
+
+        // Dormer roof based on style
+        ctx.fillStyle = '#6b5b4f';
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 1.5;
+
+        if (dormer.style === 'gable') {
+          const dormerRidgeH = dh * 0.5;
+          ctx.beginPath();
+          ctx.moveTo(dormerLeft - 3, dormerBaseY - dh);
+          ctx.lineTo(posX, dormerBaseY - dh - dormerRidgeH);
+          ctx.lineTo(dormerLeft + dw + 3, dormerBaseY - dh);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        } else if (dormer.style === 'shed') {
+          const shedH = dh * 0.3;
+          ctx.beginPath();
+          ctx.moveTo(dormerLeft - 3, dormerBaseY - dh - shedH);
+          ctx.lineTo(dormerLeft + dw + 3, dormerBaseY - dh);
+          ctx.lineTo(dormerLeft + dw + 3, dormerBaseY - dh);
+          ctx.lineTo(dormerLeft - 3, dormerBaseY - dh);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        } else if (dormer.style === 'hip') {
+          const hipH = dh * 0.45;
+          ctx.beginPath();
+          ctx.moveTo(dormerLeft - 3, dormerBaseY - dh);
+          ctx.lineTo(dormerLeft + dw * 0.3, dormerBaseY - dh - hipH);
+          ctx.lineTo(dormerLeft + dw * 0.7, dormerBaseY - dh - hipH);
+          ctx.lineTo(dormerLeft + dw + 3, dormerBaseY - dh);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        } else if (dormer.style === 'eyebrow') {
+          ctx.beginPath();
+          ctx.moveTo(dormerLeft - 3, dormerBaseY - dh);
+          ctx.quadraticCurveTo(posX, dormerBaseY - dh - dh * 0.6, dormerLeft + dw + 3, dormerBaseY - dh);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        } else if (dormer.style === 'flat') {
+          ctx.fillRect(dormerLeft - 3, dormerBaseY - dh - 3, dw + 6, 4);
+          ctx.strokeRect(dormerLeft - 3, dormerBaseY - dh - 3, dw + 6, 4);
+        }
+
+        // Window
+        if (dormer.hasWindow) {
+          const winW = dw * 0.55;
+          const winH = dh * 0.6;
+          const winX = dormerLeft + (dw - winW) / 2;
+          const winY = dormerBaseY - dh + (dh - winH) * 0.4;
+          ctx.fillStyle = '#bfdbfe';
+          ctx.strokeStyle = '#1e40af';
+          ctx.lineWidth = 1;
+          ctx.fillRect(winX, winY, winW, winH);
+          ctx.strokeRect(winX, winY, winW, winH);
+          // Window pane divider
+          ctx.beginPath();
+          ctx.moveTo(winX + winW / 2, winY);
+          ctx.lineTo(winX + winW / 2, winY + winH);
+          ctx.stroke();
+        }
+      }
     }
 
     // Draw pitch angle indicator
@@ -832,6 +1015,14 @@ export function RoofCanvas({ config }: RoofCanvasProps) {
           <div className="text-xs text-green-700 font-medium">Shingle Type</div>
           <div className="text-sm font-bold text-green-900 mt-1 capitalize">{config.shingleType.replace('-', ' ')}</div>
         </div>
+        {config.hasDormers && (config.dormers || []).length > 0 && (
+          <div className="p-3 bg-gradient-to-br from-violet-50 to-violet-100 rounded-lg border border-violet-200">
+            <div className="text-xs text-violet-700 font-medium">Dormers</div>
+            <div className="text-sm font-bold text-violet-900 mt-1">
+              {(config.dormers || []).length} dormer{(config.dormers || []).length !== 1 ? 's' : ''}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Legend */}
@@ -854,6 +1045,12 @@ export function RoofCanvas({ config }: RoofCanvasProps) {
             <div className="w-6 h-1 bg-amber-500"></div>
             <span className="text-slate-700">Pitch Angle</span>
           </div>
+          {config.hasDormers && (config.dormers || []).length > 0 && (
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-1 bg-purple-500"></div>
+              <span className="text-slate-700">Dormer</span>
+            </div>
+          )}
         </div>
       </div>
     </div>

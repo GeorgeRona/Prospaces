@@ -1,109 +1,104 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '../utils/supabase/client';
+import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { useNotificationPreferences } from './useNotificationPreferences';
 import type { User } from '../App';
+
+const API_BASE = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07`;
 
 export function useAppointmentNotifications(user: User) {
   const [appointmentCount, setAppointmentCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const { preferences } = useNotificationPreferences(user);
+  const accessTokenRef = useRef<string | null>(null);
+
+  // Resolve the user's access token once
+  useEffect(() => {
+    if (!user) return;
+    const supabase = createClient();
+    supabase.auth.getSession().then(({ data }) => {
+      accessTokenRef.current = data?.session?.access_token ?? null;
+    });
+  }, [user]);
+
+  const loadAppointmentCount = useCallback(async () => {
+    if (!preferences.appointments || !user) return;
+
+    try {
+      setIsLoading(true);
+      const token = accessTokenRef.current;
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${publicAnonKey}`,
+      };
+      if (token) {
+        headers['X-User-Token'] = token;
+      }
+
+      const res = await fetch(`${API_BASE}/appointments/count`, { headers });
+      if (!res.ok) {
+        console.warn('Appointment count: non-OK response', res.status);
+        setAppointmentCount(0);
+        return;
+      }
+      const data = await res.json();
+      setAppointmentCount(data.count ?? 0);
+    } catch (error: any) {
+      // Network errors are non-fatal — just zero out
+      console.warn('Appointment count fetch failed (non-fatal):', error?.message || error);
+      setAppointmentCount(0);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user, preferences.appointments]);
 
   useEffect(() => {
-    // If notifications are disabled, set count to 0 and stop
     if (!preferences.appointments) {
       setAppointmentCount(0);
       setIsLoading(false);
       return;
     }
 
-    if (user) {
-      loadAppointmentCount();
-      
-      // Periodically recheck so past-due appointments drop off the badge
-      const interval = setInterval(() => {
-        loadAppointmentCount();
-      }, 60_000); // every 60 seconds
+    if (!user) return;
 
-      // Set up real-time subscription for appointment updates
+    loadAppointmentCount();
+
+    // Periodically recheck so past-due appointments drop off the badge
+    const interval = setInterval(loadAppointmentCount, 60_000);
+
+    // Set up real-time subscription for appointment updates
+    let channel: ReturnType<ReturnType<typeof createClient>['channel']> | null = null;
+    try {
       const supabase = createClient();
-      const channel = supabase
+      channel = supabase
         .channel('appointment-notifications')
-        // Listen for INSERT and UPDATE where the user is the owner
         .on(
           'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'appointments',
-            filter: `owner_id=eq.${user.id}`,
-          },
-          () => {
-            loadAppointmentCount();
-          }
+          { event: 'INSERT', schema: 'public', table: 'appointments', filter: `owner_id=eq.${user.id}` },
+          () => loadAppointmentCount()
         )
         .on(
           'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'appointments',
-            filter: `owner_id=eq.${user.id}`,
-          },
-          () => {
-            loadAppointmentCount();
-          }
+          { event: 'UPDATE', schema: 'public', table: 'appointments', filter: `owner_id=eq.${user.id}` },
+          () => loadAppointmentCount()
         )
-        // Listen for ANY DELETE because we can't filter by owner_id on delete
-        // (owner_id is not present in the delete payload without REPLICA IDENTITY FULL)
         .on(
           'postgres_changes',
-          {
-            event: 'DELETE',
-            schema: 'public',
-            table: 'appointments',
-          },
-          () => {
-            loadAppointmentCount();
-          }
+          { event: 'DELETE', schema: 'public', table: 'appointments' },
+          () => loadAppointmentCount()
         )
         .subscribe();
-
-      return () => {
-        clearInterval(interval);
-        supabase.removeChannel(channel);
-      };
+    } catch {
+      // Realtime subscription failure is non-fatal
     }
-  }, [user, preferences.appointments]);
 
-  const loadAppointmentCount = async () => {
-    if (!preferences.appointments) return;
-
-    try {
-      setIsLoading(true);
-      const supabase = createClient();
-      
-      // Count upcoming appointments for the user
-      // We want appointments owned by the user that start in the future
-      const now = new Date().toISOString();
-      
-      const { count, error } = await supabase
-        .from('appointments')
-        .select('*', { count: 'exact', head: true })
-        .eq('owner_id', user.id)
-        .gt('start_time', now);
-
-      if (error) {
-        console.error('Error counting appointments:', error);
-        return;
+    return () => {
+      clearInterval(interval);
+      if (channel) {
+        try { createClient().removeChannel(channel); } catch { /* ignore */ }
       }
-
-      setAppointmentCount(count || 0);
-    } catch (error) {
-      console.error('Failed to load appointment count:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    };
+  }, [user, preferences.appointments, loadAppointmentCount]);
 
   return { appointmentCount: preferences.appointments ? appointmentCount : 0, isLoading };
 }

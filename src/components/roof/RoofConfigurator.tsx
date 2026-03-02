@@ -1,5 +1,5 @@
-import React from 'react';
-import { RoofConfig } from '../../types/roof';
+import type { DormerConfig, DormerStyle } from '../../types/roof';
+import { Plus, Trash2, Home } from 'lucide-react';
 
 interface RoofConfiguratorProps {
   config: RoofConfig;
@@ -311,6 +311,237 @@ export function RoofConfigurator({ config, onChange }: RoofConfiguratorProps) {
                 onChange={(e) => updateConfig({ chimneyCount: parseInt(e.target.value) || 1 })}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white text-gray-900"
               />
+            </div>
+          )}
+        </div>
+
+        {/* Dormers */}
+        <div className="space-y-3">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={config.hasDormers || false}
+              onChange={(e) => updateConfig({
+                hasDormers: e.target.checked,
+                dormers: e.target.checked ? (config.dormers?.length ? config.dormers : []) : []
+              })}
+              className="rounded border-slate-300 text-orange-600 focus:ring-orange-500"
+            />
+            <span className="text-slate-700 text-sm font-medium">Has Dormers</span>
+          </label>
+
+          {config.hasDormers && (
+            <div className="space-y-3 pl-1">
+              <p className="text-xs text-slate-500">
+                Add dormers to your roof — structures that project from the slope to add light and space.
+              </p>
+
+              {/* Dormer List */}
+              {(config.dormers || []).map((dormer, index) => (
+                <div key={dormer.id} className="border border-slate-200 rounded-lg p-3 bg-slate-50 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Home className="w-4 h-4 text-orange-600" />
+                      <span className="text-sm font-medium text-slate-700">
+                        Dormer {index + 1}
+                      </span>
+                      <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded capitalize">
+                        {dormer.style}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const updated = (config.dormers || []).filter(d => d.id !== dormer.id);
+                        updateConfig({ dormers: updated });
+                      }}
+                      className="p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {/* Dormer Style */}
+                  <div>
+                    <label className="block text-slate-600 text-xs mb-1">Type</label>
+                    <select
+                      value={dormer.style}
+                      onChange={(e) => {
+                        const updated = (config.dormers || []).map(d =>
+                          d.id === dormer.id ? { ...d, style: e.target.value as DormerStyle } : d
+                        );
+                        updateConfig({ dormers: updated });
+                      }}
+                      className="w-full px-2 py-1.5 border border-slate-300 rounded-md text-sm bg-white text-gray-900 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    >
+                      <option value="gable">Gable Dormer</option>
+                      <option value="shed">Shed Dormer</option>
+                      <option value="hip">Hip Dormer</option>
+                      <option value="eyebrow">Eyebrow Dormer</option>
+                      <option value="flat">Flat Dormer</option>
+                    </select>
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                      {dormer.style === 'gable' && 'Most common — triangular roof with two slopes meeting at a ridge.'}
+                      {dormer.style === 'shed' && 'Single sloped roof, great for maximizing interior space.'}
+                      {dormer.style === 'hip' && 'Three-sided sloped roof — blends well with hip roofs.'}
+                      {dormer.style === 'eyebrow' && 'Curved, wave-like projection — decorative and distinctive.'}
+                      {dormer.style === 'flat' && 'Flat roof extension — modern look with simple framing.'}
+                    </p>
+                  </div>
+
+                  {/* Dimensions */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="block text-slate-600 text-xs mb-1">Width (ft)</label>
+                      <input
+                        type="number"
+                        min="2"
+                        max="12"
+                        step="0.5"
+                        value={dormer.width}
+                        onChange={(e) => {
+                          const updated = (config.dormers || []).map(d =>
+                            d.id === dormer.id ? { ...d, width: parseFloat(e.target.value) || 4 } : d
+                          );
+                          updateConfig({ dormers: updated });
+                        }}
+                        className="w-full px-2 py-1.5 border border-slate-300 rounded-md text-sm bg-white text-gray-900 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-600 text-xs mb-1">Height (ft)</label>
+                      <input
+                        type="number"
+                        min="2"
+                        max="8"
+                        step="0.5"
+                        value={dormer.height}
+                        onChange={(e) => {
+                          const updated = (config.dormers || []).map(d =>
+                            d.id === dormer.id ? { ...d, height: parseFloat(e.target.value) || 4 } : d
+                          );
+                          updateConfig({ dormers: updated });
+                        }}
+                        className="w-full px-2 py-1.5 border border-slate-300 rounded-md text-sm bg-white text-gray-900 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-600 text-xs mb-1">Depth (ft)</label>
+                      <input
+                        type="number"
+                        min="2"
+                        max="10"
+                        step="0.5"
+                        value={dormer.depth}
+                        onChange={(e) => {
+                          const updated = (config.dormers || []).map(d =>
+                            d.id === dormer.id ? { ...d, depth: parseFloat(e.target.value) || 4 } : d
+                          );
+                          updateConfig({ dormers: updated });
+                        }}
+                        className="w-full px-2 py-1.5 border border-slate-300 rounded-md text-sm bg-white text-gray-900 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Position & Side */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-slate-600 text-xs mb-1">
+                        Horizontal Position
+                      </label>
+                      <div className="flex gap-1">
+                        {(['left', 'center', 'right'] as const).map((pos) => (
+                          <button
+                            key={pos}
+                            onClick={() => {
+                              const updated = (config.dormers || []).map(d =>
+                                d.id === dormer.id ? { ...d, horizontalPosition: pos } : d
+                              );
+                              updateConfig({ dormers: updated });
+                            }}
+                            className={`flex-1 px-2 py-1.5 rounded-md text-xs font-medium transition-colors capitalize ${
+                              dormer.horizontalPosition === pos
+                                ? 'bg-orange-600 text-white'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            }`}
+                          >
+                            {pos}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-slate-600 text-xs mb-1">Roof Slope</label>
+                      <div className="flex gap-1">
+                        {(['front', 'back'] as const).map((s) => (
+                          <button
+                            key={s}
+                            onClick={() => {
+                              const updated = (config.dormers || []).map(d =>
+                                d.id === dormer.id ? { ...d, side: s } : d
+                              );
+                              updateConfig({ dormers: updated });
+                            }}
+                            className={`flex-1 px-2 py-1.5 rounded-md text-xs font-medium transition-colors capitalize ${
+                              dormer.side === s
+                                ? 'bg-orange-600 text-white'
+                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            }`}
+                          >
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Window Toggle */}
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={dormer.hasWindow}
+                      onChange={(e) => {
+                        const updated = (config.dormers || []).map(d =>
+                          d.id === dormer.id ? { ...d, hasWindow: e.target.checked } : d
+                        );
+                        updateConfig({ dormers: updated });
+                      }}
+                      className="rounded border-slate-300 text-orange-600 focus:ring-orange-500"
+                    />
+                    <span className="text-slate-600 text-xs">Include window</span>
+                  </label>
+                </div>
+              ))}
+
+              {/* Add Dormer Button */}
+              <button
+                onClick={() => {
+                  const newDormer: DormerConfig = {
+                    id: Math.random().toString(36).substring(2, 9),
+                    style: 'gable',
+                    width: 4,
+                    height: 4,
+                    depth: 5,
+                    horizontalPosition: 'center',
+                    side: 'front',
+                    hasWindow: true,
+                  };
+                  updateConfig({
+                    dormers: [...(config.dormers || []), newDormer]
+                  });
+                }}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2 border-2 border-dashed border-slate-300 rounded-lg text-sm text-slate-600 hover:border-orange-400 hover:text-orange-600 hover:bg-orange-50 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Add Dormer
+              </button>
+
+              {(config.dormers || []).length > 0 && (
+                <p className="text-xs text-slate-500 bg-blue-50 p-2 rounded border border-blue-100">
+                  <strong>{(config.dormers || []).length}</strong> dormer{(config.dormers || []).length !== 1 ? 's' : ''} configured.
+                  Each dormer adds roofing area, flashing, framing, and window materials.
+                </p>
+              )}
             </div>
           )}
         </div>

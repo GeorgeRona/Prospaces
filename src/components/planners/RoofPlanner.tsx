@@ -39,6 +39,8 @@ export function RoofPlanner({ user }: RoofPlannerProps) {
     skylightCount: 0,
     hasChimney: false,
     chimneyCount: 0,
+    hasDormers: false,
+    dormers: [],
     wasteFactor: 0.10,
     unit: 'feet',
   });

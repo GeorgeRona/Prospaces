@@ -39,6 +39,7 @@
           "class-variance-authority": "*",
           "clsx": "*",
           "cmdk": "*",
+          "date-fns": "*",
           "embla-carousel-react": "*",
           "fs": "*",
           "hono": "*",
