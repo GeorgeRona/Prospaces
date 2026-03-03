@@ -101,6 +101,32 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
     ...(materials.electrical || []),
   ];
 
+  // Auto-sync garage doors with bay count
+  useEffect(() => {
+    const expectedDoorCount = config.bays;
+    const currentDoorCount = config.doors.length;
+    
+    if (currentDoorCount !== expectedDoorCount) {
+      const newDoors = [];
+      const doorWidth = config.bays === 1 ? 9 : config.bays === 2 ? 9 : 9;
+      const doorHeight = 7;
+      const spacing = config.width / config.bays;
+      
+      for (let i = 0; i < config.bays; i++) {
+        newDoors.push({
+          id: `${i + 1}`,
+          type: 'overhead' as const,
+          width: doorWidth,
+          height: doorHeight,
+          position: 'front' as const,
+          offsetFromLeft: i * spacing + (spacing - doorWidth) / 2,
+        });
+      }
+      
+      setConfig(prev => ({ ...prev, doors: newDoors }));
+    }
+  }, [config.bays, config.width]);
+
   // Enrich materials with T1 pricing whenever config changes
   useEffect(() => {
     const enrichMaterials = async () => {

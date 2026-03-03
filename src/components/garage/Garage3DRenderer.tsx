@@ -20,11 +20,30 @@ import {
   LineSegments,
   BufferGeometry,
   BufferAttribute,
-  Vector3
+  Vector3,
+  CanvasTexture
 } from '../../utils/three';
+import { 
+  createGrassTexture, 
+  createConcreteTexture, 
+  createSidingTexture,
+  createShingleTexture 
+} from '../../utils/proceduralTextures';
 
 interface Garage3DRendererProps {
   config: GarageConfig;
+}
+
+/** Add wireframe edge outlines to a mesh for crisp definition */
+function addEdgeOutline(scene: Scene, geometry: BufferGeometry, mesh: Mesh, color = 0x333333) {
+  const edges = new EdgesGeometry(geometry);
+  const lineMat = new LineBasicMaterial({ color });
+  const wireframe = new LineSegments(edges, lineMat);
+  wireframe.position.set(mesh.position.x, mesh.position.y, mesh.position.z);
+  wireframe.rotation.x = mesh.rotation.x;
+  wireframe.rotation.y = mesh.rotation.y;
+  wireframe.rotation.z = mesh.rotation.z;
+  scene.add(wireframe);
 }
 
 export function Garage3DRenderer({ config }: Garage3DRendererProps) {
@@ -43,8 +62,8 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
 
     // Create scene
     const scene = new Scene();
-    scene.background = new Color(0xd4e4f7);
-    scene.fog = new Fog(0xd4e4f7, 10, 60);
+    scene.background = new Color(0xd4e6f1);
+    scene.fog = new Fog(0xd4e6f1, 15, 65);
 
     // Create camera
     const camera = new PerspectiveCamera(60, width / height, 0.1, 100);
@@ -54,31 +73,35 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
     // Create renderer
     const renderer = new WebGLRenderer({ antialias: true });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = PCFSoftShadowMap;
     containerRef.current.appendChild(renderer.domElement);
 
-    // Add lights
-    const ambientLight = new AmbientLight(0xffffff, 0.6);
+    // Enhanced 3-point lighting + sky ambient
+    const ambientLight = new AmbientLight(0xc8d8f0, 0.55);
     scene.add(ambientLight);
 
-    const directionalLight = new DirectionalLight(0xffffff, 0.9);
-    directionalLight.position.set(20, 25, 15);
-    directionalLight.castShadow = true;
-    directionalLight.shadow.mapSize.width = 2048;
-    directionalLight.shadow.mapSize.height = 2048;
-    directionalLight.shadow.camera.near = 0.5;
-    directionalLight.shadow.camera.far = 60;
-    directionalLight.shadow.camera.left = -25;
-    directionalLight.shadow.camera.right = 25;
-    directionalLight.shadow.camera.top = 25;
-    directionalLight.shadow.camera.bottom = -25;
-    scene.add(directionalLight);
+    const sunLight = new DirectionalLight(0xfff5e6, 1.0);
+    sunLight.position.set(18, 28, 12);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.width = 4096;
+    sunLight.shadow.mapSize.height = 4096;
+    sunLight.shadow.camera.near = 0.5;
+    sunLight.shadow.camera.far = 70;
+    sunLight.shadow.camera.left = -30;
+    sunLight.shadow.camera.right = 30;
+    sunLight.shadow.camera.top = 30;
+    sunLight.shadow.camera.bottom = -30;
+    scene.add(sunLight);
 
-    const fillLight = new DirectionalLight(0xffffff, 0.3);
-    fillLight.position.set(-15, 15, -15);
+    const fillLight = new DirectionalLight(0x8ecbf0, 0.35);
+    fillLight.position.set(-15, 12, -10);
     scene.add(fillLight);
+
+    const rimLight = new DirectionalLight(0xfff0d8, 0.28);
+    rimLight.position.set(-8, 8, -18);
+    scene.add(rimLight);
 
     // Convert feet to meters
     const scale = 0.3048;
@@ -88,11 +111,23 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
     const roofPitch = config.roofPitch / 12;
     const roofRise = (garageWidth / 2) * roofPitch;
 
+    // Procedural textures
+    const grassTexture = createGrassTexture();
+    const concreteTexture = createConcreteTexture();
+    const sidingColor = config.sidingType === 'vinyl' ? 0xe8e8e8 :
+                        config.sidingType === 'wood' ? 0xc4a57b :
+                        config.sidingType === 'metal' ? 0xb8c5d6 : 0xd9d9d9;
+    const sidingTexture = createSidingTexture(sidingColor);
+    const roofColor = config.roofingMaterial === 'metal' ? 0x7f8c8d :
+                      config.roofingMaterial === 'rubber' ? 0x2c3e50 : 0x5a4a42;
+    const roofType = config.roofingMaterial === 'metal' ? 'metal' : 'architectural-shingle';
+    const roofTexture = createShingleTexture(roofColor, roofType);
+
     // Create ground
     const groundGeometry = new PlaneGeometry(60, 60);
     const groundMaterial = new MeshStandardMaterial({ 
-      color: 0x5a7a4a,
-      roughness: 0.9,
+      map: grassTexture,
+      roughness: 0.95,
       metalness: 0.0
     });
     const ground = new Mesh(groundGeometry, groundMaterial);
@@ -108,20 +143,20 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
     // Foundation/Slab
     const slabGeometry = new BoxGeometry(garageWidth + 0.3, 0.2, garageLength + 0.3);
     const slabMaterial = new MeshStandardMaterial({ 
-      color: 0x9ca3af,
-      roughness: 0.8
+      map: concreteTexture,
+      roughness: 0.9,
+      metalness: 0.0
     });
     const slab = new Mesh(slabGeometry, slabMaterial);
     slab.position.set(0, 0.1, 0);
     slab.receiveShadow = true;
+    slab.castShadow = true;
     scene.add(slab);
 
     // Wall material
     const wallMaterial = new MeshStandardMaterial({ 
-      color: config.sidingType === 'vinyl' ? 0xe8e8e8 :
-             config.sidingType === 'wood' ? 0xc4a57b :
-             config.sidingType === 'metal' ? 0xb8c5d6 : 0xd9d9d9,
-      roughness: config.sidingType === 'metal' ? 0.3 : 0.8,
+      map: sidingTexture,
+      roughness: config.sidingType === 'metal' ? 0.3 : 0.85,
       metalness: config.sidingType === 'metal' ? 0.4 : 0.0,
       side: DoubleSide
     });
@@ -133,6 +168,7 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
     frontWall.castShadow = true;
     frontWall.receiveShadow = true;
     scene.add(frontWall);
+    addEdgeOutline(scene, frontWallGeometry, frontWall);
 
     // Back wall
     const backWall = new Mesh(frontWallGeometry, wallMaterial);
@@ -140,6 +176,7 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
     backWall.castShadow = true;
     backWall.receiveShadow = true;
     scene.add(backWall);
+    addEdgeOutline(scene, frontWallGeometry, backWall);
 
     // Side walls
     const sideWallGeometry = new BoxGeometry(0.15, wallHeight, garageLength);
@@ -148,18 +185,19 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
     leftWall.castShadow = true;
     leftWall.receiveShadow = true;
     scene.add(leftWall);
+    addEdgeOutline(scene, sideWallGeometry, leftWall);
 
     const rightWall = new Mesh(sideWallGeometry, wallMaterial);
     rightWall.position.set(garageWidth / 2, wallHeight / 2 + 0.2, 0);
     rightWall.castShadow = true;
     rightWall.receiveShadow = true;
     scene.add(rightWall);
+    addEdgeOutline(scene, sideWallGeometry, rightWall);
 
     // Roof
     const roofMaterial = new MeshStandardMaterial({ 
-      color: config.roofingMaterial === 'metal' ? 0x7f8c8d :
-             config.roofingMaterial === 'rubber' ? 0x2c3e50 : 0x5a4a42,
-      roughness: config.roofingMaterial === 'metal' ? 0.2 : 0.9,
+      map: roofTexture,
+      roughness: config.roofingMaterial === 'metal' ? 0.25 : 0.95,
       metalness: config.roofingMaterial === 'metal' ? 0.6 : 0.0
     });
 
@@ -179,6 +217,7 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
       leftRoof.castShadow = true;
       leftRoof.receiveShadow = true;
       scene.add(leftRoof);
+      addEdgeOutline(scene, leftRoofGeometry, leftRoof, 0x222222);
 
       // Right roof slope
       const rightRoof = new Mesh(leftRoofGeometry, roofMaterial);
@@ -191,6 +230,7 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
       rightRoof.castShadow = true;
       rightRoof.receiveShadow = true;
       scene.add(rightRoof);
+      addEdgeOutline(scene, leftRoofGeometry, rightRoof, 0x222222);
 
       // Gable end walls
       const gableGeometry = new BufferGeometry();
@@ -203,10 +243,12 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
       gableGeometry.computeVertexNormals();
       
       const gableFront = new Mesh(gableGeometry, wallMaterial);
+      gableFront.castShadow = true;
       scene.add(gableFront);
       
       const gableBack = new Mesh(gableGeometry, wallMaterial);
       gableBack.position.z = -garageLength;
+      gableBack.castShadow = true;
       scene.add(gableBack);
     } else if (config.roofStyle === 'flat') {
       const flatRoofGeometry = new BoxGeometry(garageWidth + 0.3, 0.15, garageLength + 0.6);
@@ -215,7 +257,20 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
       flatRoof.castShadow = true;
       flatRoof.receiveShadow = true;
       scene.add(flatRoof);
+      addEdgeOutline(scene, flatRoofGeometry, flatRoof, 0x222222);
     }
+
+    // Driveway (concrete path leading to garage)
+    const drivewayGeom = new BoxGeometry(garageWidth * 0.9, 0.08, 6);
+    const drivewayMat = new MeshStandardMaterial({ 
+      map: concreteTexture,
+      roughness: 0.85,
+      metalness: 0.0
+    });
+    const driveway = new Mesh(drivewayGeom, drivewayMat);
+    driveway.position.set(0, 0.04, garageLength / 2 + 3.2);
+    driveway.receiveShadow = true;
+    scene.add(driveway);
 
     // Garage doors
     config.doors.forEach((door) => {
@@ -223,9 +278,9 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
       const doorHeight = door.height * scale;
       const doorGeometry = new BoxGeometry(doorWidth, doorHeight, 0.05);
       const doorMaterial = new MeshStandardMaterial({ 
-        color: 0xffffff,
-        roughness: 0.2,
-        metalness: 0.5
+        color: 0xf0f0f0,
+        roughness: 0.4,
+        metalness: 0.6
       });
       const doorMesh = new Mesh(doorGeometry, doorMaterial);
 
@@ -240,16 +295,34 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
 
       doorMesh.position.set(x, doorHeight/2 + 0.2, z);
       doorMesh.castShadow = true;
+      doorMesh.receiveShadow = true;
       scene.add(doorMesh);
+      addEdgeOutline(scene, doorGeometry, doorMesh, 0x404040);
 
       // Door panels (horizontal lines)
-      for (let i = 1; i < 4; i++) {
-        const panelGeometry = new BoxGeometry(doorWidth * 0.95, 0.02, 0.06);
-        const panelMaterial = new MeshStandardMaterial({ color: 0xcccccc });
+      for (let i = 1; i < 5; i++) {
+        const panelGeometry = new BoxGeometry(doorWidth * 0.96, 0.03, 0.07);
+        const panelMaterial = new MeshStandardMaterial({ 
+          color: 0xd0d0d0,
+          roughness: 0.5,
+          metalness: 0.4
+        });
         const panel = new Mesh(panelGeometry, panelMaterial);
-        panel.position.set(x, doorHeight/4 * i + 0.2, z + 0.03);
+        panel.position.set(x, (doorHeight / 5) * i + 0.1, z + 0.035);
+        panel.castShadow = true;
         scene.add(panel);
       }
+
+      // Door handle
+      const handleGeometry = new BoxGeometry(0.03, 0.15, 0.05);
+      const handleMaterial = new MeshStandardMaterial({ 
+        color: 0x2d2d2d, 
+        metalness: 0.9, 
+        roughness: 0.2 
+      });
+      const handle = new Mesh(handleGeometry, handleMaterial);
+      handle.position.set(x + doorWidth * 0.4, doorHeight * 0.45 + 0.2, z + 0.08);
+      scene.add(handle);
     });
 
     // Walk door

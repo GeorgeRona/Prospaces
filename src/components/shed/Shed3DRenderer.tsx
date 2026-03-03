@@ -16,11 +16,34 @@ import {
   BoxGeometry,
   DoubleSide,
   BufferGeometry,
-  BufferAttribute
+  BufferAttribute,
+  EdgesGeometry,
+  LineBasicMaterial,
+  LineSegments,
+  CanvasTexture
 } from '../../utils/three';
+import { 
+  createGrassTexture, 
+  createConcreteTexture, 
+  createSidingTexture,
+  createShingleTexture,
+  createWoodTexture 
+} from '../../utils/proceduralTextures';
 
 interface Shed3DRendererProps {
   config: ShedConfig;
+}
+
+/** Add wireframe edge outlines to a mesh for crisp definition */
+function addEdgeOutline(scene: Scene, geometry: BufferGeometry, mesh: Mesh, color = 0x333333) {
+  const edges = new EdgesGeometry(geometry);
+  const lineMat = new LineBasicMaterial({ color });
+  const wireframe = new LineSegments(edges, lineMat);
+  wireframe.position.set(mesh.position.x, mesh.position.y, mesh.position.z);
+  wireframe.rotation.x = mesh.rotation.x;
+  wireframe.rotation.y = mesh.rotation.y;
+  wireframe.rotation.z = mesh.rotation.z;
+  scene.add(wireframe);
 }
 
 export function Shed3DRenderer({ config }: Shed3DRendererProps) {
@@ -39,8 +62,8 @@ export function Shed3DRenderer({ config }: Shed3DRendererProps) {
 
     // Create scene
     const scene = new Scene();
-    scene.background = new Color(0xe0f2e9);
-    scene.fog = new Fog(0xe0f2e9, 10, 50);
+    scene.background = new Color(0xd4e6f1);
+    scene.fog = new Fog(0xd4e6f1, 12, 55);
 
     // Create camera
     const camera = new PerspectiveCamera(60, width / height, 0.1, 100);
@@ -50,31 +73,35 @@ export function Shed3DRenderer({ config }: Shed3DRendererProps) {
     // Create renderer
     const renderer = new WebGLRenderer({ antialias: true });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = PCFSoftShadowMap;
     containerRef.current.appendChild(renderer.domElement);
 
-    // Add lights
-    const ambientLight = new AmbientLight(0xffffff, 0.65);
+    // Enhanced 3-point lighting + sky ambient
+    const ambientLight = new AmbientLight(0xc8d8f0, 0.55);
     scene.add(ambientLight);
 
-    const directionalLight = new DirectionalLight(0xffffff, 0.85);
-    directionalLight.position.set(15, 20, 10);
-    directionalLight.castShadow = true;
-    directionalLight.shadow.mapSize.width = 2048;
-    directionalLight.shadow.mapSize.height = 2048;
-    directionalLight.shadow.camera.near = 0.5;
-    directionalLight.shadow.camera.far = 50;
-    directionalLight.shadow.camera.left = -15;
-    directionalLight.shadow.camera.right = 15;
-    directionalLight.shadow.camera.top = 15;
-    directionalLight.shadow.camera.bottom = -15;
-    scene.add(directionalLight);
+    const sunLight = new DirectionalLight(0xfff5e6, 1.0);
+    sunLight.position.set(16, 24, 10);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.width = 4096;
+    sunLight.shadow.mapSize.height = 4096;
+    sunLight.shadow.camera.near = 0.5;
+    sunLight.shadow.camera.far = 60;
+    sunLight.shadow.camera.left = -25;
+    sunLight.shadow.camera.right = 25;
+    sunLight.shadow.camera.top = 25;
+    sunLight.shadow.camera.bottom = -25;
+    scene.add(sunLight);
 
-    const fillLight = new DirectionalLight(0xffffff, 0.3);
-    fillLight.position.set(-10, 10, -10);
+    const fillLight = new DirectionalLight(0x8ecbf0, 0.35);
+    fillLight.position.set(-12, 10, -8);
     scene.add(fillLight);
+
+    const rimLight = new DirectionalLight(0xfff0d8, 0.28);
+    rimLight.position.set(-6, 8, -15);
+    scene.add(rimLight);
 
     // Convert feet to meters
     const scale = 0.3048;
@@ -84,11 +111,24 @@ export function Shed3DRenderer({ config }: Shed3DRendererProps) {
     const roofPitch = config.roofPitch / 12;
     const roofRise = (shedWidth / 2) * roofPitch;
 
+    // Procedural textures
+    const grassTexture = createGrassTexture();
+    const concreteTexture = createConcreteTexture();
+    const woodTexture = createWoodTexture(0x6b5d4f);
+    const sidingColor = config.sidingType === 'vinyl' ? 0xe8e8e8 :
+                        config.sidingType === 'wood' ? 0xd4a574 :
+                        config.sidingType === 'metal' ? 0xb8c5d6 : 0xc9b08a;
+    const sidingTexture = createSidingTexture(sidingColor);
+    const roofColor = config.roofingMaterial === 'metal' ? 0x7f8c8d :
+                      config.roofingMaterial === 'architectural-shingle' ? 0x4a4a4a : 0x5a4a42;
+    const roofType = config.roofingMaterial === 'metal' ? 'metal' : 'architectural-shingle';
+    const roofTexture = createShingleTexture(roofColor, roofType);
+
     // Create ground
     const groundGeometry = new PlaneGeometry(40, 40);
     const groundMaterial = new MeshStandardMaterial({ 
-      color: 0x5c8a4a,
-      roughness: 0.9,
+      map: grassTexture,
+      roughness: 0.95,
       metalness: 0.0
     });
     const ground = new Mesh(groundGeometry, groundMaterial);
@@ -105,26 +145,31 @@ export function Shed3DRenderer({ config }: Shed3DRendererProps) {
     if (config.foundationType === 'concrete-slab') {
       const slabGeometry = new BoxGeometry(shedWidth + 0.2, 0.15, shedLength + 0.2);
       const slabMaterial = new MeshStandardMaterial({ 
-        color: 0xa0a0a0,
-        roughness: 0.8
+        map: concreteTexture,
+        roughness: 0.9,
+        metalness: 0.0
       });
       const slab = new Mesh(slabGeometry, slabMaterial);
       slab.position.set(0, 0.075, 0);
       slab.receiveShadow = true;
+      slab.castShadow = true;
       scene.add(slab);
     } else if (config.foundationType === 'skids') {
       const skidGeometry = new BoxGeometry(0.1, 0.15, shedLength);
       const skidMaterial = new MeshStandardMaterial({ 
-        color: 0x6b5d4f,
-        roughness: 0.8
+        map: woodTexture,
+        roughness: 0.9,
+        metalness: 0.0
       });
       
       const skid1 = new Mesh(skidGeometry, skidMaterial);
       skid1.position.set(-shedWidth * 0.3, 0.075, 0);
+      skid1.castShadow = true;
       scene.add(skid1);
       
       const skid2 = new Mesh(skidGeometry, skidMaterial);
       skid2.position.set(shedWidth * 0.3, 0.075, 0);
+      skid2.castShadow = true;
       scene.add(skid2);
     }
 
@@ -132,8 +177,9 @@ export function Shed3DRenderer({ config }: Shed3DRendererProps) {
     if (config.hasFloor) {
       const floorGeometry = new BoxGeometry(shedWidth, 0.05, shedLength);
       const floorMaterial = new MeshStandardMaterial({ 
-        color: 0xc4a57b,
-        roughness: 0.8
+        map: woodTexture,
+        roughness: 0.85,
+        metalness: 0.0
       });
       const floor = new Mesh(floorGeometry, floorMaterial);
       floor.position.set(0, 0.175, 0);
@@ -143,10 +189,8 @@ export function Shed3DRenderer({ config }: Shed3DRendererProps) {
 
     // Wall material
     const wallMaterial = new MeshStandardMaterial({ 
-      color: config.sidingType === 'vinyl' ? 0xe8e8e8 :
-             config.sidingType === 'wood' ? 0xd4a574 :
-             config.sidingType === 'metal' ? 0xb8c5d6 : 0xc9b08a,
-      roughness: config.sidingType === 'metal' ? 0.3 : 0.8,
+      map: sidingTexture,
+      roughness: config.sidingType === 'metal' ? 0.3 : 0.85,
       metalness: config.sidingType === 'metal' ? 0.4 : 0.0,
       side: DoubleSide
     });
@@ -161,6 +205,7 @@ export function Shed3DRenderer({ config }: Shed3DRendererProps) {
     frontWall.castShadow = true;
     frontWall.receiveShadow = true;
     scene.add(frontWall);
+    addEdgeOutline(scene, frontWallGeometry, frontWall);
 
     // Back wall
     const backWall = new Mesh(frontWallGeometry, wallMaterial);
@@ -168,6 +213,7 @@ export function Shed3DRenderer({ config }: Shed3DRendererProps) {
     backWall.castShadow = true;
     backWall.receiveShadow = true;
     scene.add(backWall);
+    addEdgeOutline(scene, frontWallGeometry, backWall);
 
     // Side walls
     const sideWallGeometry = new BoxGeometry(wallThickness, wallHeight, shedLength);
@@ -176,18 +222,19 @@ export function Shed3DRenderer({ config }: Shed3DRendererProps) {
     leftWall.castShadow = true;
     leftWall.receiveShadow = true;
     scene.add(leftWall);
+    addEdgeOutline(scene, sideWallGeometry, leftWall);
 
     const rightWall = new Mesh(sideWallGeometry, wallMaterial);
     rightWall.position.set(shedWidth / 2, wallHeight / 2 + 0.2, 0);
     rightWall.castShadow = true;
     rightWall.receiveShadow = true;
     scene.add(rightWall);
+    addEdgeOutline(scene, sideWallGeometry, rightWall);
 
     // Roof
     const roofMaterial = new MeshStandardMaterial({ 
-      color: config.roofingMaterial === 'metal' ? 0x7f8c8d :
-             config.roofingMaterial === 'architectural-shingle' ? 0x4a4a4a : 0x5a4a42,
-      roughness: config.roofingMaterial === 'metal' ? 0.2 : 0.9,
+      map: roofTexture,
+      roughness: config.roofingMaterial === 'metal' ? 0.25 : 0.95,
       metalness: config.roofingMaterial === 'metal' ? 0.6 : 0.0
     });
 

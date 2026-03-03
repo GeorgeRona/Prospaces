@@ -22,9 +22,25 @@ import {
   CylinderGeometry,
   CanvasTexture
 } from '../../utils/three';
+import { 
+  createWoodTexture,
+  createConcreteTexture 
+} from '../../utils/proceduralTextures';
 
 interface Kitchen3DRendererProps {
   config: KitchenConfig;
+}
+
+/** Add wireframe edge outlines to a mesh for crisp definition */
+function addEdgeOutline(scene: Scene, geometry: any, mesh: Mesh, color = 0x333333) {
+  const edges = new EdgesGeometry(geometry);
+  const lineMat = new LineBasicMaterial({ color });
+  const wireframe = new LineSegments(edges, lineMat);
+  wireframe.position.set(mesh.position.x, mesh.position.y, mesh.position.z);
+  wireframe.rotation.x = mesh.rotation.x;
+  wireframe.rotation.y = mesh.rotation.y;
+  wireframe.rotation.z = mesh.rotation.z;
+  scene.add(wireframe);
 }
 
 export function Kitchen3DRenderer({ config }: Kitchen3DRendererProps) {
@@ -44,8 +60,8 @@ export function Kitchen3DRenderer({ config }: Kitchen3DRendererProps) {
 
     // Create scene
     const scene = new Scene();
-    scene.background = new Color(0xf1f5f9);
-    scene.fog = new Fog(0xf1f5f9, 10, 50);
+    scene.background = new Color(0xd4e6f1);
+    scene.fog = new Fog(0xd4e6f1, 12, 55);
 
     // Create camera
     const camera = new PerspectiveCamera(60, width / height, 0.1, 100);
@@ -55,31 +71,35 @@ export function Kitchen3DRenderer({ config }: Kitchen3DRendererProps) {
     // Create renderer
     const renderer = new WebGLRenderer({ antialias: true });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = PCFSoftShadowMap;
     containerRef.current.appendChild(renderer.domElement);
 
-    // Add lights
-    const ambientLight = new AmbientLight(0xffffff, 0.6);
+    // Enhanced 3-point lighting + sky ambient
+    const ambientLight = new AmbientLight(0xc8d8f0, 0.6);
     scene.add(ambientLight);
 
-    const directionalLight = new DirectionalLight(0xffffff, 0.8);
-    directionalLight.position.set(10, 15, 5);
-    directionalLight.castShadow = true;
-    directionalLight.shadow.mapSize.width = 2048;
-    directionalLight.shadow.mapSize.height = 2048;
-    directionalLight.shadow.camera.near = 0.5;
-    directionalLight.shadow.camera.far = 50;
-    directionalLight.shadow.camera.left = -15;
-    directionalLight.shadow.camera.right = 15;
-    directionalLight.shadow.camera.top = 15;
-    directionalLight.shadow.camera.bottom = -15;
-    scene.add(directionalLight);
+    const sunLight = new DirectionalLight(0xfff5e6, 0.95);
+    sunLight.position.set(12, 18, 8);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.width = 4096;
+    sunLight.shadow.mapSize.height = 4096;
+    sunLight.shadow.camera.near = 0.5;
+    sunLight.shadow.camera.far = 60;
+    sunLight.shadow.camera.left = -20;
+    sunLight.shadow.camera.right = 20;
+    sunLight.shadow.camera.top = 20;
+    sunLight.shadow.camera.bottom = -20;
+    scene.add(sunLight);
 
-    const fillLight = new DirectionalLight(0xffffff, 0.3);
-    fillLight.position.set(-5, 5, -5);
+    const fillLight = new DirectionalLight(0x8ecbf0, 0.4);
+    fillLight.position.set(-8, 8, -6);
     scene.add(fillLight);
+
+    const rimLight = new DirectionalLight(0xfff0d8, 0.3);
+    rimLight.position.set(-5, 6, -12);
+    scene.add(rimLight);
 
     // Convert inches to meters (1 inch = 0.0254 meters)
     const scale = 0.0254;
@@ -87,13 +107,17 @@ export function Kitchen3DRenderer({ config }: Kitchen3DRendererProps) {
     const roomLength = config.roomLength * 12 * scale;
     const roomHeight = config.roomHeight * 12 * scale;
 
+    // Procedural textures
+    const woodTexture = createWoodTexture(0xc4a57b);
+    const concreteTexture = createConcreteTexture();
+
     // Create room
     // Floor
     const floorGeometry = new PlaneGeometry(roomWidth, roomLength);
     const floorMaterial = new MeshStandardMaterial({ 
-      color: 0xf8fafc,
-      roughness: 0.8,
-      metalness: 0.1
+      map: woodTexture,
+      roughness: 0.85,
+      metalness: 0.05
     });
     const floor = new Mesh(floorGeometry, floorMaterial);
     floor.rotation.x = -Math.PI / 2;
@@ -235,12 +259,8 @@ export function Kitchen3DRenderer({ config }: Kitchen3DRendererProps) {
       cabinetMesh.receiveShadow = true;
       scene.add(cabinetMesh);
 
-      // Cabinet edges
-      const cabinetEdges = new EdgesGeometry(cabinetGeometry);
-      const cabinetEdgesMaterial = new LineBasicMaterial({ color: 0x1f2937 });
-      const cabinetLines = new LineSegments(cabinetEdges, cabinetEdgesMaterial);
-      cabinetLines.position.copy(cabinetMesh.position);
-      scene.add(cabinetLines);
+      // Add edge outlines
+      addEdgeOutline(scene, cabinetGeometry, cabinetMesh);
 
       // Add doors if applicable
       if (cabinet.hasDoors && cabinet.numberOfDoors) {
@@ -330,12 +350,8 @@ export function Kitchen3DRenderer({ config }: Kitchen3DRendererProps) {
       applianceMesh.receiveShadow = true;
       scene.add(applianceMesh);
 
-      // Appliance edges
-      const applianceEdges = new EdgesGeometry(applianceGeometry);
-      const applianceEdgesMaterial = new LineBasicMaterial({ color: 0x475569 });
-      const applianceLines = new LineSegments(applianceEdges, applianceEdgesMaterial);
-      applianceLines.position.copy(applianceMesh.position);
-      scene.add(applianceLines);
+      // Add edge outlines
+      addEdgeOutline(scene, applianceGeometry, applianceMesh);
 
       // Type-specific details
       if (appliance.type === 'refrigerator') {

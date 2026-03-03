@@ -17,8 +17,17 @@ import {
   EdgesGeometry,
   BoxGeometry,
   LineBasicMaterial,
-  LineSegments
+  LineSegments,
+  CanvasTexture,
+  BufferGeometry,
+  CylinderGeometry
 } from '../../utils/three';
+import { 
+  createGrassTexture, 
+  createConcreteTexture, 
+  createSidingTexture,
+  createWoodTexture 
+} from '../../utils/proceduralTextures';
 
 interface Deck3DRendererProps {
   config: DeckConfig;
@@ -28,6 +37,18 @@ interface Deck3DRendererProps {
 export interface Deck3DRendererRef {
   captureSnapshot: () => void;
   getSnapshotUrl: () => string | null;
+}
+
+/** Add wireframe edge outlines to a mesh for crisp definition */
+function addEdgeOutline(scene: Scene, geometry: BufferGeometry, mesh: Mesh, color = 0x333333) {
+  const edges = new EdgesGeometry(geometry);
+  const lineMat = new LineBasicMaterial({ color });
+  const wireframe = new LineSegments(edges, lineMat);
+  wireframe.position.set(mesh.position.x, mesh.position.y, mesh.position.z);
+  wireframe.rotation.x = mesh.rotation.x;
+  wireframe.rotation.y = mesh.rotation.y;
+  wireframe.rotation.z = mesh.rotation.z;
+  scene.add(wireframe);
 }
 
 export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>(({ config, onRenderComplete }, ref) => {
@@ -85,14 +106,14 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
     const width = containerRef.current.clientWidth;
     const height = containerRef.current.clientHeight;
 
-    // Create scene
+    // Create scene — pale sky gradient
     const scene = new Scene();
-    scene.background = new Color(0xe8f4f8);
-    scene.fog = new Fog(0xe8f4f8, 10, 50);
+    scene.background = new Color(0xd4e6f1);
+    scene.fog = new Fog(0xd4e6f1, 15, 65);
 
     // Create camera
-    const camera = new PerspectiveCamera(60, width / height, 0.1, 100);
-    camera.position.set(10, 8, 10);
+    const camera = new PerspectiveCamera(55, width / height, 0.1, 100);
+    camera.position.set(12, 10, 12);
     camera.lookAt(0, 0, 0);
 
     // Create renderer
@@ -101,31 +122,35 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
       preserveDrawingBuffer: true // Required for printing/screenshots
     });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = PCFSoftShadowMap;
     containerRef.current.appendChild(renderer.domElement);
 
-    // Add lights
-    const ambientLight = new AmbientLight(0xffffff, 0.7);
+    // Enhanced 3-point lighting + sky ambient
+    const ambientLight = new AmbientLight(0xc8d8f0, 0.55);
     scene.add(ambientLight);
 
-    const directionalLight = new DirectionalLight(0xffffff, 0.8);
-    directionalLight.position.set(15, 20, 10);
-    directionalLight.castShadow = true;
-    directionalLight.shadow.mapSize.width = 2048;
-    directionalLight.shadow.mapSize.height = 2048;
-    directionalLight.shadow.camera.near = 0.5;
-    directionalLight.shadow.camera.far = 50;
-    directionalLight.shadow.camera.left = -20;
-    directionalLight.shadow.camera.right = 20;
-    directionalLight.shadow.camera.top = 20;
-    directionalLight.shadow.camera.bottom = -20;
-    scene.add(directionalLight);
+    const sunLight = new DirectionalLight(0xfff5e6, 1.0);
+    sunLight.position.set(18, 28, 12);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.width = 4096;
+    sunLight.shadow.mapSize.height = 4096;
+    sunLight.shadow.camera.near = 0.5;
+    sunLight.shadow.camera.far = 70;
+    sunLight.shadow.camera.left = -30;
+    sunLight.shadow.camera.right = 30;
+    sunLight.shadow.camera.top = 30;
+    sunLight.shadow.camera.bottom = -30;
+    scene.add(sunLight);
 
-    const fillLight = new DirectionalLight(0xffffff, 0.4);
-    fillLight.position.set(-10, 10, -10);
+    const fillLight = new DirectionalLight(0x8ecbf0, 0.35);
+    fillLight.position.set(-15, 12, -10);
     scene.add(fillLight);
+
+    const rimLight = new DirectionalLight(0xffeedd, 0.2);
+    rimLight.position.set(-5, 8, 20);
+    scene.add(rimLight);
 
     // Convert feet to meters
     const scale = 0.3048;
@@ -146,12 +171,19 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
     const lShapeLength = isLShape ? config.lShapeLength * scale : 0;
     const lShapePosition = config.lShapePosition || 'top-left';
     
-    // Create ground
+    // Procedural textures
+    const grassTex = createGrassTexture();
+    const sidingTex = createSidingTexture();
+    const concreteTex = createConcreteTexture();
+    const woodTex = createWoodTexture(0x8b6f47);
+    
+    // Create ground with grass texture
     const groundGeometry = new PlaneGeometry(50, 50);
     const groundMaterial = new MeshStandardMaterial({ 
       color: 0x4a7c59,
       roughness: 0.9,
-      metalness: 0.0
+      metalness: 0.0,
+      map: grassTex
     });
     const ground = new Mesh(groundGeometry, groundMaterial);
     ground.rotation.x = -Math.PI / 2;
@@ -159,12 +191,12 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
     ground.receiveShadow = true;
     scene.add(ground);
 
-    // Ground grid
-    const gridHelper = new GridHelper(30, 30, 0x6b8f72, 0x85a887);
+    // Subtle grid
+    const gridHelper = new GridHelper(40, 40, 0x7b9a6b, 0x9aad8a);
     gridHelper.position.y = -deckHeight - foundationAboveGrade + 0.01;
     scene.add(gridHelper);
 
-    // House wall on back side (permanent structure)
+    // House wall on back side (permanent structure) with siding texture
     const wallHeight = 3.0; // 3 meters tall wall
     const wallThickness = 0.2; // 200mm thick wall
     const wallWidth = isLShape ? Math.max(deckWidth, deckWidth + lShapeWidth) : deckWidth;
@@ -173,7 +205,8 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
     const wallMaterial = new MeshStandardMaterial({ 
       color: 0xd4c5b0, // Beige/tan house color
       roughness: 0.85,
-      metalness: 0.0
+      metalness: 0.0,
+      map: sidingTex
     });
     const wall = new Mesh(wallGeometry, wallMaterial);
     wall.position.set(0, -deckHeight + wallHeight/2, -deckLength/2 - wallThickness/2);
@@ -195,11 +228,109 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
     deckLevelTrim.castShadow = true;
     scene.add(deckLevelTrim);
 
-    // Deck material
+    // Concrete foundation strip along wall base
+    const foundationH = 0.25;
+    const foundationMat = new MeshStandardMaterial({ 
+      color: 0x8a8278, 
+      roughness: 0.95, 
+      map: concreteTex 
+    });
+    const wallFoundation = new Mesh(
+      new BoxGeometry(wallWidth * 1.5, foundationH, wallThickness + 0.3), 
+      foundationMat
+    );
+    wallFoundation.position.set(0, -deckHeight + foundationH / 2, -deckLength/2 - wallThickness/2);
+    wallFoundation.receiveShadow = true;
+    scene.add(wallFoundation);
+
+    // Add windows to wall (2 windows)
+    const windowGlassMat = new MeshStandardMaterial({ 
+      color: 0x87ceeb, 
+      roughness: 0.1, 
+      metalness: 0.8, 
+      transparent: true 
+    });
+    const winFrameMat = new MeshStandardMaterial({ 
+      color: 0xffffff, 
+      roughness: 0.3 
+    });
+    const winW = 0.7, winH = 0.6;
+    for (const wx of [-wallWidth * 0.3, wallWidth * 0.3]) {
+      const winGlass = new Mesh(
+        new BoxGeometry(winW, winH, 0.04), 
+        windowGlassMat
+      );
+      winGlass.position.set(wx, -deckHeight + wallHeight * 0.55, -deckLength/2 - wallThickness + 0.02);
+      scene.add(winGlass);
+      // Window frame
+      const fTop = new Mesh(
+        new BoxGeometry(winW + 0.08, 0.04, 0.06), 
+        winFrameMat
+      );
+      fTop.position.set(wx, -deckHeight + wallHeight * 0.55 + winH / 2 + 0.02, -deckLength/2 - wallThickness + 0.02);
+      scene.add(fTop);
+      const fBot = new Mesh(
+        new BoxGeometry(winW + 0.1, 0.05, 0.07), 
+        winFrameMat
+      );
+      fBot.position.set(wx, -deckHeight + wallHeight * 0.55 - winH / 2 - 0.02, -deckLength/2 - wallThickness + 0.02);
+      scene.add(fBot);
+      // Mullion cross
+      const mullV = new Mesh(
+        new BoxGeometry(0.025, winH, 0.05), 
+        winFrameMat
+      );
+      mullV.position.set(wx, -deckHeight + wallHeight * 0.55, -deckLength/2 - wallThickness + 0.03);
+      scene.add(mullV);
+      const mullH = new Mesh(
+        new BoxGeometry(winW, 0.025, 0.05), 
+        winFrameMat
+      );
+      mullH.position.set(wx, -deckHeight + wallHeight * 0.55, -deckLength/2 - wallThickness + 0.03);
+      scene.add(mullH);
+    }
+
+    // Sliding door on wall (centered)
+    const doorMat = new MeshStandardMaterial({ color: 0x5c3d2e, roughness: 0.7 });
+    const slidingDoorW = 1.8, slidingDoorH = 2.1;
+    const slidingDoor = new Mesh(
+      new BoxGeometry(slidingDoorW, slidingDoorH, 0.06), 
+      doorMat
+    );
+    slidingDoor.position.set(0, -deckHeight + slidingDoorH / 2 + foundationH, -deckLength/2 - wallThickness + 0.03);
+    scene.add(slidingDoor);
+    // Door frame
+    const dFrameMat = new MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
+    const dFrameTop = new Mesh(
+      new BoxGeometry(slidingDoorW + 0.12, 0.06, 0.08), 
+      dFrameMat
+    );
+    dFrameTop.position.set(0, -deckHeight + slidingDoorH + foundationH + 0.03, -deckLength/2 - wallThickness + 0.03);
+    scene.add(dFrameTop);
+
+    // Corner trim boards
+    const trimH = wallHeight + foundationH;
+    const wallCorners = [
+      [-wallWidth * 0.75, -deckLength/2 - wallThickness/2 - 0.15],
+      [wallWidth * 0.75, -deckLength/2 - wallThickness/2 - 0.15],
+      [-wallWidth * 0.75, -deckLength/2 - wallThickness/2 + 0.15],
+      [wallWidth * 0.75, -deckLength/2 - wallThickness/2 + 0.15]
+    ];
+    for (const [cx, cz] of wallCorners) {
+      const trim = new Mesh(
+        new BoxGeometry(0.08, trimH, 0.08), 
+        trimMaterial
+      );
+      trim.position.set(cx, -deckHeight + trimH / 2, cz);
+      scene.add(trim);
+    }
+
+    // Deck material with wood texture
     const deckMaterial = new MeshStandardMaterial({ 
       color: 0x8b6f47,
       roughness: 0.8,
-      metalness: 0.1
+      metalness: 0.1,
+      map: woodTex
     });
 
     // Create deck surfaces (main + L-shape extension if applicable)
@@ -264,10 +395,12 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
       scene.add(deckLines);
     }
 
-    // Deck boards (visual detail with proper spacing)
+    // Deck boards (visual detail with proper spacing and wood texture)
+    const boardWoodTex = createWoodTexture(0x9d7f54);
     const boardMaterial = new MeshStandardMaterial({ 
       color: 0x9d7f54,
-      roughness: 0.9
+      roughness: 0.9,
+      map: boardWoodTex
     });
 
     // Main deck boards
@@ -316,20 +449,35 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
       }
     }
 
+    // Concrete walkway / driveway (contextual element)
+    const drivewayGeom = new BoxGeometry(deckWidth * 0.35, 0.04, deckLength * 0.3 + 2);
+    const drivewayMat = new MeshStandardMaterial({ 
+      color: 0xb5ad9e, 
+      roughness: 0.95, 
+      map: concreteTex 
+    });
+    const driveway = new Mesh(drivewayGeom, drivewayMat);
+    driveway.position.set(0, -deckHeight - foundationAboveGrade + 0.02, deckLength / 2 + deckLength * 0.15 + 1);
+    driveway.receiveShadow = true;
+    scene.add(driveway);
+
     // Concrete foundations (piers) - 152mm (6") above grade per BC Building Code
     const foundationGeometry = new BoxGeometry(0.3, foundationAboveGrade, 0.3);
     const foundationMaterial = new MeshStandardMaterial({ 
       color: 0x888888,
       roughness: 0.9,
-      metalness: 0.0
+      metalness: 0.0,
+      map: concreteTex
     });
 
     // Support posts with proper standoff and sizing per BC Building Code
     const supportPostHeight = deckHeight - postStandoff;
     const supportPostGeometry = new BoxGeometry(postSize, supportPostHeight, postSize);
+    const postWoodTex = createWoodTexture(0x6b5d4f);
     const supportPostMaterial = new MeshStandardMaterial({ 
       color: 0x6b5d4f,
-      roughness: 0.7
+      roughness: 0.7,
+      map: postWoodTex
     });
 
     // Post base/saddle anchor (simulated as standoff)
