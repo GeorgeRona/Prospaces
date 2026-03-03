@@ -57,6 +57,8 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
 
   useEffect(() => {
     if (!containerRef.current) return;
+    
+    // v1.1 - Fixed door and window positioning to account for foundation height
 
     const width = containerRef.current.clientWidth;
     const height = containerRef.current.clientHeight;
@@ -309,7 +311,8 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
           metalness: 0.4
         });
         const panel = new Mesh(panelGeometry, panelMaterial);
-        panel.position.set(x, (doorHeight / 5) * i + 0.1, z + 0.035);
+        // Position panels relative to foundation top (0.2)
+        panel.position.set(x, (doorHeight / 5) * i + 0.2, z + 0.035);
         panel.castShadow = true;
         scene.add(panel);
       }
