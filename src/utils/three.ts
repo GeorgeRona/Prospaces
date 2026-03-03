@@ -525,7 +525,7 @@ export class LineBasicMaterial {
 }
 
 // ─── Object3D base ───────────────────────────────────────────────────────────
-class Object3D {
+export class Object3D {
   position = new Vector3();
   rotation = { x: 0, y: 0, z: 0 };
   scale = new Vector3(1, 1, 1);
