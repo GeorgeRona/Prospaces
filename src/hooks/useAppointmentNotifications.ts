@@ -19,20 +19,31 @@ export function useAppointmentNotifications(user: User) {
 
       // Get the access token fresh each time to avoid race conditions
       const supabase = createClient();
-      const { data: sessionData } = await supabase.auth.getSession();
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token ?? null;
+      
+      // If no valid session/token, silently skip (user might be logging out or session expired)
+      if (!token || sessionError) {
+        console.log('[Appointments] No valid session, skipping appointment count fetch');
+        setAppointmentCount(0);
+        setIsLoading(false);
+        return;
+      }
 
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${publicAnonKey}`,
+        'X-User-Token': token,
       };
-      if (token) {
-        headers['X-User-Token'] = token;
-      }
 
       const res = await fetch(`${API_BASE}/appointments/count`, { headers });
       if (!res.ok) {
-        console.warn('Appointment count: non-OK response', res.status);
+        // 401 is expected if session expired - don't spam console
+        if (res.status === 401) {
+          console.log('[Appointments] Session expired, clearing count');
+        } else {
+          console.warn('[Appointments] Non-OK response', res.status);
+        }
         setAppointmentCount(0);
         return;
       }
@@ -40,7 +51,7 @@ export function useAppointmentNotifications(user: User) {
       setAppointmentCount(data.count ?? 0);
     } catch (error: any) {
       // Network errors are non-fatal — just zero out
-      console.warn('Appointment count fetch failed (non-fatal):', error?.message || error);
+      console.warn('[Appointments] Fetch failed (non-fatal):', error?.message || error);
       setAppointmentCount(0);
     } finally {
       setIsLoading(false);

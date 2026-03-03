@@ -392,16 +392,16 @@ export async function getAllContactsClient(filterByAccountOwner?: string, scope:
 
     if (!response.ok) {
       const errorBody = await response.json().catch(() => ({ error: response.statusText }));
-      console.error('[contacts-client] Server error:', response.status, errorBody);
       
       // On 401, try refreshing the session and retry once before falling back
       if (response.status === 401) {
-        console.warn('[contacts-client] Got 401 — refreshing session and retrying...');
+        console.log('[contacts-client] Got 401 unauthorized, attempting session refresh...');
         try {
           const { createClient: createSupabaseClient } = await import('./supabase/client');
           const sb = createSupabaseClient();
-          const { data: { session: refreshed } } = await sb.auth.refreshSession();
-          if (refreshed?.access_token) {
+          const { data: { session: refreshed }, error: refreshError } = await sb.auth.refreshSession();
+          if (!refreshError && refreshed?.access_token) {
+            console.log('[contacts-client] Session refreshed, retrying request...');
             const retryHeaders = await getServerHeaders();
             const retryResponse = await fetch(
               `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/contacts?scope=${scope}`,
@@ -409,18 +409,25 @@ export async function getAllContactsClient(filterByAccountOwner?: string, scope:
             );
             if (retryResponse.ok) {
               const retryResult = await retryResponse.json();
-              console.log(`[contacts-client] Retry succeeded — ${retryResult.meta?.count || 0} contacts`);
+              console.log(`[contacts-client] ✅ Retry succeeded — ${retryResult.meta?.count || 0} contacts`);
               const transformedData = (retryResult.contacts || []).map(transformFromDbFormat);
               return { contacts: transformedData };
             }
-            console.error('[contacts-client] Retry also failed:', retryResponse.status);
+            console.log('[contacts-client] Retry failed with status:', retryResponse.status);
+          } else {
+            console.log('[contacts-client] Session refresh failed, falling back to direct query');
           }
         } catch (retryErr: any) {
-          console.warn('[contacts-client] Session refresh/retry failed:', retryErr.message);
+          console.log('[contacts-client] Refresh exception, falling back to direct query');
         }
+        
+        // Fallback to direct Supabase query (this is expected for 401s)
+        console.log('[contacts-client] Using direct Supabase query as fallback');
+        return await getAllContactsClientDirect(scope);
       }
       
-      // Fallback to direct Supabase query if server endpoint fails
+      // For non-401 errors, log and fall back
+      console.error('[contacts-client] Server error:', response.status, errorBody);
       console.warn('[contacts-client] Falling back to direct Supabase query...');
       return await getAllContactsClientDirect(scope);
     }

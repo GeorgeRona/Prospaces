@@ -52,7 +52,25 @@ export async function getUserAccessToken(): Promise<string | null> {
 
   // Always get the latest session from the Supabase client.
   try {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    // If there's a session error, try refreshing immediately
+    if (sessionError) {
+      console.warn('[server-headers] Session error, attempting refresh:', sessionError.message);
+      try {
+        const { data: { session: refreshed }, error: refreshError } = await supabase.auth.refreshSession();
+        if (!refreshError && refreshed?.access_token) {
+          _cachedToken = refreshed.access_token;
+          console.log('[server-headers] ✅ Session refreshed successfully after error');
+          return refreshed.access_token;
+        }
+        console.warn('[server-headers] ⚠️ Refresh after error failed, user needs to re-login');
+      } catch (refreshErr) {
+        console.warn('[server-headers] ⚠️ Session refresh exception:', refreshErr);
+      }
+      // Fall through to check cached token
+    }
+    
     if (session?.access_token) {
       // Check if the token is expired or about to expire (within 5 minutes).
       // getSession() returns the cached session without auto-refreshing in v2,
@@ -63,30 +81,34 @@ export async function getUserAccessToken(): Promise<string | null> {
       if (isExpiredOrStale) {
         try {
           console.log('[server-headers] Token expired or about to expire — refreshing session...');
-          const { data: { session: refreshed } } = await supabase.auth.refreshSession();
-          if (refreshed?.access_token) {
+          const { data: { session: refreshed }, error: refreshError } = await supabase.auth.refreshSession();
+          if (!refreshError && refreshed?.access_token) {
             _cachedToken = refreshed.access_token;
+            console.log('[server-headers] ✅ Session refreshed successfully');
             return refreshed.access_token;
           }
-          console.warn('[server-headers] Session refresh returned no session — user may need to re-login');
-        } catch {
+          console.warn('[server-headers] ⚠️ Session refresh returned no session — user may need to re-login');
+        } catch (refreshErr) {
           // Refresh failed — fall through; the old token might still work for a few seconds
-          console.warn('[server-headers] Session refresh failed — using existing token');
+          console.warn('[server-headers] ⚠️ Session refresh failed — using existing token');
         }
       }
 
       _cachedToken = session.access_token;
       return session.access_token;
     }
-  } catch {
+  } catch (err) {
+    console.warn('[server-headers] ⚠️ getSession exception:', err);
     // getSession failed — fall through to cached token
   }
 
   // Fallback: return cached token if getSession() failed (e.g. network hiccup)
   if (_cachedToken) {
+    console.log('[server-headers] Using cached token as fallback');
     return _cachedToken;
   }
 
+  console.log('[server-headers] No valid session or cached token available');
   return null; // user truly isn't logged in
 }
 

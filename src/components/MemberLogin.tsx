@@ -117,8 +117,11 @@ export function MemberLogin({ onLogin, onBack }: MemberLoginProps) {
             throw new Error('Your email is not confirmed yet. Check your inbox for a confirmation link.');
           }
           if (activeError.message.includes('Invalid login credentials')) {
+            console.log('[MemberLogin] Invalid credentials error:', { email, errorMessage: activeError.message });
             throw new Error('Invalid email or password.');
           }
+          // Log unexpected errors for debugging
+          console.warn('[MemberLogin] Unexpected sign-in error:', activeError.message);
           throw new Error(activeError.message);
         }
       }
