@@ -397,56 +397,56 @@ export const themes: Record<string, Theme> = {
   
   midnight: {
     id: 'midnight',
-    name: 'Midnight',
-    description: 'Deep dark theme with blue accents',
+    name: 'Emerald Night',
+    description: 'Dark theme with emerald green accents',
     isDark: true,
     colors: {
-      background: '#020617',
-      backgroundSecondary: '#0a1120',
-      backgroundTertiary: '#131d33',
+      background: '#0a120f',
+      backgroundSecondary: '#0f1c16',
+      backgroundTertiary: '#16291f',
       
-      text: '#e2e8f0',
-      textSecondary: '#cbd5e1',
-      textMuted: '#94a3b8',
+      text: '#d1fae5',
+      textSecondary: '#a7f3d0',
+      textMuted: '#6ee7b7',
       
-      primary: '#6366f1',
-      primaryHover: '#4f46e5',
+      primary: '#10b981',
+      primaryHover: '#059669',
       primaryText: '#ffffff',
       
-      secondary: '#1a2540',
-      secondaryText: '#e2e8f0',
+      secondary: '#16291f',
+      secondaryText: '#d1fae5',
       
-      accent: '#253552',
-      accentHover: '#1a2842',
-      accentText: '#e2e8f0',
+      accent: '#34d399',
+      accentHover: '#10b981',
+      accentText: '#ffffff',
       
-      border: '#162038',
-      borderLight: '#253552',
+      border: '#1e3a2b',
+      borderLight: '#2d5040',
       
-      card: '#131d33',
-      cardHover: '#1a2842',
-      cardText: '#e2e8f0',
+      card: '#0f1c16',
+      cardHover: '#16291f',
+      cardText: '#d1fae5',
       
-      input: '#131d33',
+      input: '#16291f',
       
       success: '#34d399',
       warning: '#fbbf24',
       error: '#f87171',
-      info: '#818cf8',
+      info: '#60a5fa',
       
-      destructive: '#dc2626',
+      destructive: '#ef4444',
       destructiveText: '#ffffff',
       
-      navBackground: '#030712',
-      navText: '#cbd5e1',
-      navHover: '#0c1525',
-      navActive: '#162038',
+      navBackground: '#040a07',
+      navText: '#a7f3d0',
+      navHover: '#0f1c16',
+      navActive: '#16291f',
       
-      topBarBackground: '#030712',
-      topBarText: '#e2e8f0',
+      topBarBackground: '#040a07',
+      topBarText: '#d1fae5',
       
-      gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      shadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.3)',
+      gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+      shadow: '0 0 20px rgba(16, 185, 129, 0.2), 0 10px 15px -3px rgba(0, 0, 0, 0.5)',
     },
   },
   
@@ -507,56 +507,56 @@ export const themes: Record<string, Theme> = {
   
   lavender: {
     id: 'lavender',
-    name: 'Lavender',
-    description: 'Soft purple and violet elegance',
+    name: 'Cherry Blossom',
+    description: 'Soft pink and rose tones',
     isDark: false,
     colors: {
-      background: '#fdfbff',
-      backgroundSecondary: '#f5f3ff',
-      backgroundTertiary: '#ede9fe',
+      background: '#fff5f7',
+      backgroundSecondary: '#ffe4e9',
+      backgroundTertiary: '#fecdd6',
       
-      text: '#4c1d95',
-      textSecondary: '#6b21a8',
-      textMuted: '#9333ea',
+      text: '#881337',
+      textSecondary: '#9f1239',
+      textMuted: '#a8a29e',
       
-      primary: '#7c3aed',
-      primaryHover: '#6d28d9',
+      primary: '#e11d48',
+      primaryHover: '#be123c',
       primaryText: '#ffffff',
       
-      secondary: '#f5f3ff',
-      secondaryText: '#4c1d95',
+      secondary: '#ffe4e9',
+      secondaryText: '#881337',
       
-      accent: '#a78bfa',
-      accentHover: '#8b5cf6',
+      accent: '#f43f5e',
+      accentHover: '#e11d48',
       accentText: '#ffffff',
       
-      border: '#ddd6fe',
-      borderLight: '#ede9fe',
+      border: '#fecdd6',
+      borderLight: '#ffe4e9',
       
       card: '#ffffff',
-      cardHover: '#f5f3ff',
-      cardText: '#4c1d95',
+      cardHover: '#fff5f7',
+      cardText: '#881337',
       
-      input: '#ddd6fe',
+      input: '#fecdd6',
       
       success: '#10b981',
       warning: '#f59e0b',
-      error: '#ef4444',
-      info: '#8b5cf6',
+      error: '#dc2626',
+      info: '#ec4899',
       
       destructive: '#dc2626',
       destructiveText: '#ffffff',
       
-      navBackground: 'linear-gradient(to bottom, #7c3aed, #6d28d9)',
+      navBackground: 'linear-gradient(to bottom, #e11d48, #be123c)',
       navText: '#ffffff',
       navHover: 'rgba(255, 255, 255, 0.2)',
       navActive: 'rgba(255, 255, 255, 0.3)',
       
-      topBarBackground: '#7c3aed',
+      topBarBackground: '#e11d48',
       topBarText: '#ffffff',
       
-      gradient: 'linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%)',
-      shadow: '0 10px 15px -3px rgba(124, 58, 237, 0.1), 0 4px 6px -2px rgba(124, 58, 237, 0.05)',
+      gradient: 'linear-gradient(135deg, #fda4af 0%, #e11d48 100%)',
+      shadow: '0 10px 15px -3px rgba(225, 29, 72, 0.1), 0 4px 6px -2px rgba(225, 29, 72, 0.05)',
     },
   },
   
