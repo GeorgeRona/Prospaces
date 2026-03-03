@@ -21,7 +21,8 @@ import {
   BufferGeometry,
   BufferAttribute,
   Vector3,
-  CanvasTexture
+  CanvasTexture,
+  CylinderGeometry
 } from '../../utils/three';
 import { 
   createGrassTexture, 
@@ -343,8 +344,45 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
         z = 0;
       }
 
-      walkDoor.position.set(x, 1.2, z);
+      // Position door with bottom at foundation top (0.2) + half door height
+      walkDoor.position.set(x, 1.0 + 0.2, z);
+      walkDoor.castShadow = true;
+      walkDoor.receiveShadow = true;
       scene.add(walkDoor);
+      addEdgeOutline(scene, walkDoorGeometry, walkDoor, 0x654321);
+      
+      // Door frame
+      const frameThickness = 0.08;
+      const frameDepth = 0.1;
+      
+      // Vertical left frame
+      const leftFrameGeom = new BoxGeometry(frameThickness, 2.1, frameDepth);
+      const frameMat = new MeshStandardMaterial({ color: 0x654321, roughness: 0.6 });
+      const leftFrame = new Mesh(leftFrameGeom, frameMat);
+      leftFrame.position.set(x - 0.49, 1.05 + 0.2, z);
+      leftFrame.castShadow = true;
+      scene.add(leftFrame);
+      
+      // Vertical right frame
+      const rightFrame = new Mesh(leftFrameGeom, frameMat);
+      rightFrame.position.set(x + 0.49, 1.05 + 0.2, z);
+      rightFrame.castShadow = true;
+      scene.add(rightFrame);
+      
+      // Horizontal top frame
+      const topFrameGeom = new BoxGeometry(0.98, frameThickness, frameDepth);
+      const topFrame = new Mesh(topFrameGeom, frameMat);
+      topFrame.position.set(x, 2.1 + 0.2, z);
+      topFrame.castShadow = true;
+      scene.add(topFrame);
+      
+      // Door handle
+      const handleGeom = new CylinderGeometry(0.025, 0.025, 0.12, 8);
+      const handleMat = new MeshStandardMaterial({ color: 0xc0c0c0, metalness: 0.9, roughness: 0.2 });
+      const doorHandle = new Mesh(handleGeom, handleMat);
+      doorHandle.position.set(x + 0.35, 1.0 + 0.2, z + 0.08);
+      doorHandle.rotation.z = Math.PI / 2;
+      scene.add(doorHandle);
     }
 
     // Windows
@@ -362,7 +400,8 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
       const windowMesh = new Mesh(windowGeometry, windowMaterial);
 
       let x = 0, z = 0;
-      const offsetY = (window.offsetFromFloor || 5) * scale;
+      // offsetFromFloor is in feet, convert to meters and add foundation height (0.2)
+      const offsetY = (window.offsetFromFloor || 5) * scale + 0.2;
       
       if (window.position === 'front') {
         x = -garageWidth/2 + windowWidth/2 + (window.offsetFromLeft || 0) * scale;
@@ -378,8 +417,43 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
         z = -garageLength/2 + windowWidth/2 + (window.offsetFromLeft || 0) * scale;
       }
 
+      // Position window: offsetY is bottom of window, add half window height for center
       windowMesh.position.set(x, windowHeight/2 + offsetY, z);
+      windowMesh.castShadow = true;
+      windowMesh.receiveShadow = true;
       scene.add(windowMesh);
+      addEdgeOutline(scene, windowGeometry, windowMesh, 0x404040);
+      
+      // Window frame
+      const frameThickness = 0.05;
+      const frameDepth = 0.08;
+      const frameMat = new MeshStandardMaterial({ color: 0xffffff, roughness: 0.6, metalness: 0.2 });
+      
+      // Vertical left frame
+      const vFrameGeom = new BoxGeometry(frameThickness, windowHeight + frameThickness * 2, frameDepth);
+      const leftFrame = new Mesh(vFrameGeom, frameMat);
+      leftFrame.position.set(x - windowWidth/2 - frameThickness/2, windowHeight/2 + offsetY, z);
+      leftFrame.castShadow = true;
+      scene.add(leftFrame);
+      
+      // Vertical right frame
+      const rightFrame = new Mesh(vFrameGeom, frameMat);
+      rightFrame.position.set(x + windowWidth/2 + frameThickness/2, windowHeight/2 + offsetY, z);
+      rightFrame.castShadow = true;
+      scene.add(rightFrame);
+      
+      // Horizontal top frame
+      const hFrameGeom = new BoxGeometry(windowWidth + frameThickness * 2, frameThickness, frameDepth);
+      const topFrame = new Mesh(hFrameGeom, frameMat);
+      topFrame.position.set(x, windowHeight/2 + offsetY + windowHeight/2 + frameThickness/2, z);
+      topFrame.castShadow = true;
+      scene.add(topFrame);
+      
+      // Horizontal bottom frame
+      const bottomFrame = new Mesh(hFrameGeom, frameMat);
+      bottomFrame.position.set(x, windowHeight/2 + offsetY - windowHeight/2 - frameThickness/2, z);
+      bottomFrame.castShadow = true;
+      scene.add(bottomFrame);
     });
 
     // Mouse controls
