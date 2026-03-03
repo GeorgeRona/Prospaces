@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
 import { useNotificationPreferences } from './useNotificationPreferences';
@@ -10,23 +10,18 @@ export function useAppointmentNotifications(user: User) {
   const [appointmentCount, setAppointmentCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const { preferences } = useNotificationPreferences(user);
-  const accessTokenRef = useRef<string | null>(null);
-
-  // Resolve the user's access token once
-  useEffect(() => {
-    if (!user) return;
-    const supabase = createClient();
-    supabase.auth.getSession().then(({ data }) => {
-      accessTokenRef.current = data?.session?.access_token ?? null;
-    });
-  }, [user]);
 
   const loadAppointmentCount = useCallback(async () => {
     if (!preferences.appointments || !user) return;
 
     try {
       setIsLoading(true);
-      const token = accessTokenRef.current;
+
+      // Get the access token fresh each time to avoid race conditions
+      const supabase = createClient();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token ?? null;
+
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${publicAnonKey}`,

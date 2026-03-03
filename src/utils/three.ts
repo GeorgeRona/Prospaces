@@ -423,7 +423,7 @@ export class EdgesGeometry extends BufferGeometry {
       // Use quantized positions as key for edge dedup
       const ax = Math.round(pos[min*3]*1000), ay = Math.round(pos[min*3+1]*1000), az = Math.round(pos[min*3+2]*1000);
       const bx = Math.round(pos[max*3]*1000), by = Math.round(pos[max*3+1]*1000), bz = Math.round(pos[max*3+2]*1000);
-      return `${ax},${ay},${az}-${bx},${by},${bz}`;
+      return `${ax},${ay},${az}|${bx},${by},${bz}`;
     };
 
     // Collect face normals for each edge
@@ -458,7 +458,7 @@ export class EdgesGeometry extends BufferGeometry {
       }
       if (isEdge && !edgeSet.has(k)) {
         edgeSet.add(k);
-        const parts = k.split('-');
+        const parts = k.split('|');
         const [ax,ay,az] = parts[0].split(',').map(Number);
         const [bx,by,bz] = parts[1].split(',').map(Number);
         linePositions.push(ax/1000, ay/1000, az/1000, bx/1000, by/1000, bz/1000);

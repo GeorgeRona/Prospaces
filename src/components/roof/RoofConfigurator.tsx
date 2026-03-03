@@ -1,4 +1,4 @@
-import type { DormerConfig, DormerStyle } from '../../types/roof';
+import type { DormerConfig, DormerStyle, LShapeConfig, LShapeWingPosition, TShapeConfig, TShapeWingSide, UShapeConfig, UShapeWingSide, RoofConfig } from '../../types/roof';
 import { Plus, Trash2, Home } from 'lucide-react';
 
 interface RoofConfiguratorProps {
@@ -117,8 +117,407 @@ export function RoofConfigurator({ config, onChange }: RoofConfiguratorProps) {
             >
               Flat
             </button>
+            <button
+              onClick={() => updateConfig({ 
+                style: 'l-shaped',
+                lShapeConfig: config.lShapeConfig || {
+                  wingLength: 20,
+                  wingWidth: 20,
+                  wingPosition: 'back-right',
+                  wingRoofStyle: 'gable',
+                },
+                hasValleys: true,
+                valleyCount: (config.valleyCount || 0) < 2 ? 2 : config.valleyCount,
+              })}
+              className={`px-4 py-2 rounded-lg border-2 transition-colors text-sm col-span-2 ${
+                config.style === 'l-shaped'
+                  ? 'border-orange-600 bg-orange-50 text-orange-700'
+                  : 'border-slate-300 text-slate-700 hover:border-slate-400'
+              }`}
+            >
+              L-Shaped
+            </button>
+            <button
+              onClick={() => updateConfig({ 
+                style: 't-shaped',
+                tShapeConfig: config.tShapeConfig || {
+                  wingLength: 20,
+                  wingWidth: 20,
+                  wingSide: 'right',
+                  wingRoofStyle: 'gable',
+                },
+                hasValleys: true,
+                valleyCount: (config.valleyCount || 0) < 2 ? 2 : config.valleyCount,
+              })}
+              className={`px-4 py-2 rounded-lg border-2 transition-colors text-sm col-span-2 ${
+                config.style === 't-shaped'
+                  ? 'border-orange-600 bg-orange-50 text-orange-700'
+                  : 'border-slate-300 text-slate-700 hover:border-slate-400'
+              }`}
+            >
+              T-Shaped
+            </button>
+            <button
+              onClick={() => updateConfig({ 
+                style: 'u-shaped',
+                uShapeConfig: config.uShapeConfig || {
+                  wingLength: 20,
+                  wingWidth: 20,
+                  wingSide: 'left-right',
+                  wingRoofStyle: 'gable',
+                },
+                hasValleys: true,
+                valleyCount: (config.valleyCount || 0) < 2 ? 2 : config.valleyCount,
+              })}
+              className={`px-4 py-2 rounded-lg border-2 transition-colors text-sm col-span-2 ${
+                config.style === 'u-shaped'
+                  ? 'border-orange-600 bg-orange-50 text-orange-700'
+                  : 'border-slate-300 text-slate-700 hover:border-slate-400'
+              }`}
+            >
+              U-Shaped
+            </button>
           </div>
         </div>
+
+        {/* L-Shaped Wing Configuration */}
+        {config.style === 'l-shaped' && (
+          <div className="border border-orange-200 rounded-lg p-3 bg-orange-50/50 space-y-3">
+            <h3 className="text-slate-900 text-sm font-medium flex items-center gap-2">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-orange-600">
+                <path d="M2 2h5v12H2V2zm5 7h7v5H7V9z" stroke="currentColor" strokeWidth="1.5" fill="none" />
+              </svg>
+              L-Shape Wing Section
+            </h3>
+            <p className="text-xs text-slate-500">
+              The main section uses Length & Width above. Configure the wing that extends from it to form the L-shape.
+            </p>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-slate-600 text-xs mb-1">Wing Length (ft)</label>
+                <input
+                  type="number"
+                  min="5"
+                  max="100"
+                  step="1"
+                  value={config.lShapeConfig?.wingLength || 20}
+                  onChange={(e) => updateConfig({
+                    lShapeConfig: {
+                      ...(config.lShapeConfig || { wingLength: 20, wingWidth: 20, wingPosition: 'back-right', wingRoofStyle: 'gable' }),
+                      wingLength: parseFloat(e.target.value) || 20,
+                    }
+                  })}
+                  className="w-full px-2 py-1.5 border border-slate-300 rounded-md text-sm bg-white text-gray-900 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-600 text-xs mb-1">Wing Width (ft)</label>
+                <input
+                  type="number"
+                  min="5"
+                  max="100"
+                  step="1"
+                  value={config.lShapeConfig?.wingWidth || 20}
+                  onChange={(e) => updateConfig({
+                    lShapeConfig: {
+                      ...(config.lShapeConfig || { wingLength: 20, wingWidth: 20, wingPosition: 'back-right', wingRoofStyle: 'gable' }),
+                      wingWidth: parseFloat(e.target.value) || 20,
+                    }
+                  })}
+                  className="w-full px-2 py-1.5 border border-slate-300 rounded-md text-sm bg-white text-gray-900 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-slate-600 text-xs mb-1">Wing Position</label>
+              <div className="grid grid-cols-2 gap-1">
+                {(['front-right', 'front-left', 'back-right', 'back-left'] as const).map((pos) => (
+                  <button
+                    key={pos}
+                    onClick={() => updateConfig({
+                      lShapeConfig: {
+                        ...(config.lShapeConfig || { wingLength: 20, wingWidth: 20, wingPosition: 'back-right', wingRoofStyle: 'gable' }),
+                        wingPosition: pos,
+                      }
+                    })}
+                    className={`px-2 py-1.5 rounded-md text-xs font-medium transition-colors capitalize ${
+                      (config.lShapeConfig?.wingPosition || 'back-right') === pos
+                        ? 'bg-orange-600 text-white'
+                        : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                    }`}
+                  >
+                    {pos.replace('-', ' ')}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1">
+                Which corner of the main section does the wing extend from
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-slate-600 text-xs mb-1">Wing Roof Style</label>
+              <div className="flex gap-1">
+                {(['gable', 'hip'] as const).map((rs) => (
+                  <button
+                    key={rs}
+                    onClick={() => updateConfig({
+                      lShapeConfig: {
+                        ...(config.lShapeConfig || { wingLength: 20, wingWidth: 20, wingPosition: 'back-right', wingRoofStyle: 'gable' }),
+                        wingRoofStyle: rs,
+                      }
+                    })}
+                    className={`flex-1 px-2 py-1.5 rounded-md text-xs font-medium transition-colors capitalize ${
+                      (config.lShapeConfig?.wingRoofStyle || 'gable') === rs
+                        ? 'bg-orange-600 text-white'
+                        : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                    }`}
+                  >
+                    {rs}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {config.lShapeConfig && (
+              <div className="text-xs text-slate-500 bg-blue-50 p-2 rounded border border-blue-100">
+                <strong>Main:</strong> {config.length}' x {config.width}' = {(config.length * config.width).toLocaleString()} sq ft
+                <br />
+                <strong>Wing:</strong> {config.lShapeConfig.wingLength}' x {config.lShapeConfig.wingWidth}' = {(config.lShapeConfig.wingLength * config.lShapeConfig.wingWidth).toLocaleString()} sq ft
+                <br />
+                <strong>Combined flat area:</strong> {((config.length * config.width) + (config.lShapeConfig.wingLength * config.lShapeConfig.wingWidth)).toLocaleString()} sq ft
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* T-Shaped Wing Configuration */}
+        {config.style === 't-shaped' && (
+          <div className="border border-orange-200 rounded-lg p-3 bg-orange-50/50 space-y-3">
+            <h3 className="text-slate-900 text-sm font-medium flex items-center gap-2">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-orange-600">
+                <path d="M2 2h5v12H2V2zm5 7h7v5H7V9z" stroke="currentColor" strokeWidth="1.5" fill="none" />
+              </svg>
+              T-Shape Wing Section
+            </h3>
+            <p className="text-xs text-slate-500">
+              The main section uses Length & Width above. Configure the wing that extends from it to form the T-shape.
+            </p>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-slate-600 text-xs mb-1">Wing Length (ft)</label>
+                <input
+                  type="number"
+                  min="5"
+                  max="100"
+                  step="1"
+                  value={config.tShapeConfig?.wingLength || 20}
+                  onChange={(e) => updateConfig({
+                    tShapeConfig: {
+                      ...(config.tShapeConfig || { wingLength: 20, wingWidth: 20, wingSide: 'right', wingRoofStyle: 'gable' }),
+                      wingLength: parseFloat(e.target.value) || 20,
+                    }
+                  })}
+                  className="w-full px-2 py-1.5 border border-slate-300 rounded-md text-sm bg-white text-gray-900 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-600 text-xs mb-1">Wing Width (ft)</label>
+                <input
+                  type="number"
+                  min="5"
+                  max="100"
+                  step="1"
+                  value={config.tShapeConfig?.wingWidth || 20}
+                  onChange={(e) => updateConfig({
+                    tShapeConfig: {
+                      ...(config.tShapeConfig || { wingLength: 20, wingWidth: 20, wingSide: 'right', wingRoofStyle: 'gable' }),
+                      wingWidth: parseFloat(e.target.value) || 20,
+                    }
+                  })}
+                  className="w-full px-2 py-1.5 border border-slate-300 rounded-md text-sm bg-white text-gray-900 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-slate-600 text-xs mb-1">Wing Side</label>
+              <div className="grid grid-cols-2 gap-1">
+                {(['front', 'back', 'left', 'right'] as const).map((pos) => (
+                  <button
+                    key={pos}
+                    onClick={() => updateConfig({
+                      tShapeConfig: {
+                        ...(config.tShapeConfig || { wingLength: 20, wingWidth: 20, wingSide: 'right', wingRoofStyle: 'gable' }),
+                        wingSide: pos,
+                      }
+                    })}
+                    className={`px-2 py-1.5 rounded-md text-xs font-medium transition-colors capitalize ${
+                      (config.tShapeConfig?.wingSide || 'right') === pos
+                        ? 'bg-orange-600 text-white'
+                        : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                    }`}
+                  >
+                    {pos}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1">
+                Which side of the main section does the wing extend from (centered)
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-slate-600 text-xs mb-1">Wing Roof Style</label>
+              <div className="flex gap-1">
+                {(['gable', 'hip'] as const).map((rs) => (
+                  <button
+                    key={rs}
+                    onClick={() => updateConfig({
+                      tShapeConfig: {
+                        ...(config.tShapeConfig || { wingLength: 20, wingWidth: 20, wingSide: 'right', wingRoofStyle: 'gable' }),
+                        wingRoofStyle: rs,
+                      }
+                    })}
+                    className={`flex-1 px-2 py-1.5 rounded-md text-xs font-medium transition-colors capitalize ${
+                      (config.tShapeConfig?.wingRoofStyle || 'gable') === rs
+                        ? 'bg-orange-600 text-white'
+                        : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                    }`}
+                  >
+                    {rs}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {config.tShapeConfig && (
+              <div className="text-xs text-slate-500 bg-blue-50 p-2 rounded border border-blue-100">
+                <strong>Main:</strong> {config.length}' x {config.width}' = {(config.length * config.width).toLocaleString()} sq ft
+                <br />
+                <strong>Wing:</strong> {config.tShapeConfig.wingLength}' x {config.tShapeConfig.wingWidth}' = {(config.tShapeConfig.wingLength * config.tShapeConfig.wingWidth).toLocaleString()} sq ft
+                <br />
+                <strong>Combined flat area:</strong> {((config.length * config.width) + (config.tShapeConfig.wingLength * config.tShapeConfig.wingWidth)).toLocaleString()} sq ft
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* U-Shaped Wing Configuration */}
+        {config.style === 'u-shaped' && (
+          <div className="border border-orange-200 rounded-lg p-3 bg-orange-50/50 space-y-3">
+            <h3 className="text-slate-900 text-sm font-medium flex items-center gap-2">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="text-orange-600">
+                <path d="M2 2h5v12H2V2zm5 7h7v5H7V9z" stroke="currentColor" strokeWidth="1.5" fill="none" />
+              </svg>
+              U-Shape Wings (x2)
+            </h3>
+            <p className="text-xs text-slate-500">
+              Two symmetrical wings extend from opposite ends of the main section, forming a U-shape courtyard.
+            </p>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-slate-600 text-xs mb-1">Each Wing Length (ft)</label>
+                <input
+                  type="number"
+                  min="5"
+                  max="100"
+                  step="1"
+                  value={config.uShapeConfig?.wingLength || 20}
+                  onChange={(e) => updateConfig({
+                    uShapeConfig: {
+                      ...(config.uShapeConfig || { wingLength: 20, wingWidth: 20, wingSide: 'left-right', wingRoofStyle: 'gable' }),
+                      wingLength: parseFloat(e.target.value) || 20,
+                    }
+                  })}
+                  className="w-full px-2 py-1.5 border border-slate-300 rounded-md text-sm bg-white text-gray-900 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-600 text-xs mb-1">Each Wing Width (ft)</label>
+                <input
+                  type="number"
+                  min="5"
+                  max="100"
+                  step="1"
+                  value={config.uShapeConfig?.wingWidth || 20}
+                  onChange={(e) => updateConfig({
+                    uShapeConfig: {
+                      ...(config.uShapeConfig || { wingLength: 20, wingWidth: 20, wingSide: 'left-right', wingRoofStyle: 'gable' }),
+                      wingWidth: parseFloat(e.target.value) || 20,
+                    }
+                  })}
+                  className="w-full px-2 py-1.5 border border-slate-300 rounded-md text-sm bg-white text-gray-900 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-slate-600 text-xs mb-1">Wings Extend From</label>
+              <div className="grid grid-cols-2 gap-1">
+                {(['left-right', 'front-back'] as const).map((pos) => (
+                  <button
+                    key={pos}
+                    onClick={() => updateConfig({
+                      uShapeConfig: {
+                        ...(config.uShapeConfig || { wingLength: 20, wingWidth: 20, wingSide: 'left-right', wingRoofStyle: 'gable' }),
+                        wingSide: pos,
+                      }
+                    })}
+                    className={`px-2 py-1.5 rounded-md text-xs font-medium transition-colors capitalize ${
+                      (config.uShapeConfig?.wingSide || 'left-right') === pos
+                        ? 'bg-orange-600 text-white'
+                        : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                    }`}
+                  >
+                    {pos === 'left-right' ? 'Left & Right' : 'Front & Back'}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1">
+                Two wings extend from opposite sides to form the U-shape courtyard
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-slate-600 text-xs mb-1">Wing Roof Style</label>
+              <div className="flex gap-1">
+                {(['gable', 'hip'] as const).map((rs) => (
+                  <button
+                    key={rs}
+                    onClick={() => updateConfig({
+                      uShapeConfig: {
+                        ...(config.uShapeConfig || { wingLength: 20, wingWidth: 20, wingSide: 'left-right', wingRoofStyle: 'gable' }),
+                        wingRoofStyle: rs,
+                      }
+                    })}
+                    className={`flex-1 px-2 py-1.5 rounded-md text-xs font-medium transition-colors capitalize ${
+                      (config.uShapeConfig?.wingRoofStyle || 'gable') === rs
+                        ? 'bg-orange-600 text-white'
+                        : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                    }`}
+                  >
+                    {rs}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {config.uShapeConfig && (
+              <div className="text-xs text-slate-500 bg-blue-50 p-2 rounded border border-blue-100">
+                <strong>Main:</strong> {config.length}' x {config.width}' = {(config.length * config.width).toLocaleString()} sq ft
+                <br />
+                <strong>Each Wing:</strong> {config.uShapeConfig.wingLength}' x {config.uShapeConfig.wingWidth}' = {(config.uShapeConfig.wingLength * config.uShapeConfig.wingWidth).toLocaleString()} sq ft
+                <br />
+                <strong>Combined flat area:</strong> {((config.length * config.width) + (config.uShapeConfig.wingLength * config.uShapeConfig.wingWidth * 2)).toLocaleString()} sq ft
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Roof Pitch */}
         <div>

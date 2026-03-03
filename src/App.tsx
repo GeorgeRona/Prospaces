@@ -89,6 +89,7 @@ export interface Organization {
 const supabase = createClient();
 
 // Loading fallback for lazy-loaded planner modules
+// (force recompile v2)
 function PlannerLoading() {
   return (
     <div className="flex items-center justify-center h-96">

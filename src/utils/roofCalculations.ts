@@ -70,6 +70,73 @@ function calculateRoofArea(config: RoofConfig): number {
       roofArea = totalLength * totalWidth * 1.02; // 2% slope
       break;
       
+    case 'l-shaped': {
+      // L-shaped roof: divide into two rectangles (main section + wing)
+      const mainArea = totalLength * (totalWidth / 2) * multiplier * 2;
+      
+      if (config.lShapeConfig) {
+        const wing = config.lShapeConfig;
+        const wingTotalLength = wing.wingLength + (2 * rakeOverhang);
+        const wingTotalWidth = wing.wingWidth + (2 * eaveOverhang);
+        
+        let wingArea = 0;
+        if (wing.wingRoofStyle === 'hip') {
+          wingArea = wingTotalLength * wingTotalWidth * multiplier * 1.1;
+        } else {
+          wingArea = wingTotalLength * (wingTotalWidth / 2) * multiplier * 2;
+        }
+        
+        roofArea = mainArea + wingArea;
+      } else {
+        roofArea = mainArea;
+      }
+      break;
+    }
+
+    case 't-shaped': {
+      const mainArea = totalLength * (totalWidth / 2) * multiplier * 2;
+      
+      if (config.tShapeConfig) {
+        const wing = config.tShapeConfig;
+        const wingTotalLength = wing.wingLength + (2 * rakeOverhang);
+        const wingTotalWidth = wing.wingWidth + (2 * eaveOverhang);
+        
+        let wingArea = 0;
+        if (wing.wingRoofStyle === 'hip') {
+          wingArea = wingTotalLength * wingTotalWidth * multiplier * 1.1;
+        } else {
+          wingArea = wingTotalLength * (wingTotalWidth / 2) * multiplier * 2;
+        }
+        
+        roofArea = mainArea + wingArea;
+      } else {
+        roofArea = mainArea;
+      }
+      break;
+    }
+
+    case 'u-shaped': {
+      const mainArea = totalLength * (totalWidth / 2) * multiplier * 2;
+      
+      if (config.uShapeConfig) {
+        const wing = config.uShapeConfig;
+        const wingTotalLength = wing.wingLength + (2 * rakeOverhang);
+        const wingTotalWidth = wing.wingWidth + (2 * eaveOverhang);
+        
+        let singleWingArea = 0;
+        if (wing.wingRoofStyle === 'hip') {
+          singleWingArea = wingTotalLength * wingTotalWidth * multiplier * 1.1;
+        } else {
+          singleWingArea = wingTotalLength * (wingTotalWidth / 2) * multiplier * 2;
+        }
+        
+        roofArea = mainArea + singleWingArea * 2;
+      } else {
+        roofArea = mainArea;
+      }
+      break;
+    }
+      
     default:
       roofArea = totalLength * totalWidth * multiplier;
   }
@@ -98,7 +165,17 @@ export function calculateMaterials(config: RoofConfig): RoofMaterials {
   // Calculate perimeter for drip edge and starter shingles
   const totalLength = length + (2 * config.rakeOverhang);
   const totalWidth = width + (2 * config.eaveOverhang);
-  const perimeter = (totalLength + totalWidth) * 2;
+  let perimeter = (totalLength + totalWidth) * 2;
+  
+  // For L-shaped roofs, calculate combined perimeter of both sections
+  if (style === 'l-shaped' && config.lShapeConfig) {
+    const wing = config.lShapeConfig;
+    const wingTL = wing.wingLength + (2 * config.rakeOverhang);
+    const wingTW = wing.wingWidth + (2 * config.eaveOverhang);
+    // L-shape perimeter: main perimeter + wing perimeter - 2 × shared edge
+    // Shared edge is approximately the wing width
+    perimeter = (totalLength + totalWidth) * 2 + (wingTL + wingTW) * 2 - 2 * wingTW;
+  }
   
   // Calculate ridge length based on style
   let ridgeLength = 0;
@@ -124,6 +201,47 @@ export function calculateMaterials(config: RoofConfig): RoofMaterials {
     case 'flat':
       ridgeLength = 0;
       break;
+    case 'l-shaped': {
+      ridgeLength = totalLength;
+      if (config.lShapeConfig) {
+        const wingTL = config.lShapeConfig.wingLength + (2 * config.rakeOverhang);
+        ridgeLength += wingTL;
+        hipLength = width * getPitchMultiplier(config.pitch) * 2;
+      }
+      break;
+    }
+    case 't-shaped': {
+      ridgeLength = totalLength;
+      if (config.tShapeConfig) {
+        const wingTL = config.tShapeConfig.wingLength + (2 * config.rakeOverhang);
+        ridgeLength += wingTL;
+        hipLength = width * getPitchMultiplier(config.pitch) * 2;
+      }
+      break;
+    }
+    case 'u-shaped': {
+      ridgeLength = totalLength;
+      if (config.uShapeConfig) {
+        const wingTL = config.uShapeConfig.wingLength + (2 * config.rakeOverhang);
+        ridgeLength += wingTL * 2;
+        hipLength = width * getPitchMultiplier(config.pitch) * 4;
+      }
+      break;
+    }
+  }
+
+  // T-shaped and U-shaped perimeter adjustments
+  if (style === 't-shaped' && config.tShapeConfig) {
+    const wing = config.tShapeConfig;
+    const wingTL = wing.wingLength + (2 * config.rakeOverhang);
+    const wingTW = wing.wingWidth + (2 * config.eaveOverhang);
+    perimeter = (totalLength + totalWidth) * 2 + (wingTL + wingTW) * 2 - 2 * wingTW;
+  }
+  if (style === 'u-shaped' && config.uShapeConfig) {
+    const wing = config.uShapeConfig;
+    const wingTL = wing.wingLength + (2 * config.rakeOverhang);
+    const wingTW = wing.wingWidth + (2 * config.eaveOverhang);
+    perimeter = (totalLength + totalWidth) * 2 + ((wingTL + wingTW) * 2 - 2 * wingTW) * 2;
   }
   
   const totalRidgeAndHipLength = ridgeLength + hipLength;
@@ -324,6 +442,41 @@ export function calculateMaterials(config: RoofConfig): RoofMaterials {
       quantity: valleyFlashingPieces,
       unit: 'pieces',
       notes: `${Math.round(valleyLength)} linear feet for ${config.valleyCount} valleys`,
+    });
+  }
+
+  // Multi-section intersection valley flashing
+  if (style === 'l-shaped' && config.lShapeConfig) {
+    const lValleyLength = width * getPitchMultiplier(config.pitch) * 2;
+    const lValleyPieces = Math.ceil(lValleyLength / 10);
+    flashing.push({
+      category: 'Flashing',
+      description: 'Valley Flashing at L-Shape Intersection (10\' pieces)',
+      quantity: lValleyPieces,
+      unit: 'pieces',
+      notes: `${Math.round(lValleyLength)} linear feet for L-shape junction valleys`,
+    });
+  }
+  if (style === 't-shaped' && config.tShapeConfig) {
+    const tValleyLength = width * getPitchMultiplier(config.pitch) * 2;
+    const tValleyPieces = Math.ceil(tValleyLength / 10);
+    flashing.push({
+      category: 'Flashing',
+      description: 'Valley Flashing at T-Shape Intersection (10\' pieces)',
+      quantity: tValleyPieces,
+      unit: 'pieces',
+      notes: `${Math.round(tValleyLength)} linear feet for T-shape junction valleys`,
+    });
+  }
+  if (style === 'u-shaped' && config.uShapeConfig) {
+    const uValleyLength = width * getPitchMultiplier(config.pitch) * 4;
+    const uValleyPieces = Math.ceil(uValleyLength / 10);
+    flashing.push({
+      category: 'Flashing',
+      description: 'Valley Flashing at U-Shape Intersections (10\' pieces)',
+      quantity: uValleyPieces,
+      unit: 'pieces',
+      notes: `${Math.round(uValleyLength)} linear feet for U-shape junction valleys (4 valleys)`,
     });
   }
   

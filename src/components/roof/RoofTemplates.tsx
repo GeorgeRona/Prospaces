@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { RoofConfig } from '../../types/roof';
-import { Home, Warehouse, Building2, Church, Factory } from 'lucide-react';
+import { Home, Warehouse, Building2, Church, Factory, LayoutDashboard, Columns3 } from 'lucide-react';
 
 interface RoofTemplatesProps {
   onLoadTemplate: (config: RoofConfig) => void;
@@ -197,6 +197,93 @@ export function RoofTemplates({ onLoadTemplate, currentConfig }: RoofTemplatesPr
         hasChimney: false,
         chimneyCount: 0,
         wasteFactor: 0.08,
+        unit: 'feet',
+      }
+    },
+    {
+      name: 'L-Shaped Home',
+      description: '2,000 sq ft L-shaped - Two gable sections',
+      icon: LayoutDashboard,
+      config: {
+        length: 40,
+        width: 30,
+        style: 'l-shaped',
+        pitch: '6/12',
+        eaveOverhang: 1.5,
+        rakeOverhang: 1.5,
+        shingleType: 'architectural',
+        underlaymentType: 'synthetic',
+        hasValleys: true,
+        valleyCount: 2,
+        hasSkylight: false,
+        skylightCount: 0,
+        hasChimney: true,
+        chimneyCount: 1,
+        lShapeConfig: {
+          wingLength: 25,
+          wingWidth: 20,
+          wingPosition: 'back-right',
+          wingRoofStyle: 'gable',
+        },
+        wasteFactor: 0.12,
+        unit: 'feet',
+      }
+    },
+    {
+      name: 'T-Shaped Colonial',
+      description: '2,200 sq ft T-shaped - Cross-wing design',
+      icon: Columns3,
+      config: {
+        length: 50,
+        width: 30,
+        style: 't-shaped',
+        pitch: '7/12',
+        eaveOverhang: 1.5,
+        rakeOverhang: 1.5,
+        shingleType: 'architectural',
+        underlaymentType: 'synthetic',
+        hasValleys: true,
+        valleyCount: 2,
+        hasSkylight: false,
+        skylightCount: 0,
+        hasChimney: true,
+        chimneyCount: 1,
+        tShapeConfig: {
+          wingLength: 22,
+          wingWidth: 24,
+          wingSide: 'right',
+          wingRoofStyle: 'gable',
+        },
+        wasteFactor: 0.12,
+        unit: 'feet',
+      }
+    },
+    {
+      name: 'U-Shaped Courtyard',
+      description: '3,000 sq ft U-shaped - Enclosed courtyard',
+      icon: LayoutDashboard,
+      config: {
+        length: 50,
+        width: 28,
+        style: 'u-shaped',
+        pitch: '6/12',
+        eaveOverhang: 2,
+        rakeOverhang: 1.5,
+        shingleType: 'designer',
+        underlaymentType: 'synthetic',
+        hasValleys: true,
+        valleyCount: 4,
+        hasSkylight: true,
+        skylightCount: 2,
+        hasChimney: true,
+        chimneyCount: 1,
+        uShapeConfig: {
+          wingLength: 20,
+          wingWidth: 22,
+          wingSide: 'left-right',
+          wingRoofStyle: 'gable',
+        },
+        wasteFactor: 0.14,
         unit: 'feet',
       }
     }

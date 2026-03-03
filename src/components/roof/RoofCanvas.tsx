@@ -43,7 +43,43 @@ export function RoofCanvas({ config }: RoofCanvasProps) {
 
     const roofLength = config.length + (2 * config.rakeOverhang);
     const roofWidth = config.width + (2 * config.eaveOverhang);
-    const maxDimension = Math.max(roofLength, roofWidth);
+    
+    // For L-shaped roofs, calculate bounding box including the wing
+    let boundingLength = roofLength;
+    let boundingWidth = roofWidth;
+    if (config.style === 'l-shaped' && config.lShapeConfig) {
+      const wingLength = config.lShapeConfig.wingLength + (2 * config.rakeOverhang);
+      const wingWidth = config.lShapeConfig.wingWidth + (2 * config.eaveOverhang);
+      // Wing extends horizontally from the main section
+      boundingLength = roofLength + wingLength;
+      // Wing may extend vertically beyond main section
+      boundingWidth = Math.max(roofWidth, wingWidth);
+    }
+    if (config.style === 't-shaped' && config.tShapeConfig) {
+      const wL = config.tShapeConfig.wingLength + (2 * config.rakeOverhang);
+      const wW = config.tShapeConfig.wingWidth + (2 * config.eaveOverhang);
+      const side = config.tShapeConfig.wingSide;
+      if (side === 'left' || side === 'right') {
+        boundingLength = roofLength + wL;
+        boundingWidth = Math.max(roofWidth, wW);
+      } else {
+        boundingLength = Math.max(roofLength, wL);
+        boundingWidth = roofWidth + wW;
+      }
+    }
+    if (config.style === 'u-shaped' && config.uShapeConfig) {
+      const wL = config.uShapeConfig.wingLength + (2 * config.rakeOverhang);
+      const wW = config.uShapeConfig.wingWidth + (2 * config.eaveOverhang);
+      if (config.uShapeConfig.wingSide === 'left-right') {
+        boundingLength = roofLength + wL * 2;
+        boundingWidth = Math.max(roofWidth, wW);
+      } else {
+        boundingLength = Math.max(roofLength, wL);
+        boundingWidth = roofWidth + wW * 2;
+      }
+    }
+    
+    const maxDimension = Math.max(boundingLength, boundingWidth);
     const scale = Math.min((width - 2 * padding) / maxDimension, (height - 2 * padding) / maxDimension);
 
     const centerX = width / 2;
@@ -170,6 +206,241 @@ export function RoofCanvas({ config }: RoofCanvasProps) {
         ctx.fillRect(x1, y1, scaledLength, scaledWidth);
         ctx.strokeRect(x1, y1, scaledLength, scaledWidth);
         break;
+
+      case 'l-shaped': {
+        // Draw L-shaped roof (main section + wing)
+        const wing = config.lShapeConfig;
+        if (wing) {
+          const wingScaledLength = (wing.wingLength + 2 * config.rakeOverhang) * scale;
+          const wingScaledWidth = (wing.wingWidth + 2 * config.eaveOverhang) * scale;
+          const pos = wing.wingPosition;
+
+          // Calculate wing position relative to main section
+          let wingX = 0, wingY = 0;
+          if (pos === 'front-right' || pos === 'back-right') {
+            wingX = x2; // Wing extends to the right
+          } else {
+            wingX = x1 - wingScaledLength; // Wing extends to the left
+          }
+          if (pos === 'front-right' || pos === 'front-left') {
+            wingY = y1; // Wing aligns with front (top)
+          } else {
+            wingY = y2 - wingScaledWidth; // Wing aligns with back (bottom)
+          }
+
+          // Draw main section
+          ctx.fillStyle = view3D ? '#94a3b8' : '#e2e8f0';
+          ctx.strokeStyle = '#1e293b';
+          ctx.lineWidth = 3;
+          ctx.fillRect(x1, y1, scaledLength, scaledWidth);
+          ctx.strokeRect(x1, y1, scaledLength, scaledWidth);
+
+          // Draw wing section
+          ctx.fillStyle = view3D ? '#8899ad' : '#dde5ed';
+          ctx.fillRect(wingX, wingY, wingScaledLength, wingScaledWidth);
+          ctx.strokeStyle = '#1e293b';
+          ctx.lineWidth = 3;
+          ctx.strokeRect(wingX, wingY, wingScaledLength, wingScaledWidth);
+
+          // Main section ridge line
+          ctx.strokeStyle = '#ef4444';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(x1, centerY);
+          ctx.lineTo(x2, centerY);
+          ctx.stroke();
+
+          // Wing ridge line
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          const wingCenterY = wingY + wingScaledWidth / 2;
+          ctx.moveTo(wingX, wingCenterY);
+          ctx.lineTo(wingX + wingScaledLength, wingCenterY);
+          ctx.stroke();
+
+          // Valley lines at intersection
+          ctx.strokeStyle = '#3b82f6';
+          ctx.lineWidth = 2;
+          if (pos === 'front-right' || pos === 'back-right') {
+            ctx.beginPath();
+            ctx.moveTo(x2, wingY);
+            ctx.lineTo(x2, wingY + wingScaledWidth);
+            ctx.stroke();
+          } else {
+            ctx.beginPath();
+            ctx.moveTo(x1, wingY);
+            ctx.lineTo(x1, wingY + wingScaledWidth);
+            ctx.stroke();
+          }
+
+          // Wing dimension labels
+          ctx.fillStyle = '#059669';
+          ctx.font = '10px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(
+            `${wing.wingLength.toFixed(0)}' x ${wing.wingWidth.toFixed(0)}'`,
+            wingX + wingScaledLength / 2,
+            wingCenterY + 4
+          );
+
+          // Section labels
+          ctx.fillStyle = '#475569';
+          ctx.font = 'bold 10px sans-serif';
+          ctx.fillText('Main', (x1 + x2) / 2, centerY - 8);
+          ctx.fillText('Wing', wingX + wingScaledLength / 2, wingCenterY - 8);
+        } else {
+          // Fallback: draw as simple gable
+          ctx.fillRect(x1, y1, scaledLength, scaledWidth);
+          ctx.strokeRect(x1, y1, scaledLength, scaledWidth);
+          ctx.strokeStyle = '#ef4444';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(x1, centerY);
+          ctx.lineTo(x2, centerY);
+          ctx.stroke();
+        }
+        break;
+      }
+
+      case 't-shaped': {
+        const wing = config.tShapeConfig;
+        if (wing) {
+          const wingScaledLength = (wing.wingLength + 2 * config.rakeOverhang) * scale;
+          const wingScaledWidth = (wing.wingWidth + 2 * config.eaveOverhang) * scale;
+          const side = wing.wingSide;
+
+          let wingX = 0, wingY = 0;
+          if (side === 'right') {
+            wingX = x2; wingY = centerY - wingScaledWidth / 2;
+          } else if (side === 'left') {
+            wingX = x1 - wingScaledLength; wingY = centerY - wingScaledWidth / 2;
+          } else if (side === 'front') {
+            wingX = (x1 + x2) / 2 - wingScaledLength / 2; wingY = y1 - wingScaledWidth;
+          } else {
+            wingX = (x1 + x2) / 2 - wingScaledLength / 2; wingY = y2;
+          }
+
+          ctx.fillStyle = view3D ? '#94a3b8' : '#e2e8f0';
+          ctx.strokeStyle = '#1e293b';
+          ctx.lineWidth = 3;
+          ctx.fillRect(x1, y1, scaledLength, scaledWidth);
+          ctx.strokeRect(x1, y1, scaledLength, scaledWidth);
+
+          ctx.fillStyle = view3D ? '#8899ad' : '#dde5ed';
+          ctx.fillRect(wingX, wingY, wingScaledLength, wingScaledWidth);
+          ctx.strokeStyle = '#1e293b';
+          ctx.lineWidth = 3;
+          ctx.strokeRect(wingX, wingY, wingScaledLength, wingScaledWidth);
+
+          ctx.strokeStyle = '#ef4444';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(x1, centerY);
+          ctx.lineTo(x2, centerY);
+          ctx.stroke();
+
+          ctx.lineWidth = 2;
+          const wingCX = wingX + wingScaledLength / 2;
+          const wingCY = wingY + wingScaledWidth / 2;
+          ctx.beginPath();
+          if (side === 'left' || side === 'right') {
+            ctx.moveTo(wingX, wingCY);
+            ctx.lineTo(wingX + wingScaledLength, wingCY);
+          } else {
+            ctx.moveTo(wingCX, wingY);
+            ctx.lineTo(wingCX, wingY + wingScaledWidth);
+          }
+          ctx.stroke();
+
+          ctx.strokeStyle = '#3b82f6';
+          ctx.lineWidth = 2;
+          if (side === 'right') {
+            ctx.beginPath(); ctx.moveTo(x2, wingY); ctx.lineTo(x2, wingY + wingScaledWidth); ctx.stroke();
+          } else if (side === 'left') {
+            ctx.beginPath(); ctx.moveTo(x1, wingY); ctx.lineTo(x1, wingY + wingScaledWidth); ctx.stroke();
+          } else if (side === 'front') {
+            ctx.beginPath(); ctx.moveTo(wingX, y1); ctx.lineTo(wingX + wingScaledLength, y1); ctx.stroke();
+          } else {
+            ctx.beginPath(); ctx.moveTo(wingX, y2); ctx.lineTo(wingX + wingScaledLength, y2); ctx.stroke();
+          }
+
+          ctx.fillStyle = '#475569';
+          ctx.font = 'bold 10px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('Main', (x1 + x2) / 2, centerY - 8);
+          ctx.fillStyle = '#059669';
+          ctx.font = '10px sans-serif';
+          ctx.fillText(`Wing ${wing.wingLength.toFixed(0)}' x ${wing.wingWidth.toFixed(0)}'`, wingCX, wingCY + 4);
+        }
+        break;
+      }
+
+      case 'u-shaped': {
+        const wing = config.uShapeConfig;
+        if (wing) {
+          const wingScaledLength = (wing.wingLength + 2 * config.rakeOverhang) * scale;
+          const wingScaledWidth = (wing.wingWidth + 2 * config.eaveOverhang) * scale;
+          const isLR = wing.wingSide === 'left-right';
+
+          ctx.fillStyle = view3D ? '#94a3b8' : '#e2e8f0';
+          ctx.strokeStyle = '#1e293b';
+          ctx.lineWidth = 3;
+          ctx.fillRect(x1, y1, scaledLength, scaledWidth);
+          ctx.strokeRect(x1, y1, scaledLength, scaledWidth);
+
+          const wingsArr = isLR
+            ? [{ wx: x1 - wingScaledLength, wy: y1 }, { wx: x2, wy: y1 }]
+            : [{ wx: x1, wy: y1 - wingScaledWidth }, { wx: x1, wy: y2 }];
+
+          for (const { wx, wy } of wingsArr) {
+            ctx.fillStyle = view3D ? '#8899ad' : '#dde5ed';
+            ctx.fillRect(wx, wy, wingScaledLength, wingScaledWidth);
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(wx, wy, wingScaledLength, wingScaledWidth);
+
+            ctx.strokeStyle = '#ef4444';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            if (isLR) {
+              ctx.moveTo(wx, wy + wingScaledWidth / 2);
+              ctx.lineTo(wx + wingScaledLength, wy + wingScaledWidth / 2);
+            } else {
+              ctx.moveTo(wx + wingScaledLength / 2, wy);
+              ctx.lineTo(wx + wingScaledLength / 2, wy + wingScaledWidth);
+            }
+            ctx.stroke();
+          }
+
+          ctx.strokeStyle = '#ef4444';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(x1, centerY);
+          ctx.lineTo(x2, centerY);
+          ctx.stroke();
+
+          ctx.strokeStyle = '#3b82f6';
+          ctx.lineWidth = 2;
+          if (isLR) {
+            ctx.beginPath(); ctx.moveTo(x1, wingsArr[0].wy); ctx.lineTo(x1, wingsArr[0].wy + wingScaledWidth); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x2, wingsArr[1].wy); ctx.lineTo(x2, wingsArr[1].wy + wingScaledWidth); ctx.stroke();
+          } else {
+            ctx.beginPath(); ctx.moveTo(wingsArr[0].wx, y1); ctx.lineTo(wingsArr[0].wx + wingScaledLength, y1); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(wingsArr[1].wx, y2); ctx.lineTo(wingsArr[1].wx + wingScaledLength, y2); ctx.stroke();
+          }
+
+          ctx.fillStyle = '#475569';
+          ctx.font = 'bold 10px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('Main', (x1 + x2) / 2, centerY - 8);
+          ctx.fillStyle = '#059669';
+          ctx.font = '9px sans-serif';
+          for (const { wx, wy } of wingsArr) {
+            ctx.fillText('Wing', wx + wingScaledLength / 2, wy + wingScaledWidth / 2 - 4);
+          }
+        }
+        break;
+      }
     }
 
     // Draw valleys if present
@@ -348,7 +619,22 @@ export function RoofCanvas({ config }: RoofCanvasProps) {
     const roofLength = config.length + (2 * config.rakeOverhang);
     const roofWidth = config.width + (2 * config.eaveOverhang);
     const [rise, run] = config.pitch.split('/').map(Number);
-    const scale = Math.min((width - 2 * padding) / roofLength, (height - 2 * padding) / 20);
+    
+    // For multi-section roofs, account for the wing in the front elevation scale
+    let totalFrontWidth = roofLength;
+    if (config.style === 'l-shaped' && config.lShapeConfig) {
+      totalFrontWidth = roofLength + config.lShapeConfig.wingLength + (2 * config.rakeOverhang);
+    } else if (config.style === 't-shaped' && config.tShapeConfig) {
+      const side = config.tShapeConfig.wingSide;
+      if (side === 'left' || side === 'right') {
+        totalFrontWidth = roofLength + config.tShapeConfig.wingLength + (2 * config.rakeOverhang);
+      }
+    } else if (config.style === 'u-shaped' && config.uShapeConfig) {
+      if (config.uShapeConfig.wingSide === 'left-right') {
+        totalFrontWidth = roofLength + (config.uShapeConfig.wingLength + (2 * config.rakeOverhang)) * 2;
+      }
+    }
+    const scale = Math.min((width - 2 * padding) / totalFrontWidth, (height - 2 * padding) / 20);
 
     const centerX = width / 2;
     const baseY = height - padding - 20;
@@ -458,6 +744,185 @@ export function RoofCanvas({ config }: RoofCanvasProps) {
         ctx.fillRect(centerX - scaledLength / 2, baseY - buildingHeight - 5, scaledLength, 5);
         ctx.strokeRect(centerX - scaledLength / 2, baseY - buildingHeight - 5, scaledLength, 5);
         break;
+
+      case 'l-shaped': {
+        // Front elevation of L-shaped roof: show main gable + wing behind/beside
+        ctx.fillStyle = createRoofGradient(ctx, centerX, baseY - buildingHeight - ridgeHeight, ridgeHeight);
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 2;
+
+        // Main section gable
+        ctx.beginPath();
+        ctx.moveTo(centerX - scaledLength / 2, baseY - buildingHeight);
+        ctx.lineTo(centerX, baseY - buildingHeight - ridgeHeight);
+        ctx.lineTo(centerX + scaledLength / 2, baseY - buildingHeight);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Wing section (drawn as smaller gable offset to the side)
+        if (config.lShapeConfig) {
+          const wing = config.lShapeConfig;
+          const wingScaledLength = (wing.wingLength + 2 * config.rakeOverhang) * scale;
+          const wingRidgeHeight = ((wing.wingWidth + 2 * config.eaveOverhang) / 2) * (rise / run) * scale;
+          const pos = wing.wingPosition;
+          const isRight = pos === 'front-right' || pos === 'back-right';
+
+          ctx.fillStyle = createRoofGradient(ctx, centerX, baseY - buildingHeight - wingRidgeHeight, wingRidgeHeight);
+          ctx.globalAlpha = 0.7;
+
+          const wingStartX = isRight ? centerX + scaledLength / 2 : centerX - scaledLength / 2 - wingScaledLength;
+          const wingEndX = isRight ? centerX + scaledLength / 2 + wingScaledLength : centerX - scaledLength / 2;
+          const wingCenterX = (wingStartX + wingEndX) / 2;
+
+          // Wing building wall
+          ctx.fillStyle = '#e2e8f0';
+          ctx.fillRect(wingStartX, baseY - buildingHeight, wingScaledLength, buildingHeight);
+          ctx.strokeRect(wingStartX, baseY - buildingHeight, wingScaledLength, buildingHeight);
+
+          // Wing gable roof
+          ctx.fillStyle = createRoofGradient(ctx, wingCenterX, baseY - buildingHeight - wingRidgeHeight, wingRidgeHeight);
+          ctx.beginPath();
+          ctx.moveTo(wingStartX, baseY - buildingHeight);
+          ctx.lineTo(wingCenterX, baseY - buildingHeight - wingRidgeHeight);
+          ctx.lineTo(wingEndX, baseY - buildingHeight);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+          ctx.globalAlpha = 1.0;
+
+          // Label
+          ctx.fillStyle = '#475569';
+          ctx.font = '9px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText('Wing', wingCenterX, baseY - buildingHeight - wingRidgeHeight - 5);
+        }
+
+        // Ridge vent on main
+        ctx.strokeStyle = '#dc2626';
+        ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(centerX - 10, baseY - buildingHeight - ridgeHeight);
+        ctx.lineTo(centerX + 10, baseY - buildingHeight - ridgeHeight);
+        ctx.stroke();
+        break;
+      }
+
+      case 't-shaped': {
+        // Front elevation: main gable + wing offset to side (if left/right) or behind (if front/back)
+        ctx.fillStyle = createRoofGradient(ctx, centerX, baseY - buildingHeight - ridgeHeight, ridgeHeight);
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(centerX - scaledLength / 2, baseY - buildingHeight);
+        ctx.lineTo(centerX, baseY - buildingHeight - ridgeHeight);
+        ctx.lineTo(centerX + scaledLength / 2, baseY - buildingHeight);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        if (config.tShapeConfig) {
+          const wing = config.tShapeConfig;
+          const wingScaledLength = (wing.wingLength + 2 * config.rakeOverhang) * scale;
+          const wingRidgeHeight = ((wing.wingWidth + 2 * config.eaveOverhang) / 2) * (rise / run) * scale;
+          const isLR = wing.wingSide === 'left' || wing.wingSide === 'right';
+
+          if (isLR) {
+            ctx.globalAlpha = 0.7;
+            const wingStartX = wing.wingSide === 'right'
+              ? centerX + scaledLength / 2
+              : centerX - scaledLength / 2 - wingScaledLength;
+            const wingEndX = wingStartX + wingScaledLength;
+            const wingCX = (wingStartX + wingEndX) / 2;
+
+            ctx.fillStyle = '#e2e8f0';
+            ctx.fillRect(wingStartX, baseY - buildingHeight, wingScaledLength, buildingHeight);
+            ctx.strokeRect(wingStartX, baseY - buildingHeight, wingScaledLength, buildingHeight);
+
+            ctx.fillStyle = createRoofGradient(ctx, wingCX, baseY - buildingHeight - wingRidgeHeight, wingRidgeHeight);
+            ctx.beginPath();
+            ctx.moveTo(wingStartX, baseY - buildingHeight);
+            ctx.lineTo(wingCX, baseY - buildingHeight - wingRidgeHeight);
+            ctx.lineTo(wingEndX, baseY - buildingHeight);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            ctx.globalAlpha = 1.0;
+
+            ctx.fillStyle = '#475569';
+            ctx.font = '9px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Wing', wingCX, baseY - buildingHeight - wingRidgeHeight - 5);
+          }
+        }
+
+        ctx.strokeStyle = '#dc2626';
+        ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(centerX - 10, baseY - buildingHeight - ridgeHeight);
+        ctx.lineTo(centerX + 10, baseY - buildingHeight - ridgeHeight);
+        ctx.stroke();
+        break;
+      }
+
+      case 'u-shaped': {
+        // Front elevation: main gable + two wing gables on sides
+        ctx.fillStyle = createRoofGradient(ctx, centerX, baseY - buildingHeight - ridgeHeight, ridgeHeight);
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(centerX - scaledLength / 2, baseY - buildingHeight);
+        ctx.lineTo(centerX, baseY - buildingHeight - ridgeHeight);
+        ctx.lineTo(centerX + scaledLength / 2, baseY - buildingHeight);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        if (config.uShapeConfig && config.uShapeConfig.wingSide === 'left-right') {
+          const wing = config.uShapeConfig;
+          const wingScaledLength = (wing.wingLength + 2 * config.rakeOverhang) * scale;
+          const wingRidgeHeight = ((wing.wingWidth + 2 * config.eaveOverhang) / 2) * (rise / run) * scale;
+
+          ctx.globalAlpha = 0.7;
+          for (const side of ['left', 'right'] as const) {
+            const wingStartX = side === 'right'
+              ? centerX + scaledLength / 2
+              : centerX - scaledLength / 2 - wingScaledLength;
+            const wingEndX = wingStartX + wingScaledLength;
+            const wingCX = (wingStartX + wingEndX) / 2;
+
+            ctx.fillStyle = '#e2e8f0';
+            ctx.fillRect(wingStartX, baseY - buildingHeight, wingScaledLength, buildingHeight);
+            ctx.strokeRect(wingStartX, baseY - buildingHeight, wingScaledLength, buildingHeight);
+
+            ctx.fillStyle = createRoofGradient(ctx, wingCX, baseY - buildingHeight - wingRidgeHeight, wingRidgeHeight);
+            ctx.beginPath();
+            ctx.moveTo(wingStartX, baseY - buildingHeight);
+            ctx.lineTo(wingCX, baseY - buildingHeight - wingRidgeHeight);
+            ctx.lineTo(wingEndX, baseY - buildingHeight);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#475569';
+            ctx.font = '9px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Wing', wingCX, baseY - buildingHeight - wingRidgeHeight - 5);
+          }
+          ctx.globalAlpha = 1.0;
+        }
+
+        ctx.strokeStyle = '#dc2626';
+        ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(centerX - 10, baseY - buildingHeight - ridgeHeight);
+        ctx.lineTo(centerX + 10, baseY - buildingHeight - ridgeHeight);
+        ctx.stroke();
+        break;
+      }
     }
 
     // Draw chimney if present
@@ -668,6 +1133,59 @@ export function RoofCanvas({ config }: RoofCanvasProps) {
         ctx.lineTo(centerX + ventSize / 2 - 2, slotY);
       }
       ctx.stroke();
+    }
+
+    // Draw dormers on side elevation (visible as projections from the slope)
+    if (config.hasDormers && config.dormers && config.dormers.length > 0) {
+      for (const dormer of config.dormers) {
+        const dw = dormer.depth * scale; // In side view, dormer depth is the visible width
+        const dh = dormer.height * scale * 0.5;
+        // Position partway up the slope
+        const slopeProgress = 0.4;
+        const dormerBaseY = baseY - buildingHeight - ridgeHeight * slopeProgress;
+        // Offset from center based on slope side
+        const slopeX = dormer.side === 'front'
+          ? centerX - scaledWidth * 0.2
+          : centerX + scaledWidth * 0.2;
+        const dormerLeft = slopeX - dw / 2;
+
+        // Dormer wall
+        ctx.fillStyle = '#f0ead6';
+        ctx.strokeStyle = '#7c3aed';
+        ctx.lineWidth = 1.5;
+        ctx.fillRect(dormerLeft, dormerBaseY - dh, dw, dh);
+        ctx.strokeRect(dormerLeft, dormerBaseY - dh, dw, dh);
+
+        // Dormer roof (small shed-like cap)
+        ctx.fillStyle = '#6b5b4f';
+        ctx.beginPath();
+        ctx.moveTo(dormerLeft - 2, dormerBaseY - dh - 2);
+        ctx.lineTo(dormerLeft + dw + 2, dormerBaseY - dh - 2);
+        ctx.lineTo(dormerLeft + dw + 2, dormerBaseY - dh);
+        ctx.lineTo(dormerLeft - 2, dormerBaseY - dh);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Window
+        if (dormer.hasWindow) {
+          const winW = dw * 0.5;
+          const winH = dh * 0.55;
+          const winX = dormerLeft + (dw - winW) / 2;
+          const winY = dormerBaseY - dh + (dh - winH) * 0.45;
+          ctx.fillStyle = '#bfdbfe';
+          ctx.strokeStyle = '#1e40af';
+          ctx.lineWidth = 1;
+          ctx.fillRect(winX, winY, winW, winH);
+          ctx.strokeRect(winX, winY, winW, winH);
+        }
+
+        // Label
+        ctx.fillStyle = '#7c3aed';
+        ctx.font = '8px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(dormer.style, slopeX, dormerBaseY - dh - 6);
+      }
     }
 
     // Overhang detail

@@ -3051,6 +3051,16 @@
     background-color: var(--color-orange-50);
   }
 
+  .bg-orange-50\/50 {
+    background-color: color-mix(in srgb, oklch(.98 .016 73.684) 50%, transparent);
+  }
+
+  @supports (color: color-mix(in lab, red, red)) {
+    .bg-orange-50\/50 {
+      background-color: color-mix(in oklab, var(--color-orange-50) 50%, transparent);
+    }
+  }
+
   .bg-orange-100 {
     background-color: var(--color-orange-100);
   }

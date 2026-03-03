@@ -66,6 +66,63 @@ export function PrintableRoofDesign({
           {config.hasSkylight && <p><strong>Skylights:</strong> {config.skylightCount}</p>}
           {config.hasChimney && <p><strong>Chimneys:</strong> {config.chimneyCount}</p>}
         </div>
+        {/* L-Shaped Wing Details */}
+        {config.style === 'l-shaped' && config.lShapeConfig && (
+          <div className="mt-3 text-sm border-t border-gray-200 pt-2">
+            <p className="font-bold mb-1">L-Shape Wing:</p>
+            <p><strong>Wing Dimensions:</strong> {config.lShapeConfig.wingLength}' x {config.lShapeConfig.wingWidth}'</p>
+            <p><strong>Wing Position:</strong> {config.lShapeConfig.wingPosition.replace('-', ' ')}</p>
+            <p><strong>Wing Roof Style:</strong> {config.lShapeConfig.wingRoofStyle}</p>
+          </div>
+        )}
+        {/* T-Shaped Wing Details */}
+        {config.style === 't-shaped' && config.tShapeConfig && (
+          <div className="mt-3 text-sm border-t border-gray-200 pt-2">
+            <p className="font-bold mb-1">T-Shape Wing:</p>
+            <p><strong>Wing Dimensions:</strong> {config.tShapeConfig.wingLength}' x {config.tShapeConfig.wingWidth}'</p>
+            <p><strong>Wing Side:</strong> {config.tShapeConfig.wingSide}</p>
+            <p><strong>Wing Roof Style:</strong> {config.tShapeConfig.wingRoofStyle}</p>
+          </div>
+        )}
+        {/* U-Shaped Wing Details */}
+        {config.style === 'u-shaped' && config.uShapeConfig && (
+          <div className="mt-3 text-sm border-t border-gray-200 pt-2">
+            <p className="font-bold mb-1">U-Shape Wings (x2):</p>
+            <p><strong>Wing Dimensions:</strong> {config.uShapeConfig.wingLength}' x {config.uShapeConfig.wingWidth}' each</p>
+            <p><strong>Wing Side:</strong> {config.uShapeConfig.wingSide}</p>
+            <p><strong>Wing Roof Style:</strong> {config.uShapeConfig.wingRoofStyle}</p>
+          </div>
+        )}
+        {/* Dormer Details */}
+        {config.hasDormers && config.dormers && config.dormers.length > 0 && (
+          <div className="mt-3 text-sm border-t border-gray-200 pt-2">
+            <p className="font-bold mb-1">Dormers ({config.dormers.length}):</p>
+            <table className="w-full text-xs border-collapse mt-1">
+              <thead>
+                <tr className="bg-gray-50">
+                  <th className="border border-gray-300 p-1 text-left">#</th>
+                  <th className="border border-gray-300 p-1 text-left">Style</th>
+                  <th className="border border-gray-300 p-1 text-left">Size (W x H x D)</th>
+                  <th className="border border-gray-300 p-1 text-left">Position</th>
+                  <th className="border border-gray-300 p-1 text-left">Side</th>
+                  <th className="border border-gray-300 p-1 text-left">Window</th>
+                </tr>
+              </thead>
+              <tbody>
+                {config.dormers.map((d, i) => (
+                  <tr key={d.id}>
+                    <td className="border border-gray-300 p-1">{i + 1}</td>
+                    <td className="border border-gray-300 p-1 capitalize">{d.style}</td>
+                    <td className="border border-gray-300 p-1">{d.width}' x {d.height}' x {d.depth}'</td>
+                    <td className="border border-gray-300 p-1 capitalize">{d.horizontalPosition}</td>
+                    <td className="border border-gray-300 p-1 capitalize">{d.side}</td>
+                    <td className="border border-gray-300 p-1">{d.hasWindow ? 'Yes' : 'No'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Roof Plan */}
