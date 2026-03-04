@@ -298,16 +298,25 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
 
         if (!response.ok) {
           const errBody = await response.text();
+          console.error(`Job creation failed${chunkLabel}:`, response.status, errBody);
           let errMsg = `Server error ${response.status}`;
           try { errMsg = JSON.parse(errBody).error || errMsg; } catch {}
           throw new Error(`Failed to create job${chunkLabel}: ${errMsg}`);
         }
 
         const result = await response.json();
+        console.log(`Job response${chunkLabel}:`, result);
+        
         if (result.error) {
           throw new Error(result.error);
         }
-        console.log(`Job created via edge function${chunkLabel}:`, result.job?.id);
+        
+        if (!result.success || !result.job) {
+          console.error('Invalid response:', result);
+          throw new Error(`Invalid server response${chunkLabel}`);
+        }
+        
+        console.log(`Job created successfully${chunkLabel}:`, result.job.id);
 
         totalCreated += chunk.length;
 
