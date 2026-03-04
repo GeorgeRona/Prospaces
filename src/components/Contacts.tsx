@@ -626,7 +626,7 @@ export function Contacts({ user }: ContactsProps) {
         <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
           <div className="flex flex-col items-center justify-center py-12 space-y-4">
             <AlertTriangle className="h-12 w-12 text-amber-500" />
-            <h2 className="text-xl font-semibold text-gray-900">No Contacts Found</h2>
+            <h2 className="text-xl font-semibold text-foreground">No Contacts Found</h2>
             <p className="text-gray-600 text-center max-w-md">
               You don't have any contacts visible yet. If contacts were imported by an admin,
               they may need an ownership fix to become visible to your account.
@@ -1354,7 +1354,7 @@ export function Contacts({ user }: ContactsProps) {
                             {(contact.name || '?').charAt(0)}
                           </div>
                           <div className="flex flex-col min-w-0">
-                            <span className="text-sm text-gray-900 truncate">{contact.name || 'Unknown'}</span>
+                            <span className="text-sm font-medium text-foreground truncate">{contact.name || 'Unknown'}</span>
                             <span className="text-xs text-gray-500 truncate md:hidden">{contact.email}</span>
                           </div>
                         </div>

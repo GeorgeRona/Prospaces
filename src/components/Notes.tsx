@@ -316,7 +316,7 @@ export function Notes({ user }: NotesProps) {
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <StickyNote className="h-4 w-4 text-yellow-600" />
-                      <h3 className="text-sm text-gray-900">{note.title}</h3>
+                      <h3 className="text-sm font-medium text-foreground">{note.title}</h3>
                     </div>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
