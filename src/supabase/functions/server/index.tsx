@@ -1405,7 +1405,19 @@ app.post(`${PREFIX}/email-sync`, async (c) => {
       if (!graphRes.ok) return c.json({ error: `Microsoft Graph error: ${await graphRes.text()}` }, 502);
       const messages = (await graphRes.json()).value || [];
       console.log(`[email-sync] Fetched ${messages.length} Outlook emails`);
+      
+      // Load synced message IDs from KV store to prevent re-syncing deleted emails
+      const syncedMsgKey = `email_synced_msgs:${auth.user.id}:${accountId}`;
+      const syncedMsgIdsRaw = await kv.get(syncedMsgKey);
+      const syncedMsgIds = new Set<string>(Array.isArray(syncedMsgIdsRaw) ? syncedMsgIdsRaw : []);
+      const newlySyncedIds = new Set<string>();
+      
       for (const msg of messages) {
+        // Skip if already synced before (even if deleted from emails table)
+        if (syncedMsgIds.has(msg.id)) {
+          continue;
+        }
+        // Also check if it currently exists in the emails table
         const { data: existing } = await auth.supabase.from('emails').select('id').eq('message_id', msg.id).eq('account_id', accountId).maybeSingle();
         if (!existing) {
           const { error: insErr } = await auth.supabase.from('emails').insert({
@@ -1418,9 +1430,22 @@ app.post(`${PREFIX}/email-sync`, async (c) => {
             is_read: msg.isRead || false, is_starred: msg.flag?.flagStatus === 'flagged',
             received_at: msg.receivedDateTime,
           });
-          if (!insErr) syncedCount++;
-          else console.log(`[email-sync] insert err: ${insErr.message}`);
+          if (!insErr) {
+            syncedCount++;
+            newlySyncedIds.add(msg.id);
+          } else {
+            console.log(`[email-sync] insert err: ${insErr.message}`);
+          }
+        } else {
+          // Email exists, mark as synced
+          newlySyncedIds.add(msg.id);
         }
+      }
+      
+      // Update the synced message IDs in KV store
+      if (newlySyncedIds.size > 0) {
+        const updatedSyncedIds = new Set([...syncedMsgIds, ...newlySyncedIds]);
+        await kv.set(syncedMsgKey, Array.from(updatedSyncedIds));
       }
     } else if (kvAccount.provider === 'gmail') {
       let accessToken = kvAccount.access_token;
@@ -1439,7 +1464,18 @@ app.post(`${PREFIX}/email-sync`, async (c) => {
         });
         if (!gmailRes.ok) return c.json({ error: 'Gmail API error: ' + await gmailRes.text() }, 502);
         const messageIds = (await gmailRes.json()).messages || [];
+        
+        // Load synced message IDs from KV store to prevent re-syncing deleted emails
+        const syncedMsgKey = `email_synced_msgs:${auth.user.id}:${accountId}`;
+        const syncedMsgIdsRaw = await kv.get(syncedMsgKey);
+        const syncedMsgIds = new Set<string>(Array.isArray(syncedMsgIdsRaw) ? syncedMsgIdsRaw : []);
+        const newlySyncedIds = new Set<string>();
+        
         for (const m of messageIds.slice(0, emailLimit)) {
+          // Skip if already synced before (even if deleted from emails table)
+          if (syncedMsgIds.has(m.id)) {
+            continue;
+          }
           const { data: existing } = await auth.supabase.from('emails').select('id').eq('message_id', m.id).eq('account_id', accountId).maybeSingle();
           if (!existing) {
             const detRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=full`, {
@@ -1457,9 +1493,21 @@ app.post(`${PREFIX}/email-sync`, async (c) => {
                 is_read: !d.labelIds?.includes('UNREAD'), is_starred: d.labelIds?.includes('STARRED'),
                 received_at: new Date(parseInt(d.internalDate)).toISOString(),
               });
-              if (!insErr) syncedCount++;
+              if (!insErr) {
+                syncedCount++;
+                newlySyncedIds.add(m.id);
+              }
             }
+          } else {
+            // Email exists, mark as synced
+            newlySyncedIds.add(m.id);
           }
+        }
+        
+        // Update the synced message IDs in KV store
+        if (newlySyncedIds.size > 0) {
+          const updatedSyncedIds = new Set([...syncedMsgIds, ...newlySyncedIds]);
+          await kv.set(syncedMsgKey, Array.from(updatedSyncedIds));
         }
     } else {
       return c.json({ error: `Unsupported provider: ${kvAccount.provider}` }, 400);
