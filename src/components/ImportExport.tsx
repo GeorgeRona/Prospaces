@@ -28,7 +28,8 @@ import {
   X, 
   Clock, 
   History,
-  Calendar as CalendarIcon
+  Calendar as CalendarIcon,
+  Clipboard
 } from 'lucide-react';
 
 import { getPriceTierLabel } from '../lib/global-settings';
@@ -609,6 +610,42 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
   const clearMapping = () => {
     setMappingState(null);
     setImportResult(null);
+  };
+
+  // Handle paste from clipboard
+  const handlePasteData = async (type: 'contacts' | 'inventory' | 'bids') => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text || text.trim() === '') {
+        toast.error('No data found in clipboard');
+        return;
+      }
+
+      // Parse as CSV
+      const data = parseCSV(text);
+      
+      if (data.length === 0) {
+        toast.error('No valid data found in clipboard');
+        return;
+      }
+
+      // Extract column names
+      const fileColumns = Object.keys(data[0]);
+      
+      // Auto-detect mapping
+      const autoMapping = autoMapColumns(fileColumns, type);
+
+      setMappingState({
+        type,
+        data,
+        fileColumns,
+        mapping: autoMapping,
+      });
+
+      toast.success(`Pasted ${data.length} rows from clipboard. Please review column mapping.`);
+    } catch (error: any) {
+      toast.error('Failed to read clipboard: ' + error.message);
+    }
   };
 
   // Execute import with mapped columns
@@ -1343,7 +1380,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     <Button
                       variant="outline"
                       onClick={() => downloadTemplate('contacts')}
@@ -1352,7 +1389,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
                       <Download className="h-4 w-4" />
                       Download Template
                     </Button>
-                    <div className="flex-1">
+                    <div className="flex-1 flex gap-2">
                       <input
                         type="file"
                         accept=".csv,.xlsx,.xls"
@@ -1365,7 +1402,6 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
                         <Button
                           asChild
                           disabled={isImporting}
-                          className="w-full sm:w-auto"
                         >
                           <span className="flex items-center gap-2 cursor-pointer">
                             <Upload className="h-4 w-4" />
@@ -1373,10 +1409,19 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
                           </span>
                         </Button>
                       </label>
+                      <Button
+                        variant="outline"
+                        onClick={() => handlePasteData('contacts')}
+                        disabled={isImporting}
+                        className="flex items-center gap-2"
+                      >
+                        <Clipboard className="h-4 w-4" />
+                        Paste from Clipboard
+                      </Button>
                     </div>
                   </div>
                   <p className="text-xs text-gray-500">
-                    Supported formats: CSV, Excel (.xlsx, .xls). Required fields: Name (Full Name), Email
+                    Supported formats: CSV, Excel (.xlsx, .xls), or paste tab-delimited data. Required fields: Name (Full Name), Email
                   </p>
                 </CardContent>
               </Card>
@@ -1393,7 +1438,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     <Button
                       variant="outline"
                       onClick={() => downloadTemplate('inventory')}
@@ -1402,7 +1447,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
                       <Download className="h-4 w-4" />
                       Download Template
                     </Button>
-                    <div className="flex-1">
+                    <div className="flex-1 flex gap-2">
                       <input
                         type="file"
                         accept=".csv,.xlsx,.xls"
@@ -1415,7 +1460,6 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
                         <Button
                           asChild
                           disabled={isImporting}
-                          className="w-full sm:w-auto"
                         >
                           <span className="flex items-center gap-2 cursor-pointer">
                             <Upload className="h-4 w-4" />
@@ -1423,10 +1467,19 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
                           </span>
                         </Button>
                       </label>
+                      <Button
+                        variant="outline"
+                        onClick={() => handlePasteData('inventory')}
+                        disabled={isImporting}
+                        className="flex items-center gap-2"
+                      >
+                        <Clipboard className="h-4 w-4" />
+                        Paste from Clipboard
+                      </Button>
                     </div>
                   </div>
                   <p className="text-xs text-gray-500">
-                    Supported formats: CSV, Excel (.xlsx, .xls). Required fields: Item Name, SKU
+                    Supported formats: CSV, Excel (.xlsx, .xls), or paste tab-delimited data. Required fields: Item Name, SKU
                   </p>
                 </CardContent>
               </Card>
@@ -1443,7 +1496,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     <Button
                       variant="outline"
                       onClick={() => downloadTemplate('bids')}
@@ -1452,7 +1505,7 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
                       <Download className="h-4 w-4" />
                       Download Template
                     </Button>
-                    <div className="flex-1">
+                    <div className="flex-1 flex gap-2">
                       <input
                         type="file"
                         accept=".csv,.xlsx,.xls"
@@ -1465,7 +1518,6 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
                         <Button
                           asChild
                           disabled={isImporting}
-                          className="w-full sm:w-auto"
                         >
                           <span className="flex items-center gap-2 cursor-pointer">
                             <Upload className="h-4 w-4" />
@@ -1473,10 +1525,19 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
                           </span>
                         </Button>
                       </label>
+                      <Button
+                        variant="outline"
+                        onClick={() => handlePasteData('bids')}
+                        disabled={isImporting}
+                        className="flex items-center gap-2"
+                      >
+                        <Clipboard className="h-4 w-4" />
+                        Paste from Clipboard
+                      </Button>
                     </div>
                   </div>
                   <p className="text-xs text-gray-500">
-                    Supported formats: CSV, Excel (.xlsx, .xls). Required fields: Client Name, Project Name
+                    Supported formats: CSV, Excel (.xlsx, .xls), or paste tab-delimited data. Required fields: Client Name, Project Name
                   </p>
                 </CardContent>
               </Card>
