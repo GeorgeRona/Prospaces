@@ -548,7 +548,7 @@ export function SubscriptionAgreement() {
       </div>
 
       {/* Print Styles */}
-      <style jsx global>{`
+      <style>{`
         @media print {
           body {
             print-color-adjust: exact;

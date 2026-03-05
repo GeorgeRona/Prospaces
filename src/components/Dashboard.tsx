@@ -243,7 +243,13 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
       
       console.log('📊 Pipeline Status Counts:', statusCounts);
       
-      const pipelineData = Object.entries(statusCounts).map(([name, value]) => ({ name, value }));
+      const pipelineData = Object.entries(statusCounts)
+        .filter(([name, value]) => name && value > 0)
+        .map(([name, value], index) => ({ 
+          id: `pipeline-${index}`,
+          name, 
+          value 
+        }));
       
       console.log('📊 Pipeline Chart Data:', pipelineData);
       
@@ -269,10 +275,13 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
         lossReasonCounts[reason] = (lossReasonCounts[reason] || 0) + 1;
       });
       
-      const lossReasonData = Object.entries(lossReasonCounts).map(([name, value]) => ({ 
-        name, 
-        value 
-      }));
+      const lossReasonData = Object.entries(lossReasonCounts)
+        .filter(([name, value]) => name && value > 0)
+        .map(([name, value], index) => ({ 
+          id: `loss-${index}`,
+          name, 
+          value 
+        }));
 
       // 4. Projection (Line) - Calculate from open deals
       // For projection, we'll show open deals by valid until month (proxy for expected close)
@@ -480,7 +489,7 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
                     dataKey="value"
                   >
                     {charts.pipeline.map((entry, index) => (
-                      <Cell key={`pipeline-cell-${index}`} fill={PIPELINE_COLORS[index % PIPELINE_COLORS.length]} />
+                      <Cell key={entry.id || `pipeline-cell-${index}`} fill={PIPELINE_COLORS[index % PIPELINE_COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip 
@@ -538,7 +547,7 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
                     dataKey="value"
                   >
                     {charts.lossReasons.map((entry, index) => (
-                      <Cell key={`loss-cell-${index}`} fill={LOSS_COLORS[index % LOSS_COLORS.length]} />
+                      <Cell key={entry.id || `loss-cell-${index}`} fill={LOSS_COLORS[index % LOSS_COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip 
