@@ -501,7 +501,8 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
     // Mouse controls
     let isDragging = false;
     let previousMousePosition = { x: 0, y: 0 };
-    let cameraRotation = { theta: Math.PI / 4, phi: Math.PI / 5 };
+    // Increased phi from Math.PI/5 to Math.PI/2.5 to see the walls/doors instead of mostly roof
+    let cameraRotation = { theta: Math.PI / 4, phi: Math.PI / 2.5 };
     let cameraDistance = 15;
 
     const onMouseDown = (e: MouseEvent) => {
@@ -540,6 +541,11 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
     // Animation loop
     const animate = () => {
       requestAnimationFrame(animate);
+
+      // Auto-rotate slowly if not dragging
+      if (!isDragging) {
+        cameraRotation.theta -= 0.002;
+      }
 
       camera.position.x = cameraDistance * Math.sin(cameraRotation.phi) * Math.cos(cameraRotation.theta);
       camera.position.y = cameraDistance * Math.cos(cameraRotation.phi);

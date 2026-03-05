@@ -44,6 +44,7 @@ import { FaviconGenerator } from './components/FaviconGenerator';
 import { TrackingRedirect } from './components/TrackingRedirect';
 import { PublicQuoteView } from './components/PublicQuoteView';
 import { PublicLandingPage } from './components/marketing/PublicLandingPage';
+import { PromoSlideshow } from './components/PromoSlideshow';
 import { LandingPageDebug } from './components/LandingPageDebug';
 import { LandingPageDiagnostic } from './components/marketing/LandingPageDiagnostic';
 import { LandingPageDiagnosticTest } from './components/marketing/LandingPageDiagnosticTest';
@@ -171,6 +172,7 @@ function getPublicRoute(): React.ReactElement | null {
   if (urlParams.get('view') === 'landing' && landingPageQuerySlug) return <PublicLandingPage slug={landingPageQuerySlug} />;
 
   if (urlParams.get('view') === 'redirect') return <TrackingRedirect />;
+  if (urlParams.get('view') === 'promo') return <PromoSlideshow />;
   if (urlParams.get('view') === 'public-quote') return <PublicQuoteView />;
   if (urlParams.get('view') === 'favicon-generator') return <FaviconGenerator />;
   if (urlParams.get('view') === 'landing-page-debug') return <LandingPageDebug />;

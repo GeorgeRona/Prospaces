@@ -20,7 +20,8 @@ import {
   ArrowRight,
   Sparkles,
   Lock,
-  Info
+  Info,
+  PlayCircle
 } from 'lucide-react';
 import { ModuleDetail } from './ModuleDetail';
 import { About } from './About';
@@ -213,6 +214,14 @@ export function LandingPage({ onGetStarted, onMemberLogin }: LandingPageProps) {
               >
                 Get Started Free
                 <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+              </Button>
+              <Button 
+                onClick={() => window.location.href = '?view=promo'}
+                variant="outline"
+                className="bg-white text-gray-800 border-gray-200 hover:bg-gray-50 px-8 py-6 text-lg group shadow-sm"
+              >
+                <PlayCircle className="mr-2 h-5 w-5 text-purple-600 group-hover:scale-110 transition-transform" />
+                Watch Promo
               </Button>
             </div>
           </div>
