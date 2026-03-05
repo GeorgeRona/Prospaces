@@ -61,7 +61,7 @@ import { initializePermissions } from './utils/permissions';
 import type { Session, User as SupabaseUser } from '@supabase/supabase-js';
 import { About } from './components/About';
 
-export type UserRole = 'standard_user' | 'manager' | 'director' | 'admin' | 'super_admin' | 'marketing';
+export type UserRole = 'standard_user' | 'manager' | 'director' | 'admin' | 'super_admin' | 'marketing' | 'designer';
 
 export interface User {
   id: string;

@@ -46,7 +46,7 @@ export const ALL_MODULES = [
   'documents', 'team-dashboard', 'reports', 'project-wizards', 'admin', 'kitchen-planner'
 ];
 
-export const ALL_ROLES: UserRole[] = ['super_admin', 'admin', 'director', 'manager', 'marketing', 'standard_user'];
+export const ALL_ROLES: UserRole[] = ['super_admin', 'admin', 'director', 'manager', 'marketing', 'designer', 'standard_user'];
 
 /**
  * Get the canonical default permission for a given module + role.
@@ -114,6 +114,25 @@ export function getDefaultPermission(module: string, role: UserRole): Permission
       change: module === 'marketing' || module === 'contacts' || module === 'email' || module === 'opportunities',
       delete: module === 'marketing',
     };
+  }
+
+  if (role === 'designer') {
+    // Designer role: Focused on Project Wizards and design tools
+    // Admin can enable additional modules via Security Settings
+    if (module === 'tenants' || module === 'security' || module === 'users' || module === 'import-export') {
+      return { visible: false, add: false, change: false, delete: false };
+    }
+    if (module === 'dashboard') {
+      return { visible: true, add: false, change: false, delete: false };
+    }
+    if (module === 'project-wizards' || module === 'kitchen-planner') {
+      return { visible: true, add: true, change: true, delete: true };
+    }
+    if (module === 'settings') {
+      return { visible: true, add: false, change: true, delete: false };
+    }
+    // All other modules are hidden by default (admin can enable them)
+    return { visible: false, add: false, change: false, delete: false };
   }
 
   // standard_user — only personal data access
