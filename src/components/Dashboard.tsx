@@ -433,7 +433,7 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
               <ExplicitChartContainer>
                 <AreaChart data={charts.wonDeals} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                   <defs>
-                    <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient id="colorValueWonDeals" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor={theme.colors.primary} stopOpacity={0.3}/>
                       <stop offset="95%" stopColor={theme.colors.primary} stopOpacity={0}/>
                     </linearGradient>
@@ -452,7 +452,7 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
                     dataKey="value" 
                     stroke={theme.colors.primary} 
                     fillOpacity={1} 
-                    fill="url(#colorValue)" 
+                    fill="url(#colorValueWonDeals)" 
                     name="Closed Value ($)" 
                   />
                 </AreaChart>
@@ -480,7 +480,7 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
                     dataKey="value"
                   >
                     {charts.pipeline.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={PIPELINE_COLORS[index % PIPELINE_COLORS.length]} />
+                      <Cell key={`pipeline-cell-${index}`} fill={PIPELINE_COLORS[index % PIPELINE_COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip 
@@ -538,7 +538,7 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
                     dataKey="value"
                   >
                     {charts.lossReasons.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={LOSS_COLORS[index % LOSS_COLORS.length]} />
+                      <Cell key={`loss-cell-${index}`} fill={LOSS_COLORS[index % LOSS_COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip 

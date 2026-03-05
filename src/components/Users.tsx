@@ -973,6 +973,7 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
                         <SelectContent>
                           <SelectItem value="standard_user">Standard User</SelectItem>
                           <SelectItem value="marketing">Marketing</SelectItem>
+                          <SelectItem value="designer">Designer</SelectItem>
                           <SelectItem value="manager">Manager</SelectItem>
                           <SelectItem value="director">Director</SelectItem>
                           <SelectItem value="admin">Admin</SelectItem>
@@ -984,6 +985,7 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
                       <p className="text-xs text-gray-500 mt-1">
                         {newUser.role === 'standard_user' && 'Can manage only their own data'}
                         {newUser.role === 'marketing' && 'Full access to marketing and campaigns, limited access to contacts'}
+                        {newUser.role === 'designer' && 'Access to Project Wizards and design tools. Admins can enable additional modules.'}
                         {newUser.role === 'manager' && 'Can manage data of users they oversee'}
                         {newUser.role === 'director' && 'Same as Manager, plus full user visibility on Team Dashboard'}
                         {newUser.role === 'admin' && 'Full access within the organization'}
@@ -1297,6 +1299,7 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
                     <SelectContent>
                       <SelectItem value="standard_user">Standard User</SelectItem>
                       <SelectItem value="marketing">Marketing</SelectItem>
+                      <SelectItem value="designer">Designer</SelectItem>
                       <SelectItem value="manager">Manager</SelectItem>
                       <SelectItem value="director">Director</SelectItem>
                       <SelectItem value="admin">Admin</SelectItem>
@@ -1308,6 +1311,7 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
                   <p className="text-xs text-gray-500 mt-1">
                     {editUser.role === 'standard_user' && 'Can manage only their own data'}
                     {editUser.role === 'marketing' && 'Full access to marketing and campaigns, limited access to contacts'}
+                    {editUser.role === 'designer' && 'Access to Project Wizards and design tools. Admins can enable additional modules.'}
                     {editUser.role === 'manager' && 'Can manage data of users they oversee'}
                     {editUser.role === 'director' && 'Same as Manager, plus full user visibility on Team Dashboard'}
                     {editUser.role === 'admin' && 'Full access within the organization'}
