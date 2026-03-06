@@ -1611,6 +1611,10 @@
     height: 100%;
   }
 
+  .h-max {
+    height: max-content;
+  }
+
   .h-px {
     height: 1px;
   }
@@ -1941,6 +1945,10 @@
 
   .w-full {
     width: 100%;
+  }
+
+  .w-max {
+    width: max-content;
   }
 
   .w-px {

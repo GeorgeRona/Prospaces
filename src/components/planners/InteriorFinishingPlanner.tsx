@@ -21,84 +21,6 @@ type Point = { x: number; y: number };
 type Wall = { p1: Point; p2: Point };
 type PlacedItem = { p: Point; id: string; doorType?: string; doorSize?: string; doorHanding?: string };
 
-const DB_NAME = 'InteriorFinishingDB';
-const STORE_NAME = 'drafts';
-
-const saveToIndexedDB = async (data: any) => {
-  return new Promise<void>((resolve, reject) => {
-    try {
-      const req = indexedDB.open(DB_NAME, 1);
-      req.onupgradeneeded = () => {
-        if (!req.result.objectStoreNames.contains(STORE_NAME)) {
-          req.result.createObjectStore(STORE_NAME);
-        }
-      };
-      req.onsuccess = () => {
-        try {
-          const db = req.result;
-          const tx = db.transaction(STORE_NAME, 'readwrite');
-          const store = tx.objectStore(STORE_NAME);
-          store.put(data, 'current_draft');
-          
-          tx.oncomplete = () => {
-            db.close();
-            resolve();
-          };
-          tx.onerror = () => {
-            db.close();
-            reject(tx.error);
-          };
-        } catch (err) {
-          req.result.close();
-          reject(err);
-        }
-      };
-      req.onerror = () => reject(req.error);
-    } catch (err) {
-      reject(err);
-    }
-  });
-};
-
-const loadFromIndexedDB = async () => {
-  return new Promise<any>((resolve, reject) => {
-    try {
-      const req = indexedDB.open(DB_NAME, 1);
-      req.onupgradeneeded = () => {
-        if (!req.result.objectStoreNames.contains(STORE_NAME)) {
-          req.result.createObjectStore(STORE_NAME);
-        }
-      };
-      req.onsuccess = () => {
-        try {
-          const db = req.result;
-          if (!db.objectStoreNames.contains(STORE_NAME)) {
-            db.close();
-            return resolve(null);
-          }
-          const tx = db.transaction(STORE_NAME, 'readonly');
-          const storeReq = tx.objectStore(STORE_NAME).get('current_draft');
-          
-          storeReq.onsuccess = () => {
-            db.close();
-            resolve(storeReq.result);
-          };
-          storeReq.onerror = () => {
-            db.close();
-            reject(storeReq.error);
-          };
-        } catch (err) {
-          req.result.close();
-          resolve(null); // Return null if store doesn't exist yet or other error
-        }
-      };
-      req.onerror = () => reject(req.error);
-    } catch (err) {
-      reject(err);
-    }
-  });
-};
-
 export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps) {
   // Restrict access to admin while in development
   if (user.role !== 'admin' && user.role !== 'super_admin') {
@@ -321,84 +243,67 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
         lastSaved: Date.now(),
       };
 
-      // 1. Save locally FIRST so it's instantly fast and reliable
-      await saveToIndexedDB(draft);
-      toast.success('Draft saved locally!');
+      const jsonStr = JSON.stringify(draft);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
       
-      // 2. Try saving to cloud in the background
-      // Only stringify and upload if it's reasonably sized (e.g. < 5MB)
-      // Base64 strings are 1 character = 1 byte (roughly 2 bytes in memory but length is char count)
-      const approxSize = bgImage.length + pdfPages.reduce((acc, p) => acc + (p?.length || 0), 0);
+      const defaultFileName = `finishing-planner-${new Date().toISOString().split('T')[0]}.pjt`;
       
-      if (approxSize < 5000000) { // ~5MB
+      let usedFallback = false;
+
+      if ('showSaveFilePicker' in window) {
         try {
-          const supabase = createClient();
-          const { data: { session } } = await supabase.auth.getSession();
-          const accessToken = session?.access_token || publicAnonKey;
-          
-          fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/api/projects/interior-planner/draft`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${accessToken}`
-            },
-            body: JSON.stringify(draft)
-          }).catch(e => console.warn('Cloud sync failed:', e));
-        } catch (cloudErr) {
-          console.warn('Could not save draft to cloud:', cloudErr);
+          const handle = await (window as any).showSaveFilePicker({
+            suggestedName: defaultFileName,
+            types: [{
+              description: 'Project File',
+              accept: { 'application/json': ['.pjt'] },
+            }],
+          });
+          const writable = await handle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+          toast.success('Project saved to your device!');
+        } catch (err: any) {
+          if (err.name === 'AbortError') {
+            // User cancelled the prompt, do nothing
+            return;
+          } else {
+            // Likely a SecurityError due to cross-origin iframe restrictions
+            usedFallback = true;
+          }
         }
       } else {
-        console.info('Draft too large for cloud sync. Saved locally only.');
-        toast.info('Draft too large for cloud sync. It has been saved to this device only.', { duration: 4000 });
+        usedFallback = true;
+      }
+
+      if (usedFallback) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = defaultFileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast.success('Project saved to your device!');
       }
 
     } catch (err) {
       console.error('Save failed', err);
-      toast.error('Failed to save draft.');
+      toast.error('Failed to save project.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleLoadDraft = async () => {
+  const handleLoadProjectFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
     setLoading(true);
     try {
-      let cloudDraft: any = null;
-      let localDraft: any = null;
-      
-      // 1. Try loading from cloud
-      try {
-        const supabase = createClient();
-        const { data: { session } } = await supabase.auth.getSession();
-        const accessToken = session?.access_token || publicAnonKey;
-
-        const res = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/api/projects/interior-planner/draft`, {
-          headers: { 'Authorization': `Bearer ${accessToken}` }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.draft) {
-            cloudDraft = typeof data.draft === 'string' ? JSON.parse(data.draft) : data.draft;
-          }
-        }
-      } catch (cloudErr) {
-        console.warn('Could not load draft from cloud:', cloudErr);
-      }
-
-      // 2. Try loading from IndexedDB
-      try {
-        localDraft = await loadFromIndexedDB();
-      } catch (localErr) {
-        console.warn('Could not load draft from local DB:', localErr);
-      }
-
-      // 3. Choose the most recent draft
-      let draft = cloudDraft;
-      if (localDraft) {
-        if (!cloudDraft || (localDraft.lastSaved || 0) > (cloudDraft.lastSaved || 0)) {
-          draft = localDraft;
-        }
-      }
+      const text = await file.text();
+      const draft = JSON.parse(text);
 
       if (draft && draft.bgImage) {
         setPdfPages(draft.pdfPages || [draft.bgImage]);
@@ -1018,10 +923,11 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
                     <Save className="w-5 h-5 mb-1 text-green-500" />
                     <span className="text-[10px] font-medium text-slate-600">Save</span>
                   </button>
-                  <button onClick={handleLoadDraft} disabled={loading} className="flex flex-col items-center justify-center p-2 rounded-md hover:bg-orange-50 transition-colors disabled:opacity-50">
+                  <label className={`cursor-pointer flex flex-col items-center justify-center p-2 rounded-md hover:bg-orange-50 transition-colors ${loading ? 'opacity-50' : ''}`}>
                     <FolderOpen className="w-5 h-5 mb-1 text-orange-500" />
                     <span className="text-[10px] font-medium text-slate-600">Load</span>
-                  </button>
+                    <input type="file" accept=".pjt" className="hidden" disabled={loading} onChange={handleLoadProjectFile} />
+                  </label>
                 </div>
 
                 {/* History Tools */}
@@ -1194,9 +1100,9 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
                         <p className="text-sm">Upload a floorplan file using the toolbar above to begin tracing.</p>
                       </div>
                     ) : (
-                      <div className="min-w-full min-h-full flex items-center justify-center p-4">
+                      <div className="min-w-full min-h-full w-max h-max flex items-center justify-center p-4">
                         <div 
-                          className={`relative inline-block bg-white shadow-sm transition-transform duration-75 ${mode !== 'idle' ? 'cursor-crosshair' : 'cursor-default'}`}
+                          className={`relative shrink-0 inline-block bg-white shadow-sm transition-transform duration-75 ${mode !== 'idle' ? 'cursor-crosshair' : 'cursor-default'}`}
                           style={{ 
                             width: imageDims ? imageDims.w * zoom : 'auto', 
                             height: imageDims ? imageDims.h * zoom : 'auto' 
@@ -1208,6 +1114,7 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
                             alt="Floorplan" 
                             onLoad={handleImageLoad}
                             className="absolute inset-0 w-full h-full pointer-events-none"
+                            style={{ objectFit: 'fill' }}
                             draggable={false}
                           />
                           
@@ -1215,6 +1122,7 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
                             <svg
                               ref={svgRef}
                           viewBox={`0 0 ${imageDims.w} ${imageDims.h}`}
+                          preserveAspectRatio="none"
                           className="absolute inset-0 w-full h-full pointer-events-auto"
                           onMouseMove={handleMouseMove}
                           onClick={handleClick}
