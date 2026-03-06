@@ -24,37 +24,76 @@ const STORE_NAME = 'drafts';
 
 const saveToIndexedDB = async (data: any) => {
   return new Promise<void>((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 1);
-    req.onupgradeneeded = () => {
-      req.result.createObjectStore(STORE_NAME);
-    };
-    req.onsuccess = () => {
-      const tx = req.result.transaction(STORE_NAME, 'readwrite');
-      tx.objectStore(STORE_NAME).put(data, 'current_draft');
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-    };
-    req.onerror = () => reject(req.error);
+    try {
+      const req = indexedDB.open(DB_NAME, 1);
+      req.onupgradeneeded = () => {
+        if (!req.result.objectStoreNames.contains(STORE_NAME)) {
+          req.result.createObjectStore(STORE_NAME);
+        }
+      };
+      req.onsuccess = () => {
+        try {
+          const db = req.result;
+          const tx = db.transaction(STORE_NAME, 'readwrite');
+          const store = tx.objectStore(STORE_NAME);
+          store.put(data, 'current_draft');
+          
+          tx.oncomplete = () => {
+            db.close();
+            resolve();
+          };
+          tx.onerror = () => {
+            db.close();
+            reject(tx.error);
+          };
+        } catch (err) {
+          req.result.close();
+          reject(err);
+        }
+      };
+      req.onerror = () => reject(req.error);
+    } catch (err) {
+      reject(err);
+    }
   });
 };
 
 const loadFromIndexedDB = async () => {
   return new Promise<any>((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 1);
-    req.onupgradeneeded = () => {
-      req.result.createObjectStore(STORE_NAME);
-    };
-    req.onsuccess = () => {
-      try {
-        const tx = req.result.transaction(STORE_NAME, 'readonly');
-        const storeReq = tx.objectStore(STORE_NAME).get('current_draft');
-        storeReq.onsuccess = () => resolve(storeReq.result);
-        storeReq.onerror = () => reject(storeReq.error);
-      } catch (err) {
-        resolve(null); // Return null if store doesn't exist yet
-      }
-    };
-    req.onerror = () => reject(req.error);
+    try {
+      const req = indexedDB.open(DB_NAME, 1);
+      req.onupgradeneeded = () => {
+        if (!req.result.objectStoreNames.contains(STORE_NAME)) {
+          req.result.createObjectStore(STORE_NAME);
+        }
+      };
+      req.onsuccess = () => {
+        try {
+          const db = req.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            db.close();
+            return resolve(null);
+          }
+          const tx = db.transaction(STORE_NAME, 'readonly');
+          const storeReq = tx.objectStore(STORE_NAME).get('current_draft');
+          
+          storeReq.onsuccess = () => {
+            db.close();
+            resolve(storeReq.result);
+          };
+          storeReq.onerror = () => {
+            db.close();
+            reject(storeReq.error);
+          };
+        } catch (err) {
+          req.result.close();
+          resolve(null); // Return null if store doesn't exist yet or other error
+        }
+      };
+      req.onerror = () => reject(req.error);
+    } catch (err) {
+      reject(err);
+    }
   });
 };
 
@@ -223,6 +262,17 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
         setCrownId(draft.crownId || 'none');
         setWainscottingId(draft.wainscottingId || 'none');
         setMode('idle');
+        
+        // Ensure zoom is recalculated in case image onLoad doesn't fire for base64
+        setTimeout(() => {
+          if (containerRef.current && draft.imageDims) {
+            const cw = containerRef.current.clientWidth - 40;
+            const ch = containerRef.current.clientHeight - 40;
+            const scale = Math.min(cw / draft.imageDims.w, ch / draft.imageDims.h);
+            setZoom(scale > 0 ? scale : 1);
+          }
+        }, 100);
+
         toast.success('Draft loaded successfully!');
       } else {
         toast.info('No saved draft found.');
@@ -368,9 +418,10 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
     e.target.value = ''; // Reset input
   };
 
-  const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    const w = e.currentTarget.naturalWidth;
-    const h = e.currentTarget.naturalHeight;
+  const handleImageLoad = (e: React.SyntheticEvent<HTMLImageElement> | Event) => {
+    const target = e.target as HTMLImageElement;
+    const w = target.naturalWidth;
+    const h = target.naturalHeight;
     setImageDims({ w, h });
     
     if (containerRef.current) {
@@ -381,6 +432,15 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
       setZoom(scale > 0 ? scale : 1);
     }
   };
+
+  useEffect(() => {
+    if (bgImage && imgRef.current && imgRef.current.complete) {
+      // Trigger image load manually if it completed instantly
+      if (imgRef.current.naturalWidth > 0 && !imageDims) {
+        handleImageLoad({ target: imgRef.current } as any);
+      }
+    }
+  }, [bgImage, imageDims]);
 
   // Canvas Interactions
   const getNaturalCoords = (e: React.MouseEvent | React.PointerEvent) => {
