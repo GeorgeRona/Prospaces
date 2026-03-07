@@ -778,8 +778,12 @@ export function Bids({ user }: BidsProps) {
       {isEmailDialogOpen && emailQuote && (
         <EmailQuoteDialog
           quote={emailQuote}
-          isOpen={isEmailDialogOpen}
-          onClose={() => {
+          open={isEmailDialogOpen}
+          onOpenChange={(open) => {
+            setIsEmailDialogOpen(open);
+            if (!open) setEmailQuote(null);
+          }}
+          onSuccess={() => {
             setIsEmailDialogOpen(false);
             setEmailQuote(null);
             loadData();
