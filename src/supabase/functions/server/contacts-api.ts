@@ -226,6 +226,7 @@ export function contactsAPI(app: Hono) {
         }
       }
 
+      let contactsData: any[] = [];
       const { data: contacts, error: queryError } = await query.order('created_at', { ascending: false });
 
       if (queryError) {
@@ -248,42 +249,48 @@ export function contactsAPI(app: Hono) {
           if (retryError) {
             return c.json({ error: 'Contacts query failed on retry: ' + retryError.message }, 500);
           }
-
-          return c.json({
-            contacts: retryData || [],
-            meta: { count: retryData?.length || 0, role: userRole, fallback: true },
-          });
+          contactsData = retryData || [];
+        } else {
+          return c.json({ error: 'Contacts query failed: ' + queryError.message }, 500);
         }
-
-        return c.json({ error: 'Contacts query failed: ' + queryError.message }, 500);
+      } else {
+        contactsData = contacts || [];
       }
 
-      console.log(`[contacts-api] Returning ${contacts?.length || 0} contacts for role=${userRole}`);
+      console.log(`[contacts-api] Returning ${contactsData.length} contacts for role=${userRole}`);
 
       // ── ALWAYS enrich optional fields from KV (authoritative source) ──
       // This guarantees price_level, address, notes, tags, and financial data
       // survive even if the DB columns don't exist or the DB write silently drops them.
-      let enrichedContacts = contacts || [];
+      let enrichedContacts = contactsData;
       if (enrichedContacts.length > 0) {
         try {
           const contactIds = enrichedContacts.map((ct: any) => ct.id);
           const overlayKeys = contactIds.map((id: string) => `contact_extras:${id}`);
           const legacyKeys = contactIds.map((id: string) => `contact_price_level:${id}`);
 
-          const { data: kvData, error: kvError } = await supabase
-            .from('kv_store_8405be07')
-            .select('key, value')
-            .in('key', [...overlayKeys, ...legacyKeys]);
+          const allKeys = [...overlayKeys, ...legacyKeys];
+          const kvMap = new Map();
+          
+          // Chunk the keys into batches of 100 to avoid PostgREST URI too long errors
+          const chunkSize = 100;
+          for (let i = 0; i < allKeys.length; i += chunkSize) {
+            const chunk = allKeys.slice(i, i + chunkSize);
+            const { data: kvData, error: kvError } = await supabase
+              .from('kv_store_8405be07')
+              .select('key, value')
+              .in('key', chunk);
 
-          if (kvError) {
-            console.warn(`[contacts-api] KV fetch error:`, kvError.message);
-          } else if (kvData) {
-            const kvMap = new Map();
-            for (const row of kvData) {
-              kvMap.set(row.key, row.value);
+            if (kvError) {
+              console.warn(`[contacts-api] KV fetch error for chunk:`, kvError.message);
+            } else if (kvData) {
+              for (const row of kvData) {
+                kvMap.set(row.key, row.value);
+              }
             }
+          }
 
-            let enrichCount = 0;
+          let enrichCount = 0;
             for (let i = 0; i < enrichedContacts.length; i++) {
               const cid = enrichedContacts[i].id;
               let updated = false;
@@ -322,7 +329,6 @@ export function contactsAPI(app: Hono) {
               if (updated) enrichCount++;
             }
             console.log(`[contacts-api] Enriched ${enrichCount}/${enrichedContacts.length} contacts from KV store batch query`);
-          }
         } catch (kvErr: any) {
           console.warn(`[contacts-api] KV enrichment error (non-fatal):`, kvErr.message);
         }
