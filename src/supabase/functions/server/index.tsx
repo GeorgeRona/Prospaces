@@ -3,6 +3,7 @@ import { Hono } from 'npm:hono';
 import { cors } from 'npm:hono/cors';
 import { logger } from 'npm:hono/logger';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { Buffer } from 'node:buffer';
 import * as kv from './kv_store.tsx';
 import { marketing } from './marketing.ts';
 import { subscriptions } from './subscriptions.ts';
@@ -1631,9 +1632,13 @@ app.post(`${PREFIX}/email-send`, async (c) => {
       const toArray = parseEmails(to);
       const ccArray = parseEmails(cc);
       
-      const rawText = `From: ${kvAccount.email}\r\nTo: ${toArray.join(', ')}\r\n${ccArray.length > 0 ? `Cc: ${ccArray.join(', ')}\r\n` : ''}Subject: =?utf-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=\r\nContent-Type: text/html; charset=utf-8\r\n\r\n${emailBody}`;
+      // We must base64 encode the email body and specify Content-Transfer-Encoding to prevent 
+      // strict MTAs or spam filters from silently dropping the email due to long lines or raw UTF-8 chars.
+      const encodedBody = Buffer.from(emailBody, 'utf-8').toString('base64').match(/.{1,76}/g)?.join('\r\n') || '';
+
+      const rawText = `From: ${kvAccount.email}\r\nTo: ${toArray.join(', ')}\r\n${ccArray.length > 0 ? `Cc: ${ccArray.join(', ')}\r\n` : ''}Subject: =?utf-8?B?${Buffer.from(subject).toString('base64')}?=\r\nMIME-Version: 1.0\r\nContent-Type: text/html; charset=utf-8\r\nContent-Transfer-Encoding: base64\r\n\r\n${encodedBody}`;
       
-      const base64Encoded = btoa(unescape(encodeURIComponent(rawText)))
+      const base64Encoded = Buffer.from(rawText, 'utf-8').toString('base64')
         .replace(/\+/g, '-')
         .replace(/\//g, '_')
         .replace(/=+$/, '');
@@ -2144,12 +2149,16 @@ app.get(`${PREFIX}/public/view`, async (c) => {
       .from(table)
       .select('*')
       .eq('id', id)
-      .eq('organization_id', orgId)
       .single();
 
     if (error || !data) {
       console.log(`[public/view] Not found: table=${table}, id=${id}, orgId=${orgId}, error=${error?.message}`);
       return c.json({ error: 'Document not found' }, 404);
+    }
+
+    if (data.organization_id && data.organization_id !== orgId) {
+       console.log(`[public/view] Organization mismatch: DB=${data.organization_id}, URL=${orgId}`);
+       return c.json({ error: 'Document not found' }, 404);
     }
 
     const now = new Date().toISOString();
@@ -2253,10 +2262,9 @@ app.post(`${PREFIX}/public/events`, async (c) => {
         .from(table)
         .select('*')
         .eq('id', entityId)
-        .eq('organization_id', orgId)
         .single();
         
-      if (dealData) {
+      if (dealData && (!dealData.organization_id || dealData.organization_id === orgId)) {
         dealTitle = (dealData as any).title || '';
         dealNumber = (dealData as any).quote_number || (dealData as any).bid_number || '';
         contactName = (dealData as any).contact_name || (dealData as any).client_name || '';
@@ -2267,23 +2275,32 @@ app.post(`${PREFIX}/public/events`, async (c) => {
         // Update Deal status to 'viewed' if it was 'sent' or 'draft'
         const currentStatus = (dealData as any).status || 'draft';
         if (['draft', 'sent'].includes(currentStatus)) {
-          await supabase
+          let updateQuery = supabase
             .from(table)
             .update({ 
               status: 'viewed',
               read_at: now
             })
-            .eq('id', entityId)
-            .eq('organization_id', orgId);
+            .eq('id', entityId);
             
+          if (dealData.organization_id) {
+            updateQuery = updateQuery.eq('organization_id', orgId);
+          }
+            
+          await updateQuery;
           console.log(`Updated ${table} ${entityId} status to viewed`);
         } else if (!(dealData as any).read_at) {
            // Just update read_at if not set
-           await supabase
+           let updateQuery = supabase
             .from(table)
             .update({ read_at: now })
-            .eq('id', entityId)
-            .eq('organization_id', orgId);
+            .eq('id', entityId);
+            
+           if (dealData.organization_id) {
+             updateQuery = updateQuery.eq('organization_id', orgId);
+           }
+             
+           await updateQuery;
         }
         
         // Also log this in marketing lead scores if it's a contact
