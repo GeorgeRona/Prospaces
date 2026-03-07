@@ -505,13 +505,23 @@ export function Contacts({ user }: ContactsProps) {
 
       if (contact) {
         console.log('[Contacts] 🔍 Full contact object from API:', contact);
+        console.log('[Contacts] 🔍 selectedContact before update:', selectedContact ? { id: selectedContact.id, name: selectedContact.name, priceLevel: selectedContact.priceLevel } : 'null');
+        
+        // Update contacts list
         setContacts(prev => prev.map(c => (c?.id === contact.id ? contact : c)));
+        
+        // ALWAYS update selectedContact if this is the contact being viewed
         if (selectedContact && selectedContact.id === contact.id) {
           console.log('[Contacts] 🔍 Updating selectedContact with price level:', contact.priceLevel);
           setSelectedContact(contact);
         }
+        
         console.log(`[Contacts] Local state updated for contact ${contact.id}`);
         toast.success(`Contact "${contactName}" saved successfully`);
+        
+        // Force reload contacts from server to ensure we have the latest data with KV overlay
+        console.log('[Contacts] 🔄 Reloading contacts from server to verify update...');
+        await loadContacts();
       } else {
         console.warn('[Contacts] Update returned no contact data — changes may not have been saved');
         toast.warning('Update returned empty response — please verify changes');
