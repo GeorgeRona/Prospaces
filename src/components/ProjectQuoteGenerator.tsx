@@ -48,6 +48,21 @@ export function ProjectQuoteGenerator({
   const [orgTaxRate, setOrgTaxRate] = useState<number>(0);
   const [orgTaxRate2, setOrgTaxRate2] = useState<number>(0);
 
+  // 🔍 DEBUG: Log materials when they change
+  useEffect(() => {
+    console.log('[ProjectQuoteGenerator] 🔍 Materials received:', {
+      count: materials.length,
+      sample: materials.slice(0, 3).map(m => ({
+        description: m.description || m.name || 'unknown',
+        itemId: m.itemId || '(none)',
+        sku: m.sku || '(none)',
+        unitPrice: m.unitPrice || 0,
+        cost: m.cost || 0
+      })),
+      allFields: materials.length > 0 ? Object.keys(materials[0]) : []
+    });
+  }, [materials]);
+
   // Load organization settings on mount
   useEffect(() => {
     loadOrganizationSettings();
