@@ -504,8 +504,10 @@ export function Contacts({ user }: ContactsProps) {
       console.log(`[Contacts] Update API returned:`, JSON.stringify(contact ? { id: contact.id, name: contact.name, priceLevel: contact.priceLevel, updatedAt: contact.updatedAt } : null));
 
       if (contact) {
+        console.log('[Contacts] 🔍 Full contact object from API:', contact);
         setContacts(prev => prev.map(c => (c?.id === contact.id ? contact : c)));
         if (selectedContact && selectedContact.id === contact.id) {
+          console.log('[Contacts] 🔍 Updating selectedContact with price level:', contact.priceLevel);
           setSelectedContact(contact);
         }
         console.log(`[Contacts] Local state updated for contact ${contact.id}`);
