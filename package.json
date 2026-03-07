@@ -47,7 +47,6 @@
     "jszip": "*",
     "lucide-react": "*",
     "motion": "*",
-    "node:buffer": "*",
     "path": "*",
     "react": "^18.3.1",
     "react-day-picker": "*",

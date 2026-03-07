@@ -28,19 +28,21 @@ export function PublicQuoteView() {
       }
 
       try {
-        const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/public/view?id=${id}&orgId=${orgId}&type=${type}`, {
+        const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/public/view?id=${encodeURIComponent(id)}&orgId=${encodeURIComponent(orgId)}&type=${encodeURIComponent(type)}`, {
             headers: {
                 'Authorization': `Bearer ${publicAnonKey}`
             }
         });
         
-        if (!response.ok) {
+        let result;
+        try {
+            result = await response.json();
+        } catch (e) {
             throw new Error(`Failed to load ${type}: ${response.statusText}`);
         }
         
-        const result = await response.json();
-        if (result.error) {
-            throw new Error(result.error);
+        if (!response.ok || result.error) {
+            throw new Error(result.error || `Failed to load ${type}: ${response.statusText}`);
         }
         
         setData(result.data);

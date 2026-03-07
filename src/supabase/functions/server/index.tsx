@@ -3,7 +3,6 @@ import { Hono } from 'npm:hono';
 import { cors } from 'npm:hono/cors';
 import { logger } from 'npm:hono/logger';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { Buffer } from 'node:buffer';
 import * as kv from './kv_store.tsx';
 import { marketing } from './marketing.ts';
 import { subscriptions } from './subscriptions.ts';
@@ -1634,11 +1633,11 @@ app.post(`${PREFIX}/email-send`, async (c) => {
       
       // We must base64 encode the email body and specify Content-Transfer-Encoding to prevent 
       // strict MTAs or spam filters from silently dropping the email due to long lines or raw UTF-8 chars.
-      const encodedBody = Buffer.from(emailBody, 'utf-8').toString('base64').match(/.{1,76}/g)?.join('\r\n') || '';
+      const encodedBody = btoa(unescape(encodeURIComponent(emailBody))).match(/.{1,76}/g)?.join('\r\n') || '';
 
-      const rawText = `From: ${kvAccount.email}\r\nTo: ${toArray.join(', ')}\r\n${ccArray.length > 0 ? `Cc: ${ccArray.join(', ')}\r\n` : ''}Subject: =?utf-8?B?${Buffer.from(subject).toString('base64')}?=\r\nMIME-Version: 1.0\r\nContent-Type: text/html; charset=utf-8\r\nContent-Transfer-Encoding: base64\r\n\r\n${encodedBody}`;
+      const rawText = `From: ${kvAccount.email}\r\nTo: ${toArray.join(', ')}\r\n${ccArray.length > 0 ? `Cc: ${ccArray.join(', ')}\r\n` : ''}Subject: =?utf-8?B?${btoa(unescape(encodeURIComponent(subject)))}?=\r\nMIME-Version: 1.0\r\nContent-Type: text/html; charset=utf-8\r\nContent-Transfer-Encoding: base64\r\n\r\n${encodedBody}`;
       
-      const base64Encoded = Buffer.from(rawText, 'utf-8').toString('base64')
+      const base64Encoded = btoa(unescape(encodeURIComponent(rawText)))
         .replace(/\+/g, '-')
         .replace(/\//g, '_')
         .replace(/=+$/, '');
@@ -2134,9 +2133,9 @@ app.post(`${PREFIX}/fix-profile-mismatch`, async (c) => {
 // Public quote/bid view — used when customer clicks "View Quote Online" in email
 app.get(`${PREFIX}/public/view`, async (c) => {
   try {
-    const id = c.req.query('id');
-    const orgId = c.req.query('orgId');
-    const type = c.req.query('type') || 'quote';
+    const id = c.req.query('id')?.trim();
+    const orgId = c.req.query('orgId')?.trim();
+    const type = (c.req.query('type') || 'quote').trim().toLowerCase();
 
     if (!id || !orgId) {
       return c.json({ error: 'Missing required parameters: id, orgId' }, 400);
@@ -2153,12 +2152,12 @@ app.get(`${PREFIX}/public/view`, async (c) => {
 
     if (error || !data) {
       console.log(`[public/view] Not found: table=${table}, id=${id}, orgId=${orgId}, error=${error?.message}`);
-      return c.json({ error: 'Document not found' }, 404);
+      return c.json({ error: `Document not found in ${table}. Error: ${error?.message || 'No data returned'}` }, 404);
     }
 
     if (data.organization_id && data.organization_id !== orgId) {
        console.log(`[public/view] Organization mismatch: DB=${data.organization_id}, URL=${orgId}`);
-       return c.json({ error: 'Document not found' }, 404);
+       return c.json({ error: 'Document belongs to a different organization' }, 404);
     }
 
     const now = new Date().toISOString();
