@@ -2498,6 +2498,31 @@ app.post(`${PREFIX}/public/events`, async (c) => {
         description: `Customer ${eventType === 'click' ? 'clicked link in' : 'interacted with'} ${entityType || 'quote'}${dealNumber ? ` #${dealNumber}` : ''}`,
         created_at: now,
       });
+
+      // Update marketing metrics (opened/clicked) on the latest campaign if this originated from an email link
+      const isClick = eventType === 'click';
+      const isOpen = eventType === 'open';
+      if (isClick || isOpen) {
+        const { data: pgCamps } = await getSupabase().from('campaigns')
+          .select('id, opened_count, clicked_count')
+          .eq('organization_id', orgId)
+          .eq('type', 'email')
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (pgCamps && pgCamps.length > 0) {
+          const updates: any = {};
+          if (isOpen) updates.opened_count = (pgCamps[0].opened_count || 0) + 1;
+          if (isClick) {
+             updates.clicked_count = (pgCamps[0].clicked_count || 0) + 1;
+             // Clicks usually imply opens if they didn't trigger an open pixel
+             updates.opened_count = Math.max((pgCamps[0].opened_count || 0), updates.clicked_count); 
+          }
+          
+          await getSupabase().from('campaigns').update(updates).eq('id', pgCamps[0].id);
+          console.log(`[public/events] Incremented ${isOpen ? 'open' : 'click'} on latest Postgres email campaign ${pgCamps[0].id}`);
+        }
+      }
     } catch (_) { /* ignore activity errors */ }
 
     return c.json({ success: true });
@@ -2572,10 +2597,10 @@ app.post(`${PREFIX}/public/accept`, async (c) => {
           console.log(`[public/accept] Incremented converted_count for latest KV campaign ${latestCampaign.id}`);
           
           // Also try to update latest Postgres campaign
-          const { data: pgCamps } = await supabase.from('campaigns').select('id, converted_count').eq('organization_id', orgId).order('created_at', { ascending: false }).limit(1);
+          const { data: pgCamps } = await supabase.from('campaigns').select('id, converted_count').eq('organization_id', orgId).eq('type', 'email').order('created_at', { ascending: false }).limit(1);
           if (pgCamps && pgCamps.length > 0) {
             await supabase.from('campaigns').update({ converted_count: (pgCamps[0].converted_count || 0) + 1 }).eq('id', pgCamps[0].id);
-            console.log(`[public/accept] Incremented converted_count for latest Postgres campaign ${pgCamps[0].id}`);
+            console.log(`[public/accept] Incremented converted_count for latest Postgres email campaign ${pgCamps[0].id}`);
           }
         }
       }

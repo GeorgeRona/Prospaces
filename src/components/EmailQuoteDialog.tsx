@@ -175,6 +175,36 @@ export function EmailQuoteDialog({ open, onOpenChange, quote, onSuccess }: Email
         folder: 'sent',
         received_at: new Date().toISOString(),
       });
+      
+      // Also update latest campaign to track this in Marketing Channel stats
+      try {
+        const { campaignsAPI } = await import('../utils/api');
+        const campaignsData = await campaignsAPI.getAll();
+        const campaigns = campaignsData.campaigns || [];
+        const emailCampaigns = campaigns.filter((c: any) => c.type === 'email');
+        
+        if (emailCampaigns.length > 0) {
+          const targetCampaign = emailCampaigns[0];
+          await campaignsAPI.update(targetCampaign.id, {
+            sent_count: (targetCampaign.sent_count || targetCampaign.sent || 0) + 1,
+            audience_count: Math.max((targetCampaign.audience_count || targetCampaign.audience || 0), (targetCampaign.sent_count || targetCampaign.sent || 0) + 1)
+          });
+        } else {
+          // Create a default campaign for one-off emails if none exists
+          await campaignsAPI.create({
+            name: 'Direct Email Quotes',
+            type: 'email',
+            channel: 'Email',
+            status: 'active',
+            audience_segment: 'all',
+            sent_count: 1,
+            audience_count: 1,
+            start_date: new Date().toISOString()
+          });
+        }
+      } catch (err) {
+        console.error('Failed to update marketing campaign stats for email quote:', err);
+      }
 
       onSuccess();
       onOpenChange(false);
