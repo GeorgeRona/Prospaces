@@ -1599,15 +1599,21 @@ app.post(`${PREFIX}/campaigns/:id/send`, async (c) => {
     const supabase = getSupabase();
 
     // 1. Fetch campaign
-    const { data: campaign, error: campaignError } = await supabase
+    const { data: pgCamp, error: campaignError } = await supabase
       .from('campaigns')
       .select('*')
       .eq('id', campaignId)
       .single();
 
-    if (campaignError || !campaign) {
+    if (campaignError || !pgCamp) {
       return c.json({ error: 'Campaign not found' }, 404);
     }
+
+    let meta: any = {};
+    if (pgCamp.description && pgCamp.description.startsWith('{')) {
+      try { meta = JSON.parse(pgCamp.description); } catch(e) {}
+    }
+    const campaign = { ...pgCamp, ...meta };
 
     // 2. Fetch contacts for this org
     let contactsQuery = supabase
@@ -1665,13 +1671,14 @@ app.post(`${PREFIX}/campaigns/:id/send`, async (c) => {
 
     // Update campaign metrics & status in DB
     const newSentCount = (campaign.sent_count || 0) + sentCount;
+    meta.sent_count = newSentCount;
+    meta.audience_count = Math.max(campaign.audience_count || 0, sentCount);
+
     await supabase
       .from('campaigns')
       .update({ 
         status: 'Active', 
-        sent_date: new Date().toISOString(),
-        sent_count: newSentCount,
-        audience_count: Math.max(campaign.audience_count || 0, sentCount)
+        description: JSON.stringify(meta),
       })
       .eq('id', campaignId);
 
@@ -2504,23 +2511,27 @@ app.post(`${PREFIX}/public/events`, async (c) => {
       const isOpen = eventType === 'open';
       if (isClick || isOpen) {
         const { data: pgCamps } = await getSupabase().from('campaigns')
-          .select('id, opened_count, clicked_count')
+          .select('id, description')
           .eq('organization_id', orgId)
           .eq('type', 'email')
           .order('created_at', { ascending: false })
           .limit(1);
 
         if (pgCamps && pgCamps.length > 0) {
-          const updates: any = {};
-          if (isOpen) updates.opened_count = (pgCamps[0].opened_count || 0) + 1;
-          if (isClick) {
-             updates.clicked_count = (pgCamps[0].clicked_count || 0) + 1;
-             // Clicks usually imply opens if they didn't trigger an open pixel
-             updates.opened_count = Math.max((pgCamps[0].opened_count || 0), updates.clicked_count); 
+          const pgCamp = pgCamps[0];
+          let meta: any = {};
+          if (pgCamp.description && pgCamp.description.startsWith('{')) {
+            try { meta = JSON.parse(pgCamp.description); } catch(e) {}
           }
           
-          await getSupabase().from('campaigns').update(updates).eq('id', pgCamps[0].id);
-          console.log(`[public/events] Incremented ${isOpen ? 'open' : 'click'} on latest Postgres email campaign ${pgCamps[0].id}`);
+          if (isOpen) meta.opened_count = (meta.opened_count || 0) + 1;
+          if (isClick) {
+             meta.clicked_count = (meta.clicked_count || 0) + 1;
+             meta.opened_count = Math.max((meta.opened_count || 0), meta.clicked_count); 
+          }
+          
+          await getSupabase().from('campaigns').update({ description: JSON.stringify(meta) }).eq('id', pgCamp.id);
+          console.log(`[public/events] Incremented ${isOpen ? 'open' : 'click'} on latest Postgres email campaign ${pgCamp.id}`);
         }
       }
     } catch (_) { /* ignore activity errors */ }
@@ -2572,9 +2583,14 @@ app.post(`${PREFIX}/public/accept`, async (c) => {
     try {
       if (campaignId) {
         // Update Postgres
-        const { data: pgCamp } = await supabase.from('campaigns').select('converted_count').eq('id', campaignId).single();
+        const { data: pgCamp } = await supabase.from('campaigns').select('id, description').eq('id', campaignId).single();
         if (pgCamp) {
-          await supabase.from('campaigns').update({ converted_count: (pgCamp.converted_count || 0) + 1 }).eq('id', campaignId);
+          let meta: any = {};
+          if (pgCamp.description && pgCamp.description.startsWith('{')) {
+            try { meta = JSON.parse(pgCamp.description); } catch(e) {}
+          }
+          meta.converted_count = (meta.converted_count || 0) + 1;
+          await supabase.from('campaigns').update({ description: JSON.stringify(meta) }).eq('id', campaignId);
         }
 
         // Update KV (legacy/backup)
@@ -2597,10 +2613,16 @@ app.post(`${PREFIX}/public/accept`, async (c) => {
           console.log(`[public/accept] Incremented converted_count for latest KV campaign ${latestCampaign.id}`);
           
           // Also try to update latest Postgres campaign
-          const { data: pgCamps } = await supabase.from('campaigns').select('id, converted_count').eq('organization_id', orgId).eq('type', 'email').order('created_at', { ascending: false }).limit(1);
+          const { data: pgCamps } = await supabase.from('campaigns').select('id, description').eq('organization_id', orgId).eq('type', 'email').order('created_at', { ascending: false }).limit(1);
           if (pgCamps && pgCamps.length > 0) {
-            await supabase.from('campaigns').update({ converted_count: (pgCamps[0].converted_count || 0) + 1 }).eq('id', pgCamps[0].id);
-            console.log(`[public/accept] Incremented converted_count for latest Postgres email campaign ${pgCamps[0].id}`);
+            const pgCamp = pgCamps[0];
+            let meta: any = {};
+            if (pgCamp.description && pgCamp.description.startsWith('{')) {
+              try { meta = JSON.parse(pgCamp.description); } catch(e) {}
+            }
+            meta.converted_count = (meta.converted_count || 0) + 1;
+            await supabase.from('campaigns').update({ description: JSON.stringify(meta) }).eq('id', pgCamp.id);
+            console.log(`[public/accept] Incremented converted_count for latest Postgres email campaign ${pgCamp.id}`);
           }
         }
       }

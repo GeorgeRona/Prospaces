@@ -115,26 +115,31 @@ export function customerPortalAPI(app: Hono) {
       // Track portal "Sent" metrics for creating an invite
       try {
         // Postgres
-        const { data: pgCamps } = await supabase.from('campaigns').select('id, sent_count, audience_count')
+        const { data: pgCamps } = await supabase.from('campaigns').select('id, description')
           .eq('organization_id', orgId).eq('type', 'portal').order('created_at', { ascending: false }).limit(1);
           
         if (pgCamps && pgCamps.length > 0) {
-          const updates = { 
-            sent_count: (pgCamps[0].sent_count || 0) + 1,
-            audience_count: Math.max((pgCamps[0].audience_count || 0), (pgCamps[0].sent_count || 0) + 1)
-          };
-          await supabase.from('campaigns').update(updates).eq('id', pgCamps[0].id);
+          const pgCamp = pgCamps[0];
+          let meta: any = {};
+          if (pgCamp.description && pgCamp.description.startsWith('{')) {
+            try { meta = JSON.parse(pgCamp.description); } catch(e) {}
+          }
+          meta.sent_count = (meta.sent_count || 0) + 1;
+          meta.audience_count = Math.max((meta.audience_count || 0), meta.sent_count);
+          await supabase.from('campaigns').update({ description: JSON.stringify(meta) }).eq('id', pgCamp.id);
         } else {
           // Create default if none exists
+          const meta = {
+            channel: 'Customer Portal',
+            sent_count: 1,
+            audience_count: 1
+          };
           await supabase.from('campaigns').insert([{
             organization_id: orgId,
             name: 'Direct Portal Invites',
             type: 'portal',
-            channel: 'Customer Portal',
             status: 'active',
-            audience_segment: 'all',
-            sent_count: 1,
-            audience_count: 1,
+            description: JSON.stringify(meta),
             created_at: new Date().toISOString()
           }]);
         }
@@ -305,15 +310,18 @@ export function customerPortalAPI(app: Hono) {
         const orgId = portalUser.orgId;
         
         // Postgres
-        const { data: pgCamps } = await supabase.from('campaigns').select('id, opened_count, clicked_count')
+        const { data: pgCamps } = await supabase.from('campaigns').select('id, description')
           .eq('organization_id', orgId).eq('type', 'portal').order('created_at', { ascending: false }).limit(1);
           
         if (pgCamps && pgCamps.length > 0) {
-          const updates = { 
-            opened_count: (pgCamps[0].opened_count || 0) + 1,
-            clicked_count: (pgCamps[0].clicked_count || 0) + 1
-          };
-          await supabase.from('campaigns').update(updates).eq('id', pgCamps[0].id);
+          const pgCamp = pgCamps[0];
+          let meta: any = {};
+          if (pgCamp.description && pgCamp.description.startsWith('{')) {
+            try { meta = JSON.parse(pgCamp.description); } catch(e) {}
+          }
+          meta.opened_count = (meta.opened_count || 0) + 1;
+          meta.clicked_count = (meta.clicked_count || 0) + 1;
+          await supabase.from('campaigns').update({ description: JSON.stringify(meta) }).eq('id', pgCamp.id);
         }
         
         // KV
@@ -729,10 +737,16 @@ export function customerPortalAPI(app: Hono) {
         const orgId = data.organization_id || session.orgId;
         if (orgId) {
           // Update Postgres
-          const { data: pgCamps } = await supabase.from('campaigns').select('id, converted_count').eq('organization_id', orgId).eq('type', 'portal').order('created_at', { ascending: false }).limit(1);
+          const { data: pgCamps } = await supabase.from('campaigns').select('id, description').eq('organization_id', orgId).eq('type', 'portal').order('created_at', { ascending: false }).limit(1);
           if (pgCamps && pgCamps.length > 0) {
-            await supabase.from('campaigns').update({ converted_count: (pgCamps[0].converted_count || 0) + 1 }).eq('id', pgCamps[0].id);
-            console.log(`[portal] Incremented converted_count for latest Postgres portal campaign ${pgCamps[0].id}`);
+            const pgCamp = pgCamps[0];
+            let meta: any = {};
+            if (pgCamp.description && pgCamp.description.startsWith('{')) {
+              try { meta = JSON.parse(pgCamp.description); } catch(e) {}
+            }
+            meta.converted_count = (meta.converted_count || 0) + 1;
+            await supabase.from('campaigns').update({ description: JSON.stringify(meta) }).eq('id', pgCamp.id);
+            console.log(`[portal] Incremented converted_count for latest Postgres portal campaign ${pgCamp.id}`);
           }
           
           // Update KV backup

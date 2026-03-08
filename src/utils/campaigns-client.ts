@@ -3,6 +3,43 @@ import { ensureUserProfile } from './ensure-profile';
 import { projectId } from './supabase/info';
 import { getServerHeaders } from './server-headers';
 
+const PG_COLUMNS = [
+  'id', 'name', 'description', 'type', 'status', 'start_date', 'end_date', 
+  'owner_id', 'organization_id', 'created_at', 'updated_at', 'audience_segment', 
+  'landing_page_id', 'landing_page_clicks', 'avg_time_spent', 'subject_line', 'preview_text'
+];
+
+function unpackCampaign(c: any) {
+  if (!c) return c;
+  let meta = {};
+  if (c.description && c.description.startsWith('{')) {
+    try {
+      meta = JSON.parse(c.description);
+    } catch(e) {}
+  }
+  return { ...meta, ...c }; // Postgres columns take precedence, but meta provides the rest
+}
+
+function packCampaignData(newData: any, existingData: any = {}) {
+  const pgData: any = {};
+  const meta: any = existingData.description && existingData.description.startsWith('{') 
+    ? JSON.parse(existingData.description) : {};
+  
+  for (const key of Object.keys(newData)) {
+    if (PG_COLUMNS.includes(key)) {
+      pgData[key] = newData[key];
+    } else {
+      meta[key] = newData[key];
+    }
+  }
+
+  if (Object.keys(meta).length > 0) {
+    pgData.description = JSON.stringify(meta);
+  }
+  
+  return pgData;
+}
+
 export async function getAllCampaignsClient() {
   try {
     const supabase = createClient();
@@ -59,7 +96,9 @@ export async function getAllCampaignsClient() {
 
     console.log('📊 Campaigns filtered data - Total rows:', data?.length || 0);
 
-    return { campaigns: data || [] };
+    const unpackedCampaigns = (data || []).map(unpackCampaign);
+
+    return { campaigns: unpackedCampaigns };
   } catch (error: any) {
     console.error('Error loading campaigns:', error);
     return { campaigns: [] };
@@ -77,10 +116,12 @@ export async function createCampaignClient(campaignData: any) {
 
     const profile = await ensureUserProfile(user.id);
 
+    const packedData = packCampaignData(campaignData);
+
     const { data, error } = await supabase
       .from('campaigns')
       .insert([{
-        ...campaignData,
+        ...packedData,
         owner_id: user.id,
         organization_id: profile.organization_id,
         created_at: new Date().toISOString(),
@@ -92,7 +133,7 @@ export async function createCampaignClient(campaignData: any) {
     if (error) throw error;
 
     console.log('✅ Campaign created:', data);
-    return { campaign: data };
+    return { campaign: unpackCampaign(data) };
   } catch (error: any) {
     console.error('Error creating campaign:', error);
     throw error;
@@ -108,10 +149,16 @@ export async function updateCampaignClient(id: string, campaignData: any) {
       throw new Error('User not authenticated');
     }
 
+    // Fetch existing to preserve description/metadata
+    const { data: existing } = await supabase.from('campaigns').select('*').eq('id', id).single();
+    if (!existing) throw new Error('Campaign not found');
+
+    const packedData = packCampaignData(campaignData, existing);
+
     const { data, error } = await supabase
       .from('campaigns')
       .update({
-        ...campaignData,
+        ...packedData,
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
@@ -121,7 +168,7 @@ export async function updateCampaignClient(id: string, campaignData: any) {
     if (error) throw error;
 
     console.log('✅ Campaign updated:', data);
-    return { campaign: data };
+    return { campaign: unpackCampaign(data) };
   } catch (error: any) {
     console.error('Error updating campaign:', error);
     throw error;
