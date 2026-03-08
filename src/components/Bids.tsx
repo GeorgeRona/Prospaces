@@ -784,6 +784,7 @@ export function Bids({ user }: BidsProps) {
       {isEmailDialogOpen && emailQuote && (
         <EmailQuoteDialog
           quote={emailQuote}
+          orgSettings={orgSettings}
           open={isEmailDialogOpen}
           onOpenChange={(open) => {
             setIsEmailDialogOpen(open);
@@ -805,11 +806,20 @@ export function Bids({ user }: BidsProps) {
       {isPreviewOpen && previewQuote && (
         <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
-            <DialogHeader>
-              <DialogTitle>Quote Preview</DialogTitle>
-              <DialogDescription>
-                {previewQuote.quoteNumber} - {previewQuote.title}
-              </DialogDescription>
+            <DialogHeader className="flex flex-row items-center justify-between border-b pb-4 mb-4">
+              <div>
+                <DialogTitle>Quote Preview</DialogTitle>
+                <DialogDescription>
+                  {previewQuote.quoteNumber} - {previewQuote.title}
+                </DialogDescription>
+              </div>
+              {orgSettings?.logo_url ? (
+                <img src={orgSettings.logo_url} alt="Organization Logo" className="h-12 w-12 object-contain" />
+              ) : orgSettings?.organization_name ? (
+                <div className="h-12 w-12 rounded-lg bg-purple-100 flex items-center justify-center text-purple-700 font-bold text-xl">
+                  {orgSettings.organization_name.charAt(0)}
+                </div>
+              ) : null}
             </DialogHeader>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">

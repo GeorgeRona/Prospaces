@@ -15,10 +15,11 @@ interface EmailQuoteDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   quote: any; // Using any for now to be flexible with Quote/Bid types
+  orgSettings?: any;
   onSuccess: () => void;
 }
 
-export function EmailQuoteDialog({ open, onOpenChange, quote, onSuccess }: EmailQuoteDialogProps) {
+export function EmailQuoteDialog({ open, onOpenChange, quote, orgSettings, onSuccess }: EmailQuoteDialogProps) {
   const [loading, setLoading] = useState(false);
   const [accounts, setAccounts] = useState<any[]>([]);
   const [selectedAccount, setSelectedAccount] = useState<string>('');
@@ -30,20 +31,27 @@ export function EmailQuoteDialog({ open, onOpenChange, quote, onSuccess }: Email
     if (open && quote) {
       loadAccounts();
       
+      const orgName = orgSettings?.organization_name || quote.organizationName || 'Us';
+      
       // Pre-fill form
       setTo(quote.contactEmail || '');
-      setSubject(`Quote #${quote.quoteNumber} from ${quote.organizationName || 'ProSpaces'}`);
-      setBody(`Dear ${quote.contactName},\n\nYour quote #${quote.quoteNumber} is ready for review.\n\nTo view your complete quote, including pricing and details, please click the link below.\n\nBest regards,\nProSpaces Team`);
+      setSubject(`Quote #${quote.quoteNumber} from ${orgName}`);
+      setBody(`Dear ${quote.contactName},\n\nYour quote #${quote.quoteNumber} is ready for review.\n\nTo view your complete quote, including pricing and details, please click the link below.\n\nBest regards,\n${orgName}`);
     }
-  }, [open, quote]);
+  }, [open, quote, orgSettings]);
 
   const generateQuoteHtml = (quote: any) => {
     const formatCurrency = (amount: number) => {
       return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount || 0);
     };
 
+    const logoHtml = orgSettings?.logo_url 
+      ? `<div style="text-align: center; margin-bottom: 20px;"><img src="${orgSettings.logo_url}" alt="Logo" style="max-height: 60px; object-fit: contain;" /></div>`
+      : '';
+
     // Simplified HTML that only shows basic info, forcing user to click link for details
     return `
+      ${logoHtml}
       <div style="margin-top: 20px; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; font-family: sans-serif; max-width: 600px;">
         <div style="background-color: #f8f9fa; padding: 20px; text-align: center; border-bottom: 1px solid #ddd;">
           <h2 style="margin: 0; color: #333;">Quote #${quote.quoteNumber || quote.title}</h2>

@@ -1053,37 +1053,56 @@ app.post(`${P}/quotes/:id/accept`, async (c) => {
     console.log(`[portal] Quote ${qid} accepted by ${s.email}`);
 
     // Create Task for the owner
-    const ownerId = data.created_by || data.owner_id;
+    const ownerId = data.created_by || data.owner_id || data.project_manager_id;
     if (ownerId) {
-      await supabase.from('tasks').insert([{
-        title: `Quote Accepted: ${data.title || data.quote_number || qid}`,
-        description: `Customer has accepted the quote via the portal. Follow up with them.`,
-        status: 'pending',
-        priority: 'high',
-        assigned_to: ownerId,
-        created_by: ownerId,
-        organization_id: data.organization_id || s.orgId,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }]);
+      try {
+        await supabase.from('tasks').insert([{
+          title: `Quote Accepted: ${data.title || data.quote_number || qid}`,
+          description: `Customer has accepted the quote via the portal. Follow up with them.`,
+          status: 'pending',
+          priority: 'high',
+          assigned_to: ownerId,
+          owner_id: ownerId,
+          organization_id: data.organization_id || s.orgId,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }]);
+      } catch (taskErr) {
+        console.error('[portal] Task creation error:', taskErr);
+      }
     }
 
     // Update Converted in Marketing (increment most recent campaign)
     try {
       const orgId = data.organization_id || s.orgId;
+      const quoteValue = data.total || data.amount || data.value || 0;
       if (orgId) {
+        // Postgres
+        const { data: pgCamps } = await supabase.from('campaigns').select('id, description').eq('organization_id', orgId).eq('type', 'portal').order('created_at', { ascending: false }).limit(1);
+        if (pgCamps && pgCamps.length > 0) {
+          const pgCamp = pgCamps[0];
+          let meta: any = {};
+          if (pgCamp.description && pgCamp.description.startsWith('{')) {
+            try { meta = JSON.parse(pgCamp.description); } catch(e) {}
+          }
+          meta.converted_count = (meta.converted_count || 0) + 1;
+          meta.revenue = (meta.revenue || 0) + Number(quoteValue);
+          await supabase.from('campaigns').update({ description: JSON.stringify(meta) }).eq('id', pgCamp.id);
+        }
+
         const campaigns = await kv.getByPrefix(`campaign:${orgId}:`);
         if (campaigns && campaigns.length > 0) {
           campaigns.sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
           const latestCampaign = campaigns[0];
           latestCampaign.converted_count = (latestCampaign.converted_count || 0) + 1;
+          latestCampaign.revenue = (latestCampaign.revenue || 0) + Number(quoteValue);
           latestCampaign.updated_at = new Date().toISOString();
           await kv.set(`campaign:${orgId}:${latestCampaign.id}`, latestCampaign);
           console.log(`[portal] Incremented converted_count for campaign ${latestCampaign.id}`);
         }
       }
     } catch (campErr) {
-      console.error('[portal] Failed to update campaign conversions:', campErr);
+      console.error('[portal] Campaign update error:', campErr);
     }
 
     return c.json({ success: true, quote: data });
@@ -2355,10 +2374,21 @@ app.get(`${PREFIX}/public/view`, async (c) => {
       });
     } catch (_) { /* ignore activity tracking errors */ }
 
+    // Fetch organization settings to get the org logo and name
+    let orgSettings = null;
+    try {
+        const { data: settingsData } = await supabase
+            .from('organization_settings')
+            .select('*')
+            .eq('organization_id', orgId)
+            .maybeSingle();
+        orgSettings = settingsData;
+    } catch (_) { /* ignore */ }
+
     // Strip sensitive fields before returning to public viewer
     const { access_token, refresh_token, imap_password, ...safeData } = data as any;
 
-    return c.json({ data: safeData });
+    return c.json({ data: safeData, orgSettings });
   } catch (err: any) {
     console.log(`[public/view] Error: ${err.message}`);
     return c.json({ error: err.message }, 500);
@@ -2564,23 +2594,29 @@ app.post(`${PREFIX}/public/accept`, async (c) => {
     if (error) return c.json({ error: error.message }, 500);
 
     // 2. Create a Task for the owner
-    const ownerId = data.created_by || data.owner_id;
+    const ownerId = data.created_by || data.owner_id || data.project_manager_id;
     if (ownerId) {
-      await supabase.from('tasks').insert([{
-        title: `Quote Accepted: ${data.title || data.quote_number || id}`,
-        description: `Customer has accepted the ${type} from the public link. Follow up with them.`,
-        status: 'pending',
-        priority: 'high',
-        assigned_to: ownerId,
-        created_by: ownerId,
-        organization_id: orgId,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }]);
+      try {
+        await supabase.from('tasks').insert([{
+          title: `Quote Accepted: ${data.title || data.quote_number || id}`,
+          description: `Customer has accepted the ${type} from the public link. Follow up with them.`,
+          status: 'pending',
+          priority: 'high',
+          assigned_to: ownerId,
+          owner_id: ownerId,
+          organization_id: orgId,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }]);
+      } catch (taskErr) {
+        console.error('[public/accept] Failed to create task:', taskErr);
+      }
     }
 
     // 3. Update Converted in Marketing (use explicit campaignId if provided, else most recent)
     try {
+      const quoteValue = data.total || data.amount || data.value || 0;
+
       if (campaignId) {
         // Update Postgres
         const { data: pgCamp } = await supabase.from('campaigns').select('id, description').eq('id', campaignId).single();
@@ -2590,6 +2626,7 @@ app.post(`${PREFIX}/public/accept`, async (c) => {
             try { meta = JSON.parse(pgCamp.description); } catch(e) {}
           }
           meta.converted_count = (meta.converted_count || 0) + 1;
+          meta.revenue = (meta.revenue || 0) + Number(quoteValue);
           await supabase.from('campaigns').update({ description: JSON.stringify(meta) }).eq('id', campaignId);
         }
 
@@ -2597,6 +2634,7 @@ app.post(`${PREFIX}/public/accept`, async (c) => {
         const campaign = await kv.get(`campaign:${orgId}:${campaignId}`);
         if (campaign) {
           campaign.converted_count = (campaign.converted_count || 0) + 1;
+          campaign.revenue = (campaign.revenue || 0) + Number(quoteValue);
           campaign.updated_at = new Date().toISOString();
           await kv.set(`campaign:${orgId}:${campaignId}`, campaign);
           console.log(`[public/accept] Incremented converted_count for explicitly passed campaign ${campaignId}`);
@@ -2608,6 +2646,7 @@ app.post(`${PREFIX}/public/accept`, async (c) => {
           campaigns.sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
           const latestCampaign = campaigns[0];
           latestCampaign.converted_count = (latestCampaign.converted_count || 0) + 1;
+          latestCampaign.revenue = (latestCampaign.revenue || 0) + Number(quoteValue);
           latestCampaign.updated_at = new Date().toISOString();
           await kv.set(`campaign:${orgId}:${latestCampaign.id}`, latestCampaign);
           console.log(`[public/accept] Incremented converted_count for latest KV campaign ${latestCampaign.id}`);
@@ -2621,6 +2660,7 @@ app.post(`${PREFIX}/public/accept`, async (c) => {
               try { meta = JSON.parse(pgCamp.description); } catch(e) {}
             }
             meta.converted_count = (meta.converted_count || 0) + 1;
+            meta.revenue = (meta.revenue || 0) + Number(quoteValue);
             await supabase.from('campaigns').update({ description: JSON.stringify(meta) }).eq('id', pgCamp.id);
             console.log(`[public/accept] Incremented converted_count for latest Postgres email campaign ${pgCamp.id}`);
           }

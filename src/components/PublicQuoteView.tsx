@@ -16,6 +16,7 @@ export function PublicQuoteView() {
   const [showThankYou, setShowThankYou] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<any>(null);
+  const [orgSettings, setOrgSettings] = useState<any>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -49,6 +50,9 @@ export function PublicQuoteView() {
         }
         
         setData(result.data);
+        if (result.orgSettings) {
+            setOrgSettings(result.orgSettings);
+        }
       } catch (err: any) {
         console.error('Error loading public view:', err);
         setError(err.message || 'Failed to load document');
@@ -181,7 +185,8 @@ export function PublicQuoteView() {
   const subtotalAmount = data.subtotal ?? totalAmount;
   const taxAmount = data.taxAmount ?? data.tax_amount ?? 0;
   const discountAmount = data.discountAmount ?? data.discount_amount ?? 0;
-  const organizationName = data.organizationName || data.organization_name || 'ProSpaces';
+  const organizationName = orgSettings?.organization_name || data.organizationName || data.organization_name || 'ProSpaces';
+  const orgLogoUrl = orgSettings?.logo_url || logo3d;
   const projectName = data.projectName || data.project_name;
 
   return (
@@ -191,8 +196,14 @@ export function PublicQuoteView() {
         {/* Actions Bar - Hidden on Print */}
         <div className="mb-6 flex justify-between items-center print:hidden">
           <div className="flex items-center gap-3">
-             <img src={logo3d} alt="ProSpaces Logo" className="h-8 w-8 rounded-lg" />
-             <span className="font-bold text-slate-700">ProSpaces CRM</span>
+             {orgSettings?.logo_url ? (
+               <img src={orgSettings.logo_url} alt={`${organizationName} Logo`} className="h-8 w-8 rounded-lg object-contain" />
+             ) : (
+               <div className="h-8 w-8 rounded-lg bg-purple-100 flex items-center justify-center text-purple-700 font-bold">
+                 {organizationName.charAt(0)}
+               </div>
+             )}
+             <span className="font-bold text-slate-700">{organizationName}</span>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => window.print()}>
@@ -210,7 +221,13 @@ export function PublicQuoteView() {
           <CardHeader className="bg-slate-50 border-b print:bg-white print:border-b-2">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div className="flex items-center gap-4">
-                    <img src={logo3d} alt="Company Logo" className="h-16 w-16 object-contain rounded-xl" />
+                    {orgSettings?.logo_url ? (
+                      <img src={orgSettings.logo_url} alt="Company Logo" className="h-16 w-16 object-contain rounded-xl bg-white" />
+                    ) : (
+                      <div className="h-16 w-16 rounded-xl bg-purple-100 flex items-center justify-center text-purple-700 font-bold text-2xl">
+                        {organizationName.charAt(0)}
+                      </div>
+                    )}
                     <div>
                         <h1 className="text-2xl font-bold text-slate-900">{title}</h1>
                         <p className="text-sm text-slate-500 mt-1">
@@ -236,7 +253,7 @@ export function PublicQuoteView() {
                 <div className="text-right">
                     <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Payable To</h3>
                     <div className="font-semibold text-lg text-slate-900">{organizationName}</div>
-                    <div className="text-slate-600">ProSpaces CRM Platform</div>
+                    <div className="text-slate-600">{orgSettings?.address || 'ProSpaces CRM Platform'}</div>
                 </div>
             </div>
 

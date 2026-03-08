@@ -717,24 +717,30 @@ export function customerPortalAPI(app: Hono) {
       console.log(`[portal] Quote ${quoteId} accepted by ${session.email}`);
 
       // Create Task for the owner
-      const ownerId = data.created_by || data.owner_id;
+      const ownerId = data.created_by || data.owner_id || data.project_manager_id;
       if (ownerId) {
-        await supabase.from('tasks').insert([{
-          title: `Quote Accepted: ${data.title || data.quote_number || quoteId}`,
-          description: `Customer has accepted the quote via the portal. Follow up with them.`,
-          status: 'pending',
-          priority: 'high',
-          assigned_to: ownerId,
-          created_by: ownerId,
-          organization_id: data.organization_id || session.orgId,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        }]);
+        try {
+          await supabase.from('tasks').insert([{
+            title: `Quote Accepted: ${data.title || data.quote_number || quoteId}`,
+            description: `Customer has accepted the quote via the portal. Follow up with them.`,
+            status: 'pending',
+            priority: 'high',
+            assigned_to: ownerId,
+            owner_id: ownerId,
+            organization_id: data.organization_id || session.orgId,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          }]);
+        } catch (taskErr) {
+          console.error('[portal] Failed to create task for quote acceptance:', taskErr);
+        }
       }
 
       // Update Converted in Marketing (increment most recent portal campaign)
       try {
         const orgId = data.organization_id || session.orgId;
+        const quoteValue = data.total || data.amount || data.value || 0;
+
         if (orgId) {
           // Update Postgres
           const { data: pgCamps } = await supabase.from('campaigns').select('id, description').eq('organization_id', orgId).eq('type', 'portal').order('created_at', { ascending: false }).limit(1);
@@ -745,6 +751,7 @@ export function customerPortalAPI(app: Hono) {
               try { meta = JSON.parse(pgCamp.description); } catch(e) {}
             }
             meta.converted_count = (meta.converted_count || 0) + 1;
+            meta.revenue = (meta.revenue || 0) + Number(quoteValue);
             await supabase.from('campaigns').update({ description: JSON.stringify(meta) }).eq('id', pgCamp.id);
             console.log(`[portal] Incremented converted_count for latest Postgres portal campaign ${pgCamp.id}`);
           }
@@ -757,6 +764,7 @@ export function customerPortalAPI(app: Hono) {
               portalCamps.sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
               const latestCampaign = portalCamps[0];
               latestCampaign.converted_count = (latestCampaign.converted_count || 0) + 1;
+              latestCampaign.revenue = (latestCampaign.revenue || 0) + Number(quoteValue);
               latestCampaign.updated_at = new Date().toISOString();
               await kv.set(`campaign:${orgId}:${latestCampaign.id}`, latestCampaign);
               console.log(`[portal] Incremented converted_count for KV campaign ${latestCampaign.id}`);
