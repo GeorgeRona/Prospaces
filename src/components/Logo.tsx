@@ -1,5 +1,5 @@
 import React from 'react';
-import logoImage from 'figma:asset/a158adb6efa7a055465beaa862148922ef01169e.png';
+import logoImage from 'figma:asset/984eb42813bbe5924f24c73a5f00cbdb5e1db2bc.png';
 
 interface LogoProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
