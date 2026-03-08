@@ -121,11 +121,8 @@ export function CampaignManager({ user }: CampaignManagerProps) {
       };
 
       // Store landing page slug and email content in description field as JSON metadata
-      const metadata = {
-        emailContent: emailContent || previewText,
-        landingPageSlug: selectedLandingPage && selectedLandingPage !== 'none' ? selectedLandingPage : null,
-      };
-      campaignData.description = JSON.stringify(metadata);
+      campaignData.emailContent = emailContent || previewText;
+      campaignData.landingPageSlug = selectedLandingPage && selectedLandingPage !== 'none' ? selectedLandingPage : null;
 
       const { campaign } = await campaignsAPI.create(campaignData);
       
@@ -174,7 +171,14 @@ export function CampaignManager({ user }: CampaignManagerProps) {
   const handleEditCampaign = (campaign: any) => {
     setEditingCampaign(campaign);
     setCampaignName(campaign.name);
-    setEmailContent(campaign.description || '');
+    
+    // Use unpacked emailContent, fallback to description if it's not JSON
+    let content = campaign.emailContent || '';
+    if (!content && campaign.description && !campaign.description.startsWith('{')) {
+      content = campaign.description;
+    }
+    
+    setEmailContent(content);
     setSelectedCampaignType(campaign.type || 'email');
     setIsEditDialogOpen(true);
   };
@@ -190,7 +194,7 @@ export function CampaignManager({ user }: CampaignManagerProps) {
       const campaignData = {
         name: campaignName,
         type: selectedCampaignType,
-        description: emailContent || previewText,
+        emailContent: emailContent || previewText,
       };
 
       await campaignsAPI.update(editingCampaign.id, campaignData);

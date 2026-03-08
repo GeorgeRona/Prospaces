@@ -194,9 +194,9 @@ export function EmailQuoteDialog({ open, onOpenChange, quote, onSuccess }: Email
           await campaignsAPI.create({
             name: 'Direct Email Quotes',
             type: 'email',
-            channel: 'Email',
             status: 'active',
             audience_segment: 'all',
+            channel: 'Email',
             sent_count: 1,
             audience_count: 1,
             start_date: new Date().toISOString()

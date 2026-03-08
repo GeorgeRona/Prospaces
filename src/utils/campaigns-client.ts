@@ -5,8 +5,7 @@ import { getServerHeaders } from './server-headers';
 
 const PG_COLUMNS = [
   'id', 'name', 'description', 'type', 'status', 'start_date', 'end_date', 
-  'owner_id', 'organization_id', 'created_at', 'updated_at', 'audience_segment', 
-  'landing_page_id', 'landing_page_clicks', 'avg_time_spent', 'subject_line', 'preview_text'
+  'owner_id', 'organization_id', 'created_at', 'updated_at'
 ];
 
 function unpackCampaign(c: any) {

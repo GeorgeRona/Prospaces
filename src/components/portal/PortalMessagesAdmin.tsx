@@ -108,9 +108,9 @@ export function PortalMessagesAdmin({ user }: PortalMessagesAdminProps) {
           await campaignsAPI.create({
             name: 'Direct Portal Messages',
             type: 'portal',
-            channel: 'Customer Portal',
             status: 'active',
             audience_segment: 'all',
+            channel: 'Customer Portal',
             sent_count: 1,
             audience_count: 1,
             start_date: new Date().toISOString()
