@@ -1,5 +1,6 @@
 import { Card, CardContent } from "../ui/card";
 import { Badge } from "../ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 
 interface DealsTabProps {
   opportunities: any[];
@@ -9,7 +10,22 @@ interface DealsTabProps {
 export function DealsTab({ opportunities, users }: DealsTabProps) {
   const getUserName = (id: string) => {
     const user = users.find(u => u.id === id);
-    return user ? (user.name || user.email) : 'Unknown';
+    return user ? (user.name || user.email) : 'Unassigned';
+  };
+
+  const getUserAvatar = (id: string) => {
+    const user = users.find(u => u.id === id);
+    return user ? (user.avatar_url || user.avatarUrl) : null;
+  };
+
+  const getInitials = (name: string) => {
+    if (!name || name === 'Unknown' || name === 'Unassigned') return 'U';
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .substring(0, 2);
   };
 
   const getRottenDays = (updatedAt: string) => {
@@ -58,7 +74,17 @@ export function DealsTab({ opportunities, users }: DealsTabProps) {
                   <tr key={opp.id} className="hover:bg-gray-50/50">
                     <td className="px-4 py-3 text-gray-500 font-mono text-xs">{opp.id.substring(0, 4)}</td>
                     <td className="px-4 py-3 font-medium text-gray-900">{opp.title}</td>
-                    <td className="px-4 py-3 text-gray-600">{getUserName(opp.ownerId)}</td>
+                    <td className="px-4 py-3 text-gray-600">
+                      <div className="flex items-center gap-2">
+                        <Avatar className="h-6 w-6">
+                          <AvatarImage src={getUserAvatar(opp.ownerId)} alt={getUserName(opp.ownerId)} />
+                          <AvatarFallback className="bg-blue-100 text-blue-700 text-[10px]">
+                            {getInitials(getUserName(opp.ownerId))}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span>{getUserName(opp.ownerId)}</span>
+                      </div>
+                    </td>
                     <td className="px-4 py-3">
                         <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">
                             {opp.stage || opp.status || 'Unknown'}

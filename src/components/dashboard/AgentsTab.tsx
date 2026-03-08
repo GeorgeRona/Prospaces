@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { ExplicitChartContainer } from "../ui/ExplicitChartContainer";
+import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { 
   BarChart, 
   Bar, 
@@ -18,6 +19,16 @@ interface AgentsTabProps {
 
 export function AgentsTab({ opportunities, users }: AgentsTabProps) {
   
+  const getInitials = (name: string) => {
+    if (!name || name === 'Unknown' || name === 'Unassigned') return 'U';
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .substring(0, 2);
+  };
+
   const agentMetrics = useMemo(() => {
     const metrics: Record<string, any> = {};
 
@@ -26,6 +37,7 @@ export function AgentsTab({ opportunities, users }: AgentsTabProps) {
       metrics[user.id] = {
         id: user.id,
         name: user.name || user.email || 'Unknown',
+        avatar: user.avatar_url || user.avatarUrl,
         closedAmount: 0,
         dealsCount: 0,
         openDeals: 0,
@@ -47,6 +59,7 @@ export function AgentsTab({ opportunities, users }: AgentsTabProps) {
         metrics[ownerId] = {
             id: ownerId,
             name: 'Unassigned',
+            avatar: null,
             closedAmount: 0,
             dealsCount: 0,
             openDeals: 0,
@@ -177,7 +190,17 @@ export function AgentsTab({ opportunities, users }: AgentsTabProps) {
               <tbody>
                 {agentMetrics.map((agent, i) => (
                   <tr key={agent.id} className="border-b last:border-0 hover:bg-gray-50/50">
-                    <td className="px-4 py-3 font-medium text-gray-900">{agent.name}</td>
+                    <td className="px-4 py-3 font-medium text-gray-900">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={agent.avatar} alt={agent.name} />
+                          <AvatarFallback className="bg-blue-100 text-blue-700 text-xs">
+                            {getInitials(agent.name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span>{agent.name}</span>
+                      </div>
+                    </td>
                     
                     {/* Closed Amount - Blue heatmap background simulation */}
                     <td className="px-4 py-3 text-right font-medium" style={{ backgroundColor: `rgba(59, 130, 246, ${Math.min(agent.closedAmount / 100000, 0.3)})` }}>
