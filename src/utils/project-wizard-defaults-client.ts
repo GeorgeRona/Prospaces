@@ -5,7 +5,7 @@ import { getServerHeaders } from './server-headers';
 export interface ProjectWizardDefault {
   id?: string;
   organization_id: string;
-  planner_type: 'deck' | 'garage' | 'shed' | 'roof' | 'kitchen';
+  planner_type: 'deck' | 'garage' | 'shed' | 'roof' | 'kitchen' | 'finishing';
   material_type?: string; // For deck: 'spruce', 'treated', 'composite', 'cedar'
   material_category: string; // e.g., 'decking', 'joists', 'posts', etc.
   inventory_item_id?: string;

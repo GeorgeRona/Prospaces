@@ -40,7 +40,7 @@ interface PlannerTestResult {
   results: ValidationResult[];
 }
 
-type PlannerType = 'deck' | 'garage' | 'shed' | 'roof' | 'kitchen';
+type PlannerType = 'deck' | 'garage' | 'shed' | 'roof' | 'kitchen' | 'finishing';
 
 const PLANNER_CONFIGS: Record<PlannerType, { name: string; materialTypes: string[]; categories: string[] }> = {
   deck: {
@@ -67,6 +67,11 @@ const PLANNER_CONFIGS: Record<PlannerType, { name: string; materialTypes: string
     name: 'Kitchen Planner',
     materialTypes: ['default'],
     categories: ['Cabinets', 'Countertops', 'Backsplash', 'Flooring', 'Appliances', 'Fixtures', 'Hardware', 'Lighting']
+  },
+  finishing: {
+    name: 'Finishing Planner',
+    materialTypes: ['mdf', 'finger_joint', 'pine'],
+    categories: ['Mouldings', 'Doors', 'Hardware', 'Miscellaneous']
   }
 };
 
@@ -77,7 +82,8 @@ export function PlannerMigrationValidator({ userId, organizationId }: PlannerMig
     garage: { planner: 'Garage', tested: false, passed: 0, failed: 0, warnings: 0, results: [] },
     shed: { planner: 'Shed', tested: false, passed: 0, failed: 0, warnings: 0, results: [] },
     roof: { planner: 'Roof', tested: false, passed: 0, failed: 0, warnings: 0, results: [] },
-    kitchen: { planner: 'Kitchen', tested: false, passed: 0, failed: 0, warnings: 0, results: [] }
+    kitchen: { planner: 'Kitchen', tested: false, passed: 0, failed: 0, warnings: 0, results: [] },
+    finishing: { planner: 'Finishing', tested: false, passed: 0, failed: 0, warnings: 0, results: [] }
   });
   const [overallSummary, setOverallSummary] = useState({
     totalTests: 0,
@@ -124,7 +130,8 @@ export function PlannerMigrationValidator({ userId, organizationId }: PlannerMig
       garage: { planner: 'Garage', tested: false, passed: 0, failed: 0, warnings: 0, results: [] },
       shed: { planner: 'Shed', tested: false, passed: 0, failed: 0, warnings: 0, results: [] },
       roof: { planner: 'Roof', tested: false, passed: 0, failed: 0, warnings: 0, results: [] },
-      kitchen: { planner: 'Kitchen', tested: false, passed: 0, failed: 0, warnings: 0, results: [] }
+      kitchen: { planner: 'Kitchen', tested: false, passed: 0, failed: 0, warnings: 0, results: [] },
+      finishing: { planner: 'Finishing', tested: false, passed: 0, failed: 0, warnings: 0, results: [] }
     });
 
     try {

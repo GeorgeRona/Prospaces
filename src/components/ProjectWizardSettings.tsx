@@ -4,7 +4,7 @@ import { Label } from './ui/label';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Loader2, Save, RefreshCw, Hammer, Home, Warehouse, Building2, Info } from 'lucide-react';
+import { Loader2, Save, RefreshCw, Hammer, Home, Warehouse, Building2, Info, Brush } from 'lucide-react';
 import {
   getProjectWizardDefaults,
   upsertProjectWizardDefault,
@@ -129,6 +129,26 @@ const PLANNER_CATEGORIES = {
       'Accessories': ['Roof Jacks', 'Roof Anchors', 'Roof Brackets', 'Ridge Vent Connectors'],
     },
   },
+  finishing: {
+    mdf: {
+      'Mouldings': ['Baseboard', 'Casing', 'Crown', 'Shoe', 'Quarter Round'],
+      'Doors': ['Interior Door', 'Bifold Door', 'Pocket Door'],
+      'Hardware': ['Door Knobs', 'Hinges', 'Door Stops'],
+      'Miscellaneous': ['Wood Filler', 'Caulk', 'Construction Adhesive']
+    },
+    finger_joint: {
+      'Mouldings': ['Baseboard', 'Casing', 'Crown', 'Shoe', 'Quarter Round'],
+      'Doors': ['Interior Door', 'Bifold Door', 'Pocket Door'],
+      'Hardware': ['Door Knobs', 'Hinges', 'Door Stops'],
+      'Miscellaneous': ['Wood Filler', 'Caulk', 'Construction Adhesive']
+    },
+    pine: {
+      'Mouldings': ['Baseboard', 'Casing', 'Crown', 'Shoe', 'Quarter Round'],
+      'Doors': ['Interior Door', 'Bifold Door', 'Pocket Door'],
+      'Hardware': ['Door Knobs', 'Hinges', 'Door Stops'],
+      'Miscellaneous': ['Wood Filler', 'Caulk', 'Construction Adhesive']
+    }
+  }
 };
 
 // Category groups that contain lumber items (no conversion factor needed)
@@ -157,6 +177,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
   const [defaults, setDefaults] = useState<Record<string, string>>({});
   const [orgCFs, setOrgCFs] = useState<Record<string, string>>({});
   const [selectedDeckType, setSelectedDeckType] = useState<'spruce' | 'treated' | 'composite' | 'cedar'>('treated');
+  const [selectedFinishingType, setSelectedFinishingType] = useState<'mdf' | 'finger_joint' | 'pine'>('mdf');
   // Local string state for CF inputs so users can clear & type decimals freely
   const [cfEditValues, setCfEditValues] = useState<Record<string, string>>({});
 
@@ -165,6 +186,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
   const garageRef = React.useRef<HTMLDivElement>(null);
   const shedRef = React.useRef<HTMLDivElement>(null);
   const roofRef = React.useRef<HTMLDivElement>(null);
+  const finishingRef = React.useRef<HTMLDivElement>(null);
 
   // Scroll to planner section
   const scrollToPlanner = (planner: string) => {
@@ -182,6 +204,9 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
         break;
       case 'roof':
         ref = roofRef;
+        break;
+      case 'finishing':
+        ref = finishingRef;
         break;
     }
     
@@ -298,7 +323,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
 
         return {
           organization_id: organizationId,
-          planner_type: plannerType as 'deck' | 'garage' | 'shed' | 'roof',
+          planner_type: plannerType as 'deck' | 'garage' | 'shed' | 'roof' | 'finishing',
           material_type: materialType === 'default' ? undefined : materialType,
           material_category: category,
           inventory_item_id: inventoryItemId || undefined,
@@ -453,6 +478,12 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                     <div className="flex items-center gap-2">
                       <Hammer className="h-4 w-4 text-red-600" />
                       <span>Roof Planner</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="finishing">
+                    <div className="flex items-center gap-2">
+                      <Brush className="h-4 w-4 text-teal-600" />
+                      <span>Finishing Planner</span>
                     </div>
                   </SelectItem>
                 </SelectContent>
@@ -732,6 +763,89 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                                         value={displayVal}
                                         onChange={(e) => handleCFInputChange('roof', null, category, e.target.value)}
                                         onBlur={() => handleCFInputBlur('roof', null, category)}
+                                        placeholder="1"
+                                        className="h-7 w-24 text-xs text-black"
+                                        title="Conversion Factor: raw qty × CF = purchase qty. E.g., 25/box → CF=0.04. Enter any decimal."
+                                      />
+                                      {cfValue !== 1 && editVal === undefined && (
+                                        <span className="text-xs text-amber-600 font-medium">×{cfValue}</span>
+                                      )}
+                                    </>
+                                  );
+                                })()}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Finishing Planner Settings */}
+          <div className="space-y-4 border-2 border-teal-200 rounded-lg p-6 bg-teal-50" ref={finishingRef}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-teal-900 flex items-center gap-2">
+                <Brush className="h-5 w-5 text-teal-600" />
+                Finishing Planner
+              </h3>
+              <Select value={selectedFinishingType} onValueChange={(value: any) => setSelectedFinishingType(value)}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="mdf">MDF</SelectItem>
+                  <SelectItem value="finger_joint">Finger Joint</SelectItem>
+                  <SelectItem value="pine">Pine</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-6 p-4 bg-white rounded-lg border border-teal-100">
+              {Object.entries(PLANNER_CATEGORIES.finishing[selectedFinishingType]).map(([sectionName, categories]) => {
+                const showCF = !isLumberGroup(sectionName);
+                return (
+                  <div key={sectionName} className="space-y-3">
+                    <div className="flex items-center gap-2 border-b border-teal-200 pb-1">
+                      <h4 className="font-medium text-gray-700">{sectionName}</h4>
+                      {showCF && (
+                        <span className="text-xs bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded flex items-center gap-1">
+                          <Info className="h-3 w-3" />
+                          CF
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {categories.map((category) => {
+                        const cfValue = showCF ? getOrgCF('finishing', selectedFinishingType, category) : 1;
+                        return (
+                          <div key={category} className="space-y-2">
+                            <Label htmlFor={`finishing-${selectedFinishingType}-${category}`} className="text-black">{category}</Label>
+                            <InventoryCombobox
+                              id={`finishing-${selectedFinishingType}-${category}`}
+                              items={inventoryItems}
+                              value={getDefaultValue('finishing', selectedFinishingType, category)}
+                              onChange={(value) => handleDefaultChange('finishing', selectedFinishingType, category, value)}
+                              placeholder="Select inventory item..."
+                            />
+                            {showCF && (
+                              <div className="flex items-center gap-2">
+                                <Label className="text-xs text-gray-500 whitespace-nowrap">CF:</Label>
+                                {(() => {
+                                  const cfKey = getCFKey('finishing', selectedFinishingType, category);
+                                  const editVal = cfEditValues[cfKey];
+                                  const displayVal = editVal !== undefined ? editVal : (cfValue === 1 ? '' : String(cfValue));
+                                  return (
+                                    <>
+                                      <Input
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={displayVal}
+                                        onChange={(e) => handleCFInputChange('finishing', selectedFinishingType, category, e.target.value)}
+                                        onBlur={() => handleCFInputBlur('finishing', selectedFinishingType, category)}
                                         placeholder="1"
                                         className="h-7 w-24 text-xs text-black"
                                         title="Conversion Factor: raw qty × CF = purchase qty. E.g., 25/box → CF=0.04. Enter any decimal."

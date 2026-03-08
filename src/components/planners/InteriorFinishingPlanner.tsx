@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Ruler, Package, Brush, Trash2, UploadCloud, Undo, Maximize2, Square, Minus, DoorOpen, LayoutGrid, AlertCircle, MousePointer2, ZoomIn, ZoomOut, Save, FolderOpen, RotateCw, Check } from 'lucide-react';
+import { Ruler, Package, Brush, Trash2, UploadCloud, Undo, Maximize2, Square, Minus, DoorOpen, LayoutGrid, AlertCircle, MousePointer2, ZoomIn, ZoomOut, Save, FolderOpen, RotateCw, Check, Settings } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -12,6 +12,7 @@ import { ProjectQuoteGenerator } from '../ProjectQuoteGenerator';
 import { searchInventoryClient } from '../../utils/inventory-client';
 import { projectId, publicAnonKey } from '../../utils/supabase/info';
 import { createClient } from '../../utils/supabase/client';
+import { PlannerDefaults } from '../PlannerDefaults';
 
 interface InteriorFinishingPlannerProps {
   user: User;
@@ -35,7 +36,7 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
     );
   }
 
-  const [activeTab, setActiveTab] = useState<'digitizer' | 'materials'>('digitizer');
+  const [activeTab, setActiveTab] = useState<'digitizer' | 'materials' | 'defaults'>('digitizer');
   const [loading, setLoading] = useState(false);
   const [inventoryItems, setInventoryItems] = useState<any[]>([]);
 
@@ -175,6 +176,7 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
   }, []);
 
   // Material preferences
+  const [mouldingMaterialType, setMouldingMaterialType] = useState('mdf');
   const [baseboardId, setBaseboardId] = useState('modern-5');
   const [casingId, setCasingId] = useState('colonial-2');
   const [crownId, setCrownId] = useState('none');
@@ -903,6 +905,14 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
               >
                 <Package className="w-4 h-4" /> Takeoff & Materials
               </button>
+              <button
+                onClick={() => setActiveTab('defaults')}
+                className={`flex items-center gap-2 py-4 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === 'defaults' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <Settings className="w-4 h-4" /> Defaults
+              </button>
             </nav>
           </div>
         </div>
@@ -1014,8 +1024,23 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
                   )}
                 </div>
 
+                {/* Material Selection */}
+                <div className="flex items-center gap-3 pl-4 border-l border-slate-200 ml-auto min-w-max">
+                  <div className="flex flex-col gap-1">
+                    <Label className="text-[9px] uppercase text-slate-500 font-bold">Moulding Type</Label>
+                    <Select value={mouldingMaterialType} onValueChange={setMouldingMaterialType}>
+                      <SelectTrigger className="h-7 text-xs bg-slate-50 w-[110px] border-slate-200"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="mdf">MDF</SelectItem>
+                        <SelectItem value="finger_joint">Finger Joint</SelectItem>
+                        <SelectItem value="pine">Pine</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
                 {/* Takeoff Quick Stats */}
-                <div className="flex items-center gap-4 text-xs ml-auto pl-4 border-l border-slate-200 min-w-max">
+                <div className="flex items-center gap-4 text-xs pl-4 border-l border-slate-200 min-w-max">
                   <div className="flex flex-col items-end">
                     <span className="text-slate-400 text-[9px] uppercase font-semibold">Area</span>
                     <span className="font-bold text-slate-700">{sqFt > 0 ? sqFt.toFixed(1) : '--'} sqft</span>
@@ -1225,6 +1250,17 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="space-y-2">
+                      <Label>Moulding Type</Label>
+                      <Select value={mouldingMaterialType} onValueChange={setMouldingMaterialType}>
+                        <SelectTrigger><SelectValue placeholder="Select Material..." /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="mdf">MDF</SelectItem>
+                          <SelectItem value="finger_joint">Finger Joint</SelectItem>
+                          <SelectItem value="pine">Pine</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
                       <Label>Baseboard Profile</Label>
                       <Select value={baseboardId} onValueChange={setBaseboardId}>
                         <SelectTrigger><SelectValue placeholder="Select Baseboard..." /></SelectTrigger>
@@ -1386,6 +1422,15 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
                 </div>
               </div>
             </div>
+          )}
+
+          {activeTab === 'defaults' && (
+            <PlannerDefaults 
+              organizationId={user.organizationId}
+              userId={user.id}
+              plannerType="finishing"
+              materialTypes={['mdf', 'finger_joint', 'pine']}
+            />
           )}
         </div>
       </div>

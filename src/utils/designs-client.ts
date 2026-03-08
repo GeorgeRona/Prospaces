@@ -8,7 +8,7 @@ import { getServerHeaders } from './server-headers';
 
 const BASE_URL = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07`;
 
-export type PlannerType = 'deck' | 'garage' | 'shed' | 'roof' | 'kitchen';
+export type PlannerType = 'deck' | 'garage' | 'shed' | 'roof' | 'kitchen' | 'finishing';
 
 export interface SavedDesignRow {
   id: string;

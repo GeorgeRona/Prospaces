@@ -147,6 +147,7 @@
     --color-teal-600: oklch(.6 .118 184.704);
     --color-teal-700: oklch(.511 .096 186.391);
     --color-teal-800: oklch(.437 .078 188.216);
+    --color-teal-900: oklch(.386 .063 188.416);
     --color-cyan-50: oklch(.984 .019 200.873);
     --color-cyan-100: oklch(.956 .045 203.388);
     --color-cyan-200: oklch(.917 .08 205.041);
@@ -1911,6 +1912,10 @@
     width: 100px;
   }
 
+  .w-\[110px\] {
+    width: 110px;
+  }
+
   .w-\[130px\] {
     width: 130px;
   }
@@ -3039,6 +3044,10 @@
 
   .border-slate-800 {
     border-color: var(--color-slate-800);
+  }
+
+  .border-teal-100 {
+    border-color: var(--color-teal-100);
   }
 
   .border-teal-200 {
@@ -5296,6 +5305,10 @@
 
   .text-teal-800 {
     color: var(--color-teal-800);
+  }
+
+  .text-teal-900 {
+    color: var(--color-teal-900);
   }
 
   .text-transparent {

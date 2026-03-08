@@ -164,6 +164,26 @@ const PLANNER_CATEGORIES: Record<string, Record<string, Record<string, string[]>
       'Hardware': ['Cabinet Pulls', 'Cabinet Knobs', 'Hinges'],
     },
   },
+  finishing: {
+    mdf: {
+      'Mouldings': ['Baseboard', 'Casing', 'Crown', 'Shoe', 'Quarter Round'],
+      'Doors': ['Interior Door', 'Bifold Door', 'Pocket Door'],
+      'Hardware': ['Door Knobs', 'Hinges', 'Door Stops'],
+      'Miscellaneous': ['Wood Filler', 'Caulk', 'Construction Adhesive']
+    },
+    finger_joint: {
+      'Mouldings': ['Baseboard', 'Casing', 'Crown', 'Shoe', 'Quarter Round'],
+      'Doors': ['Interior Door', 'Bifold Door', 'Pocket Door'],
+      'Hardware': ['Door Knobs', 'Hinges', 'Door Stops'],
+      'Miscellaneous': ['Wood Filler', 'Caulk', 'Construction Adhesive']
+    },
+    pine: {
+      'Mouldings': ['Baseboard', 'Casing', 'Crown', 'Shoe', 'Quarter Round'],
+      'Doors': ['Interior Door', 'Bifold Door', 'Pocket Door'],
+      'Hardware': ['Door Knobs', 'Hinges', 'Door Stops'],
+      'Miscellaneous': ['Wood Filler', 'Caulk', 'Construction Adhesive']
+    }
+  }
 };
 
 export function PlannerDefaults({ organizationId, userId, plannerType, materialTypes }: PlannerDefaultsProps) {
