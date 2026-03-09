@@ -143,8 +143,6 @@ export const tenantsAPI = {
     
     if (error) throw error;
     
-    console.log('[tenantsAPI] Fetched organizations:', data?.length);
-    
     const orgs = data || [];
 
     // Fetch user + contact counts from server (bypasses RLS via service role key)
@@ -157,12 +155,9 @@ export const tenantsAPI = {
         if (statsResp.ok) {
           const json = await statsResp.json();
           orgStats = json.stats || {};
-          console.log('[tenantsAPI] Fetched org stats from server for', Object.keys(orgStats).length, 'orgs');
         } else {
-          console.warn('[tenantsAPI] org-stats endpoint returned', statsResp.status, '— falling back to client counts');
         }
       } catch (statsErr) {
-        console.warn('[tenantsAPI] Failed to fetch org-stats from server — falling back to client counts:', statsErr);
       }
     }
 

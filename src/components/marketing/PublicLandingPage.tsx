@@ -52,16 +52,6 @@ export function PublicLandingPage({ slug }: PublicLandingPageProps) {
     const utmCampaign = urlParams.get('utm_campaign');
 
     const trackVisit = async () => {
-      console.log('🔍 Landing Page Visit Tracking:', {
-        slug,
-        campaignId,
-        utmSource,
-        utmMedium,
-        utmCampaign,
-        referrer: document.referrer,
-        fullURL: window.location.href
-      });
-
       try {
         const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/analytics/landing-page/visit`, {
           method: 'POST',
@@ -79,27 +69,16 @@ export function PublicLandingPage({ slug }: PublicLandingPageProps) {
         });
         
         if (!response.ok) {
-          const errorText = await response.text();
-          console.error('❌ Failed to track visit (Response not OK):', response.status, errorText);
           return;
         }
 
         const result = await response.json();
-        console.log('📊 Visit tracked successfully:', result);
       } catch (err) {
-        console.error('❌ Failed to track visit (Network/Error):', err);
       }
     };
 
     if (slug && page) {
-      if (campaignId) {
-        console.log('✅ Tracking visit for slug:', slug, 'Campaign ID:', campaignId);
-      } else {
-         console.warn('⚠️ Tracking visit for slug:', slug, 'BUT No Campaign ID found in URL parameters');
-      }
       trackVisit();
-    } else {
-      console.log('⏳ Waiting for slug and page:', { slug, pageLoaded: !!page });
     }
   }, [slug, page]);
 
@@ -121,9 +100,7 @@ export function PublicLandingPage({ slug }: PublicLandingPageProps) {
           conversionData,
         }),
       });
-      console.log('🎯 Conversion tracked:', conversionType);
     } catch (err) {
-      console.error('Failed to track conversion:', err);
     }
   };
 
@@ -156,11 +133,6 @@ export function PublicLandingPage({ slug }: PublicLandingPageProps) {
         const campaignId = urlParams.get('campaign');
         
         const url = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/public/landing-page/${slug}`;
-        console.log('[PublicLandingPage] Fetching from:', url);
-        console.log('[PublicLandingPage] Slug:', slug);
-        if (campaignId) {
-          console.log('[PublicLandingPage] Campaign ID:', campaignId);
-        }
         
         // Use the public anon key for public endpoint access
         const response = await fetch(url, {
@@ -168,20 +140,15 @@ export function PublicLandingPage({ slug }: PublicLandingPageProps) {
             'Authorization': `Bearer ${publicAnonKey}`
           }
         });
-        console.log('[PublicLandingPage] Response status:', response.status);
-        console.log('[PublicLandingPage] Response ok:', response.ok);
         
         if (!response.ok) {
           const text = await response.text();
-          console.error('[PublicLandingPage] Error response:', text);
           if (response.status === 404) throw new Error('Page not found');
           throw new Error('Failed to load page');
         }
         const data = await response.json();
-        console.log('[PublicLandingPage] Data received:', data);
         setPage(data.page);
       } catch (err: any) {
-        console.error('[PublicLandingPage] Error:', err);
         setError(err.message);
       } finally {
         setLoading(false);
@@ -189,10 +156,8 @@ export function PublicLandingPage({ slug }: PublicLandingPageProps) {
     };
 
     if (slug) {
-      console.log('[PublicLandingPage] Starting fetch for slug:', slug);
       fetchPage();
     } else {
-      console.log('[PublicLandingPage] No slug provided');
     }
   }, [slug]);
 

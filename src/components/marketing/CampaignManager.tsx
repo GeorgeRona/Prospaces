@@ -73,7 +73,6 @@ export function CampaignManager({ user }: CampaignManagerProps) {
   </p>
 </div>`; 
 
-  // Load campaigns on mount
   useEffect(() => {
     loadCampaigns();
     loadLandingPages();
@@ -82,10 +81,8 @@ export function CampaignManager({ user }: CampaignManagerProps) {
   const loadCampaigns = async () => {
     try {
       const { campaigns: data } = await campaignsAPI.getAll();
-      console.log('📊 Loaded campaigns:', data);
       setCampaigns(data || []);
     } catch (error) {
-      console.error('Error loading campaigns:', error);
       toast.error('Failed to load campaigns');
     }
   };
@@ -95,7 +92,6 @@ export function CampaignManager({ user }: CampaignManagerProps) {
       const pages = await getLandingPages();
       setLandingPages(pages || []);
     } catch (error) {
-      console.error('Error loading landing pages:', error);
       toast.error('Failed to load landing pages');
     }
   };

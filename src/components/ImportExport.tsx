@@ -113,7 +113,6 @@ const DATABASE_FIELDS = {
 };
 
 export function ImportExport({ user, onNavigate }: ImportExportProps) {
-  console.log('ImportExport component mounted for user:', user);
   const [isImporting, setIsImporting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
@@ -181,7 +180,6 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       setScheduleFileName('');
       setScheduleFileData(null);
     } catch (error: any) {
-      console.error('Failed to schedule job:', error);
       toast.error('Failed to schedule job: ' + error.message);
     } finally {
       setIsScheduling(false);
@@ -240,7 +238,6 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
       
       if (authError || !authUser) {
-        console.error('Auth error:', authError);
         throw new Error('You must be logged in to create background imports');
       }
 
@@ -482,14 +479,14 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       'name': ['item name', 'product name', 'item description', 'product description', 'customer name', 'contact name', 'full name', 'client name', 'account name', 'customer', 'contact'],
       'email': ['email address', 'e-mail', 'e-mail address', 'contact email', 'customer email'],
       'phone': ['phone number', 'telephone', 'tel', 'mobile', 'cell', 'cell phone', 'contact phone', 'customer phone', 'phone #'],
-      'company': ['company name', 'business', 'business name', 'organization', 'firm', 'employer'],
-      'status': ['contact status', 'customer status', 'account status', 'customer type'],
-      'priceLevel': ['price level', 'pricing level', 'pricing tier', 'customer tier', 'discount level', 'price group', 'pricing group'],
+      'company': ['company name', 'business', 'business name', 'organization', 'firm', 'employer', 'account', 'customer account', 'company/account', 'client company', 'customer', 'client', 'account name', 'vendor'],
+      'status': ['contact status', 'customer status', 'account status', 'customer type', 'state'],
+      'priceLevel': ['price level', 'pricing level', 'pricing tier', 'customer tier', 'discount level', 'price group', 'pricing group', 'price leve', 'price tier', 'tier', 'level'],
       'address': ['street address', 'mailing address', 'billing address', 'street', 'addr', 'location', 'full address', 'address line', 'address 1', 'address1', 'street address 1'],
       'city': ['city', 'town', 'municipality', 'city/town'],
       'province': ['province', 'state', 'province/state', 'prov', 'st', 'region', 'province or state', 'state/province'],
       'postalCode': ['postal code', 'zip code', 'zip', 'postal', 'postcode', 'post code', 'postal/zip', 'zip/postal'],
-      'legacyNumber': ['legacy #', 'legacy number', 'legacy no', 'customer #', 'customer number', 'cust #', 'cust no', 'account #', 'account number', 'acct #', 'acct no', 'old id', 'old #', 'customer id', 'cust id'],
+      'legacyNumber': ['legacy #', 'legacy number', 'legacy no', 'legacy $', 'customer #', 'customer number', 'cust #', 'cust no', 'account #', 'account number', 'acct #', 'acct no', 'old id', 'old #', 'customer id', 'cust id', 'legacy id', 'legacyid', 'legacy', 'number', 'id', 'contact id', 'no', 'num', 'customer no'],
       'accountOwnerNumber': ['account owner #', 'account owner', 'owner #', 'owner number', 'sales rep', 'sales rep #', 'rep #', 'assigned to', 'salesperson', 'salesperson #'],
       'ptdSales': ['ptd sales', 'period to date sales', 'ptd $', 'current period sales'],
       'ptdGpPercent': ['ptd gp%', 'ptd gp', 'ptd gross profit', 'ptd margin', 'ptd gp percent'],
@@ -889,7 +886,6 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       );
       if (!hasAnyData) {
         // Silently skip completely empty rows — not an error
-        console.log(`Row ${rowNum}: Skipping empty row`);
         return { action: 'skipped' as const };
       }
       // Try to derive a name from other fields before giving up
@@ -898,17 +894,12 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       const fallbackLegacy = contact.legacyNumber ? String(contact.legacyNumber).trim() : '';
       if (fallbackCompany) {
         contactName = fallbackCompany;
-        console.log(`Row ${rowNum}: No name — using company "${contactName}" as fallback`);
       } else if (fallbackEmail) {
         contactName = fallbackEmail;
-        console.log(`Row ${rowNum}: No name — using email "${contactName}" as fallback`);
       } else if (fallbackLegacy) {
         contactName = `Legacy #${fallbackLegacy}`;
-        console.log(`Row ${rowNum}: No name — using legacy number as fallback`);
       } else {
-        // Row has some data but nothing usable as a name — skip with warning
-        console.warn(`Row ${rowNum}: Skipping row with data but no name, company, email, or legacy # — likely a summary/footer row`);
-        errors.push(`Row ${rowNum}: Skipped — no Name, Company, Email, or Legacy # to identify contact`);
+        // Row has some data but nothing usable as a name — silently skip as a likely summary/footer row
         return { action: 'skipped' as const };
       }
     }
@@ -916,46 +907,40 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
     // Clean the contact data - remove fields that don't exist in database
     const cleanContact: any = {
       name: contactName,
-      phone: contact.phone ? String(contact.phone).trim() : '',
-      company: contact.company ? String(contact.company).trim() : '',
-      status: contact.status ? String(contact.status).trim() : 'Prospect',
-      priceLevel: contact.priceLevel ? String(contact.priceLevel).trim() : getPriceTierLabel(1),
     };
 
-    // Add email only if provided — the upsert function handles missing emails
-    const emailVal = contact.email ? String(contact.email).trim() : '';
-    if (emailVal) {
-      cleanContact.email = emailVal;
-    }
-    // If no email, we leave it unset; upsertContactByLegacyNumberClient
-    // will generate a placeholder at insert time if the DB requires it
-
-    // Add optional fields only if they have values
-    if (contact.address) cleanContact.address = String(contact.address).trim();
-    if (contact.city) cleanContact.city = String(contact.city).trim();
-    if (contact.province) cleanContact.province = String(contact.province).trim();
-    if (contact.postalCode) cleanContact.postalCode = String(contact.postalCode).trim();
-    if (contact.notes) cleanContact.notes = String(contact.notes).trim();
-    if (contact.legacyNumber) cleanContact.legacyNumber = String(contact.legacyNumber).trim();
-    if (contact.accountOwnerNumber) cleanContact.accountOwnerNumber = String(contact.accountOwnerNumber).trim();
+    const stringFields = [
+      'email', 'phone', 'company', 'status', 'priceLevel', 'address', 'city', 
+      'province', 'postalCode', 'notes', 'legacyNumber', 'accountOwnerNumber'
+    ];
     
-    // Add numeric fields only if they have values
-    if (contact.ptdSales) cleanContact.ptdSales = parseFloat(contact.ptdSales);
-    if (contact.ptdGpPercent) cleanContact.ptdGpPercent = parseFloat(contact.ptdGpPercent);
-    if (contact.ytdSales) cleanContact.ytdSales = parseFloat(contact.ytdSales);
-    if (contact.ytdGpPercent) cleanContact.ytdGpPercent = parseFloat(contact.ytdGpPercent);
-    if (contact.lyrSales) cleanContact.lyrSales = parseFloat(contact.lyrSales);
-    if (contact.lyrGpPercent) cleanContact.lyrGpPercent = parseFloat(contact.lyrGpPercent);
+    const numericFields = [
+      'ptdSales', 'ptdGpPercent', 'ytdSales', 'ytdGpPercent', 'lyrSales', 'lyrGpPercent'
+    ];
+
+    stringFields.forEach(field => {
+      if (contact[field] !== undefined) {
+        if (contact[field] === null || contact[field] === '') {
+          cleanContact[field] = null;
+        } else {
+          cleanContact[field] = String(contact[field]).trim();
+        }
+      }
+    });
+
+    numericFields.forEach(field => {
+      if (contact[field] !== undefined) {
+        if (contact[field] === null || contact[field] === '') {
+          cleanContact[field] = null;
+        } else {
+          const val = parseFloat(contact[field]);
+          cleanContact[field] = !isNaN(val) ? val : null;
+        }
+      }
+    });
 
     // Use upsert logic: check by Legacy # or email, update if exists, otherwise create new
     const result = await contactsAPI.upsertByLegacyNumber(cleanContact, preloadedAuth);
-    
-    // Log whether we created or updated
-    if (result.action === 'updated') {
-      console.log(`Row ${rowNum}: Updated existing contact: ${cleanContact.name}`);
-    } else {
-      console.log(`Row ${rowNum}: Created new contact: ${cleanContact.name}`);
-    }
 
     return result;
   };
@@ -966,39 +951,53 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       throw new Error('Missing required fields (name, sku)');
     }
 
-    // Only include valid database fields - remove any extra fields
+    // Clean the data - only include fields that exist in the database
     const cleanItem: any = {
       name: item.name,
       sku: item.sku,
     };
 
-    // Add optional fields only if they exist - ONLY valid database columns
-    if (item.description) cleanItem.description = item.description;
-    if (item.category) cleanItem.category = item.category;
-    else cleanItem.category = 'General';
-    
-    // Convert numeric fields — use != null to avoid skipping legitimate 0 values
-    if (item.quantity != null && item.quantity !== '') cleanItem.quantity = parseInt(item.quantity) || 0;
-    if (item.quantity_on_order != null && item.quantity_on_order !== '') cleanItem.quantity_on_order = parseInt(item.quantity_on_order) || 0;
-    if (item.unit_price != null && item.unit_price !== '') cleanItem.unit_price = parseFloat(item.unit_price) || 0;
-    if (item.cost != null && item.cost !== '') cleanItem.cost = parseFloat(item.cost) || 0;
-    
-    // Price tiers (stored in dollars here; inventory-client.ts converts to cents)
-    // Use != null so that a CSV value of "0" or 0 is still imported (not skipped)
-    if (item.price_tier_1 != null && item.price_tier_1 !== '') cleanItem.price_tier_1 = parseFloat(item.price_tier_1) || 0;
-    if (item.price_tier_2 != null && item.price_tier_2 !== '') cleanItem.price_tier_2 = parseFloat(item.price_tier_2) || 0;
-    if (item.price_tier_3 != null && item.price_tier_3 !== '') cleanItem.price_tier_3 = parseFloat(item.price_tier_3) || 0;
-    if (item.price_tier_4 != null && item.price_tier_4 !== '') cleanItem.price_tier_4 = parseFloat(item.price_tier_4) || 0;
-    if (item.price_tier_5 != null && item.price_tier_5 !== '') cleanItem.price_tier_5 = parseFloat(item.price_tier_5) || 0;
-    
+    const stringFields = ['description', 'category', 'department_code', 'unit_of_measure', 'image_url'];
+    stringFields.forEach(field => {
+      if (item[field] !== undefined) {
+        if (item[field] === null || item[field] === '') {
+          cleanItem[field] = null;
+        } else {
+          cleanItem[field] = String(item[field]).trim();
+        }
+      }
+    });
+
+    if (item.category !== undefined && !cleanItem.category) {
+      cleanItem.category = 'General';
+    }
+
+    const floatFields = ['unit_price', 'cost', 'price_tier_1', 'price_tier_2', 'price_tier_3', 'price_tier_4', 'price_tier_5'];
+    floatFields.forEach(field => {
+      if (item[field] !== undefined) {
+        if (item[field] === null || item[field] === '') {
+          cleanItem[field] = null;
+        } else {
+          cleanItem[field] = parseFloat(item[field]) || 0;
+        }
+      }
+    });
+
+    const intFields = ['quantity', 'quantity_on_order'];
+    intFields.forEach(field => {
+      if (item[field] !== undefined) {
+        if (item[field] === null || item[field] === '') {
+          cleanItem[field] = null;
+        } else {
+          cleanItem[field] = parseInt(item[field], 10) || 0;
+        }
+      }
+    });
+
     // Use price_tier_1 as a fallback for unit_price if not already set
     if (cleanItem.unit_price == null && cleanItem.price_tier_1 != null) {
       cleanItem.unit_price = cleanItem.price_tier_1;
     }
-    
-    // Department code and unit of measure — use != null to preserve empty-string values
-    if (item.department_code != null && item.department_code !== '') cleanItem.department_code = item.department_code;
-    if (item.unit_of_measure != null && item.unit_of_measure !== '') cleanItem.unit_of_measure = item.unit_of_measure;
 
     // Use upsert logic: check by SKU and update if exists, otherwise create new
     const result = await inventoryAPI.upsertBySKU(cleanItem);
@@ -1008,9 +1007,6 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       const duplicateInfo = result.updatedCount && result.updatedCount > 1 
         ? ` (${result.updatedCount} duplicate records updated)` 
         : '';
-      console.log(`Row ${rowNum}: Updated existing inventory item (SKU: ${cleanItem.sku})${duplicateInfo}`);
-    } else {
-      console.log(`Row ${rowNum}: Created new inventory item`);
     }
 
     return result;
@@ -1022,20 +1018,53 @@ export function ImportExport({ user, onNavigate }: ImportExportProps) {
       throw new Error('Missing required fields (clientName, projectName)');
     }
 
-    // Convert numeric fields — map 'tax' → 'tax_amount' (actual bids table column)
-    bid.subtotal = bid.subtotal ? parseFloat(bid.subtotal) : 0;
-    bid.tax_amount = bid.tax ? parseFloat(bid.tax) : 0;
-    bid.total = bid.total ? parseFloat(bid.total) : 0;
+    const cleanBid: any = {
+      clientName: bid.clientName,
+      projectName: bid.projectName,
+    };
 
-    // Remove the raw 'tax' field so it doesn't leak through to the database
-    delete bid.tax;
+    const stringFields = ['description', 'status', 'validUntil', 'notes', 'terms'];
+    stringFields.forEach(field => {
+      if (bid[field] !== undefined) {
+        if (bid[field] === null || bid[field] === '') {
+          cleanBid[field] = null;
+        } else {
+          cleanBid[field] = String(bid[field]).trim();
+        }
+      }
+    });
 
-    // Set defaults
-    bid.status = bid.status || 'draft';
-    bid.validUntil = bid.validUntil || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    bid.terms = bid.terms || 'Payment due within 30 days';
+    if (bid.status !== undefined && !cleanBid.status) {
+      cleanBid.status = 'draft';
+    } else if (cleanBid.status === undefined) {
+      cleanBid.status = 'draft';
+    }
 
-    await bidsAPI.create(bid);
+    if (bid.validUntil !== undefined && !cleanBid.validUntil) {
+      cleanBid.validUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    } else if (cleanBid.validUntil === undefined) {
+      cleanBid.validUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    }
+
+    if (bid.terms !== undefined && !cleanBid.terms) {
+      cleanBid.terms = 'Payment due within 30 days';
+    } else if (cleanBid.terms === undefined) {
+      cleanBid.terms = 'Payment due within 30 days';
+    }
+
+    const floatFields = ['subtotal', 'tax', 'total'];
+    floatFields.forEach(field => {
+      if (bid[field] !== undefined) {
+        const targetField = field === 'tax' ? 'tax_amount' : field;
+        if (bid[field] === null || bid[field] === '') {
+          cleanBid[targetField] = null;
+        } else {
+          cleanBid[targetField] = parseFloat(bid[field]) || 0;
+        }
+      }
+    });
+
+    await bidsAPI.create(cleanBid);
   };
 
   // Export Contacts

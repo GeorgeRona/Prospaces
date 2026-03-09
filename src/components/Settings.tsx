@@ -144,7 +144,6 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
     const safetyTimer = setTimeout(() => {
       setIsLoading((prev) => {
         if (prev) {
-          console.warn('[Settings] Safety-net timeout reached — forcing load from localStorage');
           loadSettingsFromLocalStorage();
           setShowDatabaseWarning(true);
         }
@@ -162,7 +161,6 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
 
       // Guard: if organizationId is missing, skip API calls and use localStorage
       if (!user.organizationId) {
-        console.warn('[Settings] No organizationId on user — loading from localStorage only');
         loadSettingsFromLocalStorage();
         return;
       }
@@ -176,7 +174,6 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
           'getUserPreferences'
         );
       } catch (prefErr) {
-        console.warn('[Settings] getUserPreferences failed or timed out:', prefErr);
       }
       
       if (userPrefs) {
@@ -206,7 +203,6 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
           'getOrganizationSettings'
         );
       } catch (orgErr) {
-        console.warn('[Settings] getOrganizationSettings failed or timed out:', orgErr);
       }
 
       if (orgSettings) {
@@ -264,7 +260,6 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
             setOrgName(tenant.name);
           }
         } catch (err) {
-          console.log('[Settings] Could not load organization name');
         }
       }
 
@@ -279,12 +274,9 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
           setUserMode(orgModeData.user_mode);
         }
       } catch (modeErr) {
-        console.warn('[Settings] getOrgMode failed or timed out:', modeErr);
       }
 
-      console.log('[Settings] ✅ Settings loaded successfully');
     } catch (error) {
-      console.error('[Settings] ❌ Error loading settings:', error);
       // Fallback to localStorage if Supabase fails
       loadSettingsFromLocalStorage();
       setShowDatabaseWarning(true);
@@ -310,7 +302,6 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
         });
       }
     } catch (err) {
-      console.warn('[Settings] Failed to parse localStorage settings:', err);
     }
     
     // Load profile picture from localStorage as fallback
@@ -320,7 +311,6 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
         setProfileData(prev => ({ ...prev, profilePicture: storedPicture }));
       }
     } catch (err) {
-      console.warn('[Settings] Failed to load profile picture from localStorage:', err);
     }
   };
 
@@ -390,7 +380,6 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
           
           showAlert('success', 'Profile picture updated successfully!');
         } catch (error) {
-          console.error('Error updating profile picture:', error);
           showAlert('error', 'Failed to update profile picture');
         } finally {
           setIsUploading(false);
@@ -404,7 +393,6 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
 
       reader.readAsDataURL(file);
     } catch (error) {
-      console.error('Error uploading profile picture:', error);
       showAlert('error', 'Failed to upload image');
       setIsUploading(false);
     }
@@ -440,7 +428,6 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
       
       showAlert('success', 'Profile picture removed successfully!');
     } catch (error) {
-      console.error('Error removing profile picture:', error);
       showAlert('error', 'Failed to remove profile picture');
     } finally {
       setIsUploading(false);
@@ -450,15 +437,12 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
   const handleSaveProfile = async () => {
     setIsSavingProfile(true);
     try {
-      console.log('[Settings] 💾 Saving profile...', profileData);
       
       // Save name and avatar_url to Supabase profiles table
       await settingsAPI.updateUserProfile(user.id, {
         name: profileData.name,
         avatar_url: profileData.profilePicture || '',
       });
-      
-      console.log('[Settings] ✅ Profile table updated, now updating preferences...');
       
       // Save profile picture to user_preferences table
       await settingsAPI.upsertUserPreferences({
@@ -472,8 +456,6 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
         notifications_bids: notifications.bids,
       });
       
-      console.log('[Settings] ✅ Both tables updated successfully');
-      
       if (onUserUpdate) {
         const updatedUser: User = {
           ...user,
@@ -486,7 +468,6 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
       toast.success('Profile updated successfully!');
       showAlert('success', 'Profile updated successfully!');
     } catch (error: any) {
-      console.error('[Settings] ❌ Error updating profile:', error);
       const errorMessage = error?.message || 'Failed to update profile. Please check console for details.';
       toast.error(errorMessage);
       showAlert('error', errorMessage);
@@ -513,7 +494,6 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
       
       showAlert('success', 'Organization settings saved successfully!');
     } catch (error) {
-      console.error('Error saving organization settings:', error);
       showAlert('error', 'Failed to save organization settings');
     } finally {
       setIsSavingOrg(false);
@@ -537,7 +517,6 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
       
       showAlert('success', 'Notification preferences saved successfully!');
     } catch (error) {
-      console.error('Error saving notification preferences:', error);
       showAlert('error', 'Failed to save notification preferences');
     } finally {
       setIsSavingNotifications(false);
@@ -558,7 +537,6 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
       toast.success(`Organization switched to ${newMode === 'single' ? 'Single User' : 'Multi User'} mode`);
       showAlert('success', `Organization mode updated to ${newMode === 'single' ? 'Single User' : 'Multi User'}`);
     } catch (error: any) {
-      console.error('[Settings] Error updating org user mode:', error);
       // Revert on error
       setUserMode(newMode === 'single' ? 'multi' : 'single');
       const errorMessage = error?.message || 'Failed to update organization mode';
@@ -593,10 +571,8 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
       } else {
         // Supabase save failed (likely tables don't exist or RLS prevents it), but localStorage worked
         showAlert('success', 'Settings saved locally. Database sync may require additional setup.');
-        console.info('[Settings] Settings saved to localStorage. Database tables may not exist or RLS policies may need configuration.');
       }
     } catch (error: any) {
-      console.error('Error saving global settings:', error);
       
       // Check if it's an RLS permission error
       if (error?.message?.includes('Permission denied') || error?.message?.includes('RLS')) {
@@ -617,7 +593,6 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
   };
 
   const handleSaveAppearanceSettings = () => {
-    console.log('Save Appearance Settings clicked!');
     // Theme is already auto-saved by ThemeSelector, but we can add more settings here
     toast.success('Appearance settings saved! Theme changes are applied automatically.');
   };
@@ -643,7 +618,6 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                 size="sm"
                 className="mt-3 text-xs text-gray-400 hover:text-gray-600"
                 onClick={() => {
-                  console.log('[Settings] User manually skipped loading — using localStorage');
                   loadSettingsFromLocalStorage();
                   setShowDatabaseWarning(true);
                   setIsLoading(false);

@@ -216,7 +216,6 @@ export function Appointments({ user }: AppointmentsProps) {
   useEffect(() => {
     if (calendarAccounts.length === 0) return;
     const id = setInterval(() => {
-      console.log('[Calendar] Auto-syncing (5-min interval)');
       handleSyncCalendar();
     }, 5 * 60 * 1000);
     return () => clearInterval(id);
@@ -228,7 +227,6 @@ export function Appointments({ user }: AppointmentsProps) {
       const response = await appointmentsAPI.getAll();
       setAppointments(response.appointments || []);
     } catch (error) {
-      console.error('Failed to load appointments:', error);
     } finally {
       setIsLoading(false);
     }
@@ -252,7 +250,6 @@ export function Appointments({ user }: AppointmentsProps) {
       setSelectedContactId('');
       setIsAddDialogOpen(false);
     } catch (error) {
-      console.error('Failed to create appointment:', error);
       alert('Failed to create appointment. Please try again.');
     }
   };
@@ -263,7 +260,6 @@ export function Appointments({ user }: AppointmentsProps) {
       await appointmentsAPI.delete(id);
       await loadAppointments();
     } catch (error) {
-      console.error('Failed to delete appointment:', error);
       alert('Failed to delete appointment. Please try again.');
     }
   };
@@ -287,14 +283,13 @@ export function Appointments({ user }: AppointmentsProps) {
     try {
       const headers = await getServerHeaders();
       const res = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/calendar-accounts`, { headers });
-      if (!res.ok) { console.error('Error fetching calendar accounts:', await res.text()); return; }
+      if (!res.ok) { return; }
       const json = await res.json();
-      if (json.error) { console.error('Error fetching calendar accounts:', json.error); }
+      if (json.error) { return; }
       else {
         setCalendarAccounts(json.accounts || []);
       }
     } catch (error) {
-      console.error('Failed to load calendar accounts:', error);
     }
   };
 
@@ -315,7 +310,6 @@ export function Appointments({ user }: AppointmentsProps) {
           );
           const data = await res.json();
           if (!res.ok || !data?.success) {
-            console.warn('[Sync] Calendar sync error for', account.email, ':', data?.error || res.statusText);
             if (data?.needsReconnect) {
               toast.error(`Failed to sync ${account.email}`, {
                 description: 'Calendar permissions missing. Please disconnect and reconnect this account with calendar access.',
@@ -329,12 +323,11 @@ export function Appointments({ user }: AppointmentsProps) {
             continue;
           }
           if (data.skipped) {
-            console.log(`[Sync] Skipped ${account.email}: ${data.skipReason}`);
+            // skipped
           } else {
             toast.success(`Synced ${account.provider || 'calendar'}!`, { description: `${data.syncedCount || 0} new event(s) imported` });
           }
         } catch (accountError: any) {
-          console.warn('[Sync] Error syncing account:', account.email, accountError.message);
           toast.error(`Failed to sync ${account.provider || 'calendar'}`, {
             description: accountError.message || 'Calendar sync request failed'
           });
@@ -344,7 +337,6 @@ export function Appointments({ user }: AppointmentsProps) {
       await loadAppointments();
       await loadCalendarAccounts();
     } catch (error: any) {
-      console.error('Failed to sync calendar:', error);
       toast.error('Failed to sync calendar', { description: error.message || 'Please try again' });
     } finally {
       setIsSyncing(false);
@@ -362,7 +354,6 @@ export function Appointments({ user }: AppointmentsProps) {
       }
       setContactNameMap(nameMap);
     } catch (error) {
-      console.error('Failed to load contacts:', error);
     }
   };
 
@@ -403,7 +394,6 @@ export function Appointments({ user }: AppointmentsProps) {
       setIsEditDialogOpen(false);
       setEditingAppointment(null);
     } catch (error) {
-      console.error('Failed to update appointment:', error);
       toast.error('Failed to update appointment');
     }
   };

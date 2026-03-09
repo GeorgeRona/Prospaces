@@ -289,7 +289,7 @@ export function MemberLogin({ onLogin, onBack }: MemberLoginProps) {
               <div className="h-11 w-11 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center border border-white/20">
                 <Building2 className="h-6 w-6 text-white" />
               </div>
-              <span className="text-2xl font-semibold tracking-tight">ProSpaces</span>
+              <span className="text-2xl font-semibold tracking-tight">ProSpaces CRM</span>
             </div>
           </div>
 
@@ -327,7 +327,7 @@ export function MemberLogin({ onLogin, onBack }: MemberLoginProps) {
             <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center">
               <Building2 className="h-5 w-5 text-white" />
             </div>
-            <span className="text-xl font-semibold text-slate-900 tracking-tight">ProSpaces</span>
+            <span className="text-xl font-semibold text-slate-900 tracking-tight">ProSpaces CRM</span>
           </div>
 
           {/* Header */}
@@ -342,7 +342,7 @@ export function MemberLogin({ onLogin, onBack }: MemberLoginProps) {
               </button>
             )}
             <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
-              Members Sign In
+              ProSpaces CRM Members Sign In
             </h1>
             <p className="mt-2 text-slate-500">
               Enter your credentials to access your workspace.

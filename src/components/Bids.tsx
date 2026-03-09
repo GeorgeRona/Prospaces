@@ -110,7 +110,6 @@ export function Bids({ user }: BidsProps) {
             documents_enabled: data.documents_enabled,
           });
         } catch (err) {
-          console.error('Failed to load organization:', err);
           setOrgData(null);
         }
       };
@@ -126,7 +125,6 @@ export function Bids({ user }: BidsProps) {
       if (selectedQuote) {
         // Normalize line items to ensure all expected fields are present
         const items = selectedQuote.lineItems || [];
-        console.log('[Bids] Loading line items for editing:', items);
         
         const normalizedItems = items.map((item: any) => {
           const normalized = {
@@ -141,7 +139,6 @@ export function Bids({ user }: BidsProps) {
             discount: Number(item.discount || 0),
             total: Number(item.total || 0)
           };
-          console.log('[Bids] Normalized item:', normalized);
           return normalized;
         });
         
@@ -195,9 +192,6 @@ export function Bids({ user }: BidsProps) {
         setOrgSettings(settingsData);
       }
 
-      console.log('Loaded quotes:', quotesResponse.quotes?.length || 0);
-      console.log('Loaded legacy bids:', bidsResponse.bids?.length || 0);
-
       const dbQuotes = quotesResponse.quotes || [];
       const loadedContacts = contactsResponse.contacts || [];
 
@@ -222,7 +216,6 @@ export function Bids({ user }: BidsProps) {
               total: item.total ?? 0,
             }));
           } catch (e) {
-            console.error('Failed to parse line_items for quote:', q.id, e);
           }
         }
         
@@ -260,19 +253,7 @@ export function Bids({ user }: BidsProps) {
       setLegacyBids(bidsResponse.bids || []);
       setContacts(loadedContacts);
       setInventoryItems(inventoryResponse.items || []);
-      
-      console.log('[Bids] Loaded inventory items:', inventoryResponse.items?.length || 0);
-      if (inventoryResponse.items && inventoryResponse.items.length > 0) {
-        console.log('[Bids] Sample inventory items:', inventoryResponse.items.slice(0, 5).map(item => ({
-          id: item.id,
-          sku: item.sku,
-          name: item.name,
-          cost: item.cost,
-          priceTier1: item.priceTier1 || item.price_tier_1
-        })));
-      }
     } catch (err: any) {
-      console.error('Failed to load bids/quotes:', err);
       setError(err.message || 'Failed to load data');
     } finally {
       setIsLoading(false);
@@ -301,7 +282,6 @@ export function Bids({ user }: BidsProps) {
           }));
         }
       } catch (e) {
-        console.error('Failed to parse line_items for bid:', bid.id, e);
       }
     }
 
@@ -366,7 +346,6 @@ export function Bids({ user }: BidsProps) {
       await loadData();
       toast.success('Status updated successfully');
     } catch (err: any) {
-      console.error('Failed to update status:', err);
       toast.error('Failed to update status: ' + err.message);
     }
   };
@@ -456,7 +435,6 @@ export function Bids({ user }: BidsProps) {
         }
 
         if (inventoryItem) {
-          console.log(`[Reprice] ✅ Matched line item "${item.itemName}" (SKU: ${item.sku || 'none'}) -> inventory "${inventoryItem.name}" (SKU: ${inventoryItem.sku})`);
           // get price for the selected price tier
           const tier = editFormData.priceTier || 1;
           const tierKey = `priceTier${tier}` as keyof typeof inventoryItem;
@@ -485,7 +463,6 @@ export function Bids({ user }: BidsProps) {
       
       toast.success('Line items repriced successfully');
     } catch (error) {
-      console.error('Error repricing line items:', error);
       toast.error('Failed to reprice line items');
     } finally {
       setIsRepricing(false);
@@ -542,7 +519,6 @@ export function Bids({ user }: BidsProps) {
       setIsDialogOpen(false);
       loadData();
     } catch (err: any) {
-      console.error('Failed to save quote:', err);
       toast.error('Failed to save quote: ' + err.message);
     }
   };

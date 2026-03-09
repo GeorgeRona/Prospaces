@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Badge } from './ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from './ui/select';
 import { Search, Plus, Mail, Phone, Building, MoreVertical, Edit, Trash2, Loader2, Calendar, DollarSign, ArrowLeft, MapPin, Eye, X, Tag, AlertTriangle, Wrench, Users, UserCheck, UserPlus, Target } from 'lucide-react';
 import {
   DropdownMenu,
@@ -153,12 +153,10 @@ export function Contacts({ user }: ContactsProps) {
       if (selectedContact) {
         const refreshed = validContacts.find((c: any) => c?.id === selectedContact.id);
         if (refreshed) {
-          console.log(`[Contacts] loadContacts — refreshed selectedContact ${refreshed.id}, priceLevel="${refreshed.priceLevel}"`);
           setSelectedContact(refreshed);
         }
       }
     } catch (error) {
-      console.error('Failed to load contacts:', error);
     } finally {
       setIsLoading(false);
     }
@@ -198,7 +196,6 @@ export function Contacts({ user }: ContactsProps) {
       }
       
       // Step 1: Diagnose
-      console.log('🔍 Diagnosing contact ownership...');
       const diagRes = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/contacts/diagnose-ownership`,
         {
@@ -214,12 +211,10 @@ export function Contacts({ user }: ContactsProps) {
       }
       
       const diagnosis = await diagRes.json();
-      console.log('📊 Diagnosis result:', diagnosis);
       setOwnershipDiagnosis(diagnosis);
       
       // Step 2: Always attempt fix — it's idempotent and also repairs JWT metadata
       if (diagnosis.stats?.mismatchedOwnership > 0 || diagnosis.stats?.globalEmailMatches > 0 || diagnosis.stats?.wrongOrganization > 0 || !diagnosis.user?.jwt_matches_profile) {
-        console.log('🔧 Fixing contact ownership...');
         const fixRes = await fetch(
           `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/contacts/fix-ownership`,
           {
@@ -242,7 +237,6 @@ export function Contacts({ user }: ContactsProps) {
         }
         
         const fixResult = await fixRes.json();
-        console.log('✅ Fix result:', fixResult);
         
         let resultMsg = fixResult.message || 'Fix completed.';
         if (fixResult.jwtFixed) {
@@ -258,7 +252,6 @@ export function Contacts({ user }: ContactsProps) {
         }
       } else {
         // Even if no email matches found, still try the fix for JWT metadata
-        console.log('🔧 No email matches found, but attempting JWT/org fix...');
         const fixRes = await fetch(
           `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/contacts/fix-ownership`,
           {
@@ -294,7 +287,6 @@ export function Contacts({ user }: ContactsProps) {
         }
       }
     } catch (error: any) {
-      console.error('Ownership fix error:', error);
       setOwnershipFixResult(`Error: ${error.message}`);
     } finally {
       setIsFixingOwnership(false);
@@ -305,11 +297,25 @@ export function Contacts({ user }: ContactsProps) {
     const filteredContacts = useMemo(() => {
       let filtered = contacts.filter(Boolean);
       
-      // Filter by tag
+      // Filter by tag or status
       if (selectedTagFilter && selectedTagFilter !== 'all') {
-        filtered = filtered.filter(contact => 
-          contact?.tags && contact.tags.includes(selectedTagFilter)
-        );
+        if (selectedTagFilter.startsWith('status:')) {
+          const status = selectedTagFilter.replace('status:', '');
+          const searchStatus = status === 'Prospects' ? 'Prospect' : status;
+          filtered = filtered.filter(contact => 
+            contact?.status === searchStatus
+          );
+        } else if (selectedTagFilter.startsWith('tag:')) {
+          const tag = selectedTagFilter.replace('tag:', '');
+          filtered = filtered.filter(contact => 
+            contact?.tags && contact.tags.includes(tag)
+          );
+        } else {
+          // Fallback for any existing tags that didn't have the prefix
+          filtered = filtered.filter(contact => 
+            contact?.tags && contact.tags.includes(selectedTagFilter)
+          );
+        }
       }
       
       // Filter by search query
@@ -438,14 +444,12 @@ export function Contacts({ user }: ContactsProps) {
         setContacts([contact, ...contacts]);
       } else {
         // Contact was likely created but response was unexpected — reload to be safe
-        console.warn('[Contacts] Create returned no contact object, reloading list...');
         await loadContacts();
       }
       setNewContact({ name: '', email: '', phone: '', company: '', status: 'Prospect', priceLevel: getPriceTierLabel(1), legacyNumber: '', accountOwnerNumber: user.email || '', address: '', city: '', province: '', postalCode: '', notes: '', tags: [], customFields: {}, ptdSales: '', ptdGpPercent: '', ytdSales: '', ytdGpPercent: '', lyrSales: '', lyrGpPercent: '' });
       setTagInput('');
       setIsAddDialogOpen(false);
     } catch (error: any) {
-      console.error('Failed to create contact:', error);
       const errorMessage = error?.message || 'Failed to create contact. Please try again.';
       alert(errorMessage);
     } finally {
@@ -460,7 +464,6 @@ export function Contacts({ user }: ContactsProps) {
       await contactsAPI.delete(id);
       setContacts(contacts.filter(c => c?.id !== id));
     } catch (error) {
-      console.error('Failed to delete contact:', error);
       alert('Failed to delete contact. Please try again.');
     }
   };
@@ -472,7 +475,6 @@ export function Contacts({ user }: ContactsProps) {
 
     const contactId = editingContact.id;
     const contactName = editingContact.name;
-    console.log(`[Contacts] handleEditContact — id=${contactId}, name="${contactName}", priceLevel="${editingContact.priceLevel}"`);
 
     try {
       const updateData = {
@@ -498,31 +500,21 @@ export function Contacts({ user }: ContactsProps) {
         lyrGpPercent: editingContact.lyrGpPercent
       };
 
-      console.log(`[Contacts] Sending update payload:`, JSON.stringify(updateData));
-
       const { contact } = await contactsAPI.update(editingContact.id, updateData);
-      console.log(`[Contacts] Update API returned:`, JSON.stringify(contact ? { id: contact.id, name: contact.name, priceLevel: contact.priceLevel, updatedAt: contact.updatedAt } : null));
 
       if (contact) {
-        console.log('[Contacts] 🔍 Full contact object from API:', contact);
-        console.log('[Contacts] 🔍 selectedContact before update:', selectedContact ? { id: selectedContact.id, name: selectedContact.name, priceLevel: selectedContact.priceLevel } : 'null');
-        
         // Update contacts list
         setContacts(prev => prev.map(c => (c?.id === contact.id ? contact : c)));
         
         // Update selectedContact with the fresh data from the server
         // We were viewing this contact (that's why the edit dialog was open)
-        console.log('[Contacts] 🔍 Setting selectedContact to updated contact with priceLevel:', contact.priceLevel);
         setSelectedContact(contact);
         
-        console.log(`[Contacts] Local state updated for contact ${contact.id}`);
         toast.success(`Contact "${contactName}" saved successfully`);
         
         // Force reload contacts from server to ensure we have the latest data with KV overlay
-        console.log('[Contacts] 🔄 Reloading contacts from server to verify update...');
         await loadContacts();
       } else {
-        console.warn('[Contacts] Update returned no contact data — changes may not have been saved');
         toast.warning('Update returned empty response — please verify changes');
       }
       setEditingContact(null);
@@ -538,30 +530,23 @@ export function Contacts({ user }: ContactsProps) {
           .single();
 
         if (verifyErr) {
-          console.error(`[Contacts] VERIFY FAILED — could not re-read contact ${contactId}:`, verifyErr.message);
           toast.error(`DB verification failed: ${verifyErr.message}`);
         } else if (verifyRow) {
           const nameMatch = verifyRow.name === updateData.name;
           const emailMatch = verifyRow.email === updateData.email;
           const statusMatch = verifyRow.status === updateData.status;
-          console.log(`[Contacts] VERIFY — DB state: name="${verifyRow.name}" (match=${nameMatch}), email="${verifyRow.email}" (match=${emailMatch}), status="${verifyRow.status}" (match=${statusMatch})`);
           if (!nameMatch || !emailMatch || !statusMatch) {
-            toast.error(`DB verification MISMATCH — changes may not have persisted! name=${nameMatch}, email=${emailMatch}, status=${statusMatch}. Check console.`);
-            console.error(`[Contacts] VERIFICATION MISMATCH — sent: name="${updateData.name}" email="${updateData.email}" status="${updateData.status}" | DB has: name="${verifyRow.name}" email="${verifyRow.email}" status="${verifyRow.status}"`);
-          } else {
-            console.log(`[Contacts] VERIFY — All fields match! Contact ${contactId} is persisted correctly.`);
+            toast.error(`DB verification MISMATCH — changes may not have persisted!`);
           }
         }
       } catch (verifyException: any) {
-        console.warn('[Contacts] Verification exception:', verifyException.message);
       }
 
       // Force reload from DB to ensure list shows actual DB state
       await loadContacts();
     } catch (error: any) {
-      console.error('[Contacts] Failed to update contact:', error);
       toast.error(`Failed to save contact: ${error?.message || 'Unknown error'}`);
-      alert(`Failed to update contact: ${error?.message || 'Unknown error'}. Please check the browser console (F12) for details.`);
+      alert(`Failed to update contact: ${error?.message || 'Unknown error'}.`);
     } finally {
       setIsSaving(false);
     }
@@ -580,7 +565,6 @@ export function Contacts({ user }: ContactsProps) {
       setNewPM({ name: '', email: '', phone: '', mailingAddress: '' });
       setIsAddPMDialogOpen(false);
     } catch (error) {
-      console.error('Failed to create project manager:', error);
       alert('Failed to create project manager. Please try again.');
     } finally {
       setIsSaving(false);
@@ -594,7 +578,6 @@ export function Contacts({ user }: ContactsProps) {
       await projectManagersAPI.delete(id);
       setProjectManagers(projectManagers.filter(pm => pm.id !== id));
     } catch (error) {
-      console.error('Failed to delete project manager:', error);
       alert('Failed to delete project manager. Please try again.');
     }
   };
@@ -615,7 +598,6 @@ export function Contacts({ user }: ContactsProps) {
       setEditingPM(null);
       setIsEditPMDialogOpen(false);
     } catch (error) {
-      console.error('Failed to update project manager:', error);
       alert('Failed to update project manager. Please try again.');
     } finally {
       setIsSaving(false);
@@ -757,9 +739,6 @@ export function Contacts({ user }: ContactsProps) {
           onEdit={(contact) => {
             // Use selectedContact directly instead of the contact parameter
             // to ensure we have the latest data after save + reload
-            console.log('[Contacts] onEdit called - using selectedContact instead of passed contact');
-            console.log('[Contacts] selectedContact priceLevel:', selectedContact?.priceLevel);
-            console.log('[Contacts] passed contact priceLevel:', contact?.priceLevel);
             setEditingContact(selectedContact);
             setIsEditDialogOpen(true);
           }}
@@ -767,7 +746,7 @@ export function Contacts({ user }: ContactsProps) {
         
         {/* Edit Contact Dialog - Available from Detail View */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="max-h-[90vh] overflow-y-auto bg-white" style={{ maxWidth: 700 }}>
+          <DialogContent className="fixed right-0 left-auto top-0 bottom-0 h-screen w-full sm:w-[700px] !max-w-[100vw] sm:!max-w-[700px] !translate-x-0 !translate-y-0 overflow-y-auto bg-white !m-0 !rounded-none sm:border-l shadow-2xl duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100">
             <DialogHeader>
               <DialogTitle>Edit Contact</DialogTitle>
               <DialogDescription>
@@ -1046,7 +1025,7 @@ export function Contacts({ user }: ContactsProps) {
                   Add Contact
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-h-[90vh] overflow-y-auto bg-white" style={{ maxWidth: 700 }}>
+              <DialogContent className="fixed right-0 left-auto top-0 bottom-0 h-screen w-full sm:w-[700px] !max-w-[100vw] sm:!max-w-[700px] !translate-x-0 !translate-y-0 overflow-y-auto bg-white !m-0 !rounded-none sm:border-l shadow-2xl duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100">
                 <DialogHeader>
                   <DialogTitle>Add New Contact</DialogTitle>
                   <DialogDescription>
@@ -1273,15 +1252,25 @@ export function Contacts({ user }: ContactsProps) {
                 </div>
                 <Select value={selectedTagFilter} onValueChange={setSelectedTagFilter}>
                   <SelectTrigger className="w-[200px]">
-                    <SelectValue placeholder="Filter by tag" />
+                    <SelectValue placeholder="Filter..." />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Contacts</SelectItem>
-                    {allTags.map((tag) => (
-                      <SelectItem key={tag} value={tag}>
-                        {tag}
-                      </SelectItem>
-                    ))}
+                    <SelectGroup>
+                      <SelectItem value="status:Active">Active</SelectItem>
+                      <SelectItem value="status:Inactive">Inactive</SelectItem>
+                      <SelectItem value="status:Prospect">Prospects</SelectItem>
+                    </SelectGroup>
+                    {allTags.length > 0 && (
+                      <SelectGroup>
+                        <SelectLabel>Tags</SelectLabel>
+                        {allTags.map((tag) => (
+                          <SelectItem key={`tag:${tag}`} value={`tag:${tag}`}>
+                            {tag}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -1289,7 +1278,7 @@ export function Contacts({ user }: ContactsProps) {
                 <div className="flex items-center gap-2">
                   <Badge variant="secondary" className="flex items-center gap-1">
                     <Tag className="h-3 w-3" />
-                    Filtered by: {selectedTagFilter}
+                    Filtered by: {selectedTagFilter.startsWith('status:') ? selectedTagFilter.replace('status:', '') : selectedTagFilter.replace('tag:', '')}
                     <button
                       onClick={() => setSelectedTagFilter('all')}
                       className="ml-1 hover:text-red-600"
@@ -1515,7 +1504,7 @@ export function Contacts({ user }: ContactsProps) {
 
       {/* Edit Contact Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto bg-white" style={{ maxWidth: 700 }}>
+        <DialogContent className="fixed right-0 left-auto top-0 bottom-0 h-screen w-full sm:w-[700px] !max-w-[100vw] sm:!max-w-[700px] !translate-x-0 !translate-y-0 overflow-y-auto bg-white !m-0 !rounded-none sm:border-l shadow-2xl duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100">
           <DialogHeader>
             <DialogTitle>Edit Contact</DialogTitle>
             <DialogDescription>
@@ -1764,7 +1753,7 @@ export function Contacts({ user }: ContactsProps) {
 
       {/* Add Project Manager Dialog */}
       <Dialog open={isAddPMDialogOpen} onOpenChange={setIsAddPMDialogOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto bg-white">
+        <DialogContent className="fixed right-0 left-auto top-0 bottom-0 h-screen w-full sm:w-[700px] !max-w-[100vw] sm:!max-w-[700px] !translate-x-0 !translate-y-0 overflow-y-auto bg-white !m-0 !rounded-none sm:border-l shadow-2xl duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100">
           <DialogHeader>
             <DialogTitle>Add Project Manager</DialogTitle>
             <DialogDescription>
@@ -1823,7 +1812,7 @@ export function Contacts({ user }: ContactsProps) {
 
       {/* Edit Project Manager Dialog */}
       <Dialog open={isEditPMDialogOpen} onOpenChange={setIsEditPMDialogOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto bg-white">
+        <DialogContent className="fixed right-0 left-auto top-0 bottom-0 h-screen w-full sm:w-[700px] !max-w-[100vw] sm:!max-w-[700px] !translate-x-0 !translate-y-0 overflow-y-auto bg-white !m-0 !rounded-none sm:border-l shadow-2xl duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100">
           <DialogHeader>
             <DialogTitle>Edit Project Manager</DialogTitle>
             <DialogDescription>

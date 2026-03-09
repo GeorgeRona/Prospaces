@@ -72,7 +72,6 @@ export function Tasks({ user }: TasksProps) {
       const response = await tasksAPI.getAll();
       setTasks(response.tasks || []);
     } catch (error) {
-      console.error('Failed to load tasks:', error);
     } finally {
       setIsLoading(false);
     }
@@ -97,7 +96,6 @@ export function Tasks({ user }: TasksProps) {
       setNewTask({ title: '', description: '', status: 'pending', priority: 'medium', dueDate: '' });
       setIsAddDialogOpen(false);
     } catch (error) {
-      console.error('Failed to create task:', error);
       alert('Failed to create task. Please try again.');
     }
   };
@@ -111,7 +109,6 @@ export function Tasks({ user }: TasksProps) {
       await tasksAPI.update(id, { ...task, status: newStatus });
       await loadTasks(); // Reload tasks from server
     } catch (error) {
-      console.error('Failed to update task:', error);
       alert('Failed to update task. Please try again.');
     }
   };
@@ -121,7 +118,6 @@ export function Tasks({ user }: TasksProps) {
       await tasksAPI.delete(id);
       await loadTasks(); // Reload tasks from server
     } catch (error) {
-      console.error('Failed to delete task:', error);
       alert('Failed to delete task. Please try again.');
     }
   };

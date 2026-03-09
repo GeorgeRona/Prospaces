@@ -36,8 +36,8 @@ async function hasAddressColumn(supabase: any): Promise<boolean> {
   const { error } = await supabase.from('contacts').select('address').limit(0);
   _hasAddressCol = !error;
   _addressColCheckTime = Date.now();
-  if (error) console.log('[contacts-api] address column not available:', error.code);
-  else console.log('[contacts-api] address column detected');
+  if (error) {}
+  else {}
   return _hasAddressCol;
 }
 
@@ -47,8 +47,8 @@ async function hasNotesColumn(supabase: any): Promise<boolean> {
   const { error } = await supabase.from('contacts').select('notes').limit(0);
   _hasNotesCol = !error;
   _notesColCheckTime = Date.now();
-  if (error) console.log('[contacts-api] notes column not available:', error.code);
-  else console.log('[contacts-api] notes column detected');
+  if (error) {}
+  else {}
   return _hasNotesCol;
 }
 
@@ -58,8 +58,8 @@ async function hasTagsColumn(supabase: any): Promise<boolean> {
   const { error } = await supabase.from('contacts').select('tags').limit(0);
   _hasTagsCol = !error;
   _tagsColCheckTime = Date.now();
-  if (error) console.log('[contacts-api] tags column not available:', error.code);
-  else console.log('[contacts-api] tags column detected');
+  if (error) {}
+  else {}
   return _hasTagsCol;
 }
 
@@ -75,9 +75,7 @@ async function hasPriceLevelColumn(supabase: any): Promise<boolean> {
   _hasPriceLevelCol = !error;
   _plcolCheckTime = Date.now();
   if (error) {
-    console.log('[contacts-api] price_level column not available:', error.code);
   } else {
-    console.log('[contacts-api] price_level column detected');
   }
   return _hasPriceLevelCol;
 }
@@ -94,9 +92,7 @@ async function hasLegacyNumberColumn(supabase: any): Promise<boolean> {
   _hasLegacyNumberCol = !error;
   _lncolCheckTime = Date.now();
   if (error) {
-    console.log('[contacts-api] legacy_number column not available:', error.code);
   } else {
-    console.log('[contacts-api] legacy_number column detected');
   }
   return _hasLegacyNumberCol;
 }
@@ -113,9 +109,7 @@ async function hasFinancialColumns(supabase: any): Promise<boolean> {
   _hasFinancialCols = !error;
   _fincolCheckTime = Date.now();
   if (error) {
-    console.log('[contacts-api] Financial columns (ptd_sales, etc.) not available:', error.code);
   } else {
-    console.log('[contacts-api] Financial columns detected');
   }
   return _hasFinancialCols;
 }
@@ -134,11 +128,30 @@ async function hasAccountOwnerColumn(supabase: any): Promise<boolean> {
   _hasAccountOwnerCol = !error;
   _aocolCheckTime = Date.now();
   if (error) {
-    console.log('[contacts-api] account_owner_number column not available:', error.code);
   } else {
-    console.log('[contacts-api] account_owner_number column detected');
   }
   return _hasAccountOwnerCol;
+}
+
+async function getUserWithRetry(supabase: any, token: string, maxRetries = 2) {
+  let attempt = 0;
+  while (attempt <= maxRetries) {
+    try {
+      const result = await supabase.auth.getUser(token);
+      // If we got a connection reset or fetch error, throw to trigger retry
+      if (result.error && (result.error.message.includes('connection reset') || result.error.message.includes('fetch'))) {
+        throw result.error;
+      }
+      return result;
+    } catch (err: any) {
+      attempt++;
+      if (attempt > maxRetries) {
+        return { data: { user: null }, error: err };
+      }
+      await new Promise(r => setTimeout(r, 500 * attempt));
+    }
+  }
+  return { data: { user: null }, error: new Error('Failed to get user after retries') };
 }
 
 export function contactsAPI(app: Hono) {
@@ -157,7 +170,7 @@ export function contactsAPI(app: Hono) {
         return c.json({ error: 'Missing Authorization header in contacts API' }, 401);
       }
 
-      const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+      const { data: { user }, error: authError } = await getUserWithRetry(supabase, accessToken);
       if (authError || !user) {
         return c.json({ error: 'Unauthorized in contacts API: ' + (authError?.message || 'No user') }, 401);
       }
@@ -176,8 +189,6 @@ export function contactsAPI(app: Hono) {
       const userRole = profile.role || 'standard_user';
       const userOrgId = profile.organization_id;
       const userEmail = profile.email || user.email || '';
-
-      console.log(`[contacts-api] GET /contacts — user=${userEmail}, role=${userRole}, org=${userOrgId}`);
 
       // Check if account_owner_number column exists
       const hasAOCol = await hasAccountOwnerColumn(supabase);
@@ -230,11 +241,8 @@ export function contactsAPI(app: Hono) {
       const { data: contacts, error: queryError } = await query.order('created_at', { ascending: false });
 
       if (queryError) {
-        console.error('[contacts-api] Query error:', queryError);
-
         // If the error is a missing column, retry without account_owner_number
         if (queryError.code === '42703' && hasAOCol) {
-          console.warn('[contacts-api] Column error detected, retrying without account_owner_number');
           // Reset cache so next request re-probes
           _hasAccountOwnerCol = null;
 
@@ -256,8 +264,6 @@ export function contactsAPI(app: Hono) {
       } else {
         contactsData = contacts || [];
       }
-
-      console.log(`[contacts-api] Returning ${contactsData.length} contacts for role=${userRole}`);
 
       // ── ALWAYS enrich optional fields from KV (authoritative source) ──
       // This guarantees price_level, address, notes, tags, and financial data
@@ -282,7 +288,6 @@ export function contactsAPI(app: Hono) {
               .in('key', chunk);
 
             if (kvError) {
-              console.warn(`[contacts-api] KV fetch error for chunk:`, kvError.message);
             } else if (kvData) {
               for (const row of kvData) {
                 kvMap.set(row.key, row.value);
@@ -311,6 +316,12 @@ export function contactsAPI(app: Hono) {
                 if (overlay.city !== undefined && !enrichedContacts[i].city) enrichedContacts[i].city = overlay.city;
                 if (overlay.province !== undefined && !enrichedContacts[i].province) enrichedContacts[i].province = overlay.province;
                 if (overlay.postal_code !== undefined && !enrichedContacts[i].postal_code) enrichedContacts[i].postal_code = overlay.postal_code;
+                
+                // Restore fallbacks
+                if (overlay.legacy_number !== undefined && !enrichedContacts[i].legacy_number) enrichedContacts[i].legacy_number = overlay.legacy_number;
+                if (overlay.company !== undefined && !enrichedContacts[i].company) enrichedContacts[i].company = overlay.company;
+                if (overlay.status !== undefined && !enrichedContacts[i].status) enrichedContacts[i].status = overlay.status;
+                
                 updated = true;
               }
 
@@ -328,16 +339,13 @@ export function contactsAPI(app: Hono) {
 
               if (updated) enrichCount++;
             }
-            console.log(`[contacts-api] Enriched ${enrichCount}/${enrichedContacts.length} contacts from KV store batch query`);
         } catch (kvErr: any) {
-          console.warn(`[contacts-api] KV enrichment error (non-fatal):`, kvErr.message);
         }
       }
       
       // Debug: log a sample
       if (enrichedContacts.length > 0) {
         const s = enrichedContacts[0];
-        console.log(`[contacts-api] Sample contact: id=${s.id}, name="${s.name}", price_level="${s.price_level}" (type=${typeof s.price_level})`);
       }
 
       return c.json({
@@ -345,7 +353,6 @@ export function contactsAPI(app: Hono) {
         meta: { count: enrichedContacts.length, role: userRole },
       });
     } catch (error: any) {
-      console.error('[contacts-api] Unexpected error:', error);
       return c.json({ error: 'Internal server error in contacts API: ' + error.message }, 500);
     }
   });
@@ -364,7 +371,7 @@ export function contactsAPI(app: Hono) {
         return c.json({ error: 'Missing Authorization header in contacts update API' }, 401);
       }
 
-      const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+      const { data: { user }, error: authError } = await getUserWithRetry(supabase, accessToken);
       if (authError || !user) {
         return c.json({ error: 'Unauthorized in contacts update API: ' + (authError?.message || 'No user') }, 401);
       }
@@ -383,8 +390,6 @@ export function contactsAPI(app: Hono) {
       const userRole = profile.role || 'standard_user';
       const userOrgId = profile.organization_id;
       const contactId = c.req.param('id');
-
-      console.log(`[contacts-api] PATCH /contacts/${contactId} — user=${profile.email}, role=${userRole}`);
 
       // Verify the contact belongs to the user's organization
       const { data: existingContact, error: fetchError } = await supabase
@@ -408,8 +413,6 @@ export function contactsAPI(app: Hono) {
       }
 
       const body = await c.req.json();
-      console.log(`[contacts-api] PATCH body keys:`, Object.keys(body));
-      console.log(`[contacts-api] PATCH body.price_level:`, JSON.stringify(body.price_level));
 
       // Detect which columns exist
       const hasAOCol = await hasAccountOwnerColumn(supabase);
@@ -440,9 +443,7 @@ export function contactsAPI(app: Hono) {
       const hasPriceLevelInBody = priceLevelValue !== undefined;
       if (hasPriceLevelInBody && hasPLCol) {
         updatePayload.price_level = priceLevelValue;
-        console.log(`[contacts-api] price_level column exists — including in DB update: "${priceLevelValue}"`);
       } else if (hasPriceLevelInBody) {
-        console.log(`[contacts-api] price_level column missing — will save "${priceLevelValue}" to KV after DB update`);
       }
 
       // Conditional columns (non-price_level)
@@ -458,8 +459,6 @@ export function contactsAPI(app: Hono) {
       if (hasFinCols && body.lyr_gp_percent !== undefined) updatePayload.lyr_gp_percent = body.lyr_gp_percent;
 
       updatePayload.updated_at = new Date().toISOString();
-
-      console.log(`[contacts-api] Update payload keys:`, Object.keys(updatePayload));
 
       // ── Attempt the update ───────────────────────────────────────────
       let updatedContact: any = null;
@@ -481,7 +480,6 @@ export function contactsAPI(app: Hono) {
         );
 
         if (isPriceLevelColumnError) {
-          console.warn(`[contacts-api] Stale cache — price_level column gone. Retrying without it.`);
           _hasPriceLevelCol = false;
           _plcolCheckTime = 0;
           delete updatePayload.price_level;
@@ -494,7 +492,6 @@ export function contactsAPI(app: Hono) {
             .single();
 
           if (retryError) {
-            console.error('[contacts-api] Retry update error:', retryError);
             return c.json({ error: 'Failed to update contact on retry: ' + retryError.message }, 500);
           }
           updatedContact = retryData;
@@ -504,13 +501,10 @@ export function contactsAPI(app: Hono) {
             try {
               await kv.set(`contact_price_level:${contactId}`, priceLevelValue);
               priceLevelSavedToKV = true;
-              console.log(`[contacts-api] price_level saved to KV after retry: "${priceLevelValue}" for contact ${contactId}`);
             } catch (kvErr: any) {
-              console.error(`[contacts-api] Failed to save price_level to KV after retry:`, kvErr.message);
             }
           }
         } else {
-          console.error('[contacts-api] Update error:', updateError);
           return c.json({ error: 'Failed to update contact: ' + updateError.message }, 500);
         }
       } else {
@@ -527,13 +521,9 @@ export function contactsAPI(app: Hono) {
         try {
           await kv.set(`contact_price_level:${contactId}`, priceLevelValue);
           priceLevelSavedToKV = true;
-          console.log(`[contacts-api] price_level saved to KV: "${priceLevelValue}" for contact ${contactId}`);
         } catch (kvErr: any) {
-          console.error(`[contacts-api] Failed to save price_level to KV:`, kvErr.message);
         }
       }
-
-      console.log(`[contacts-api] Contact updated. DB price_level="${updatedContact?.price_level}", KV=${priceLevelSavedToKV}`);
 
       // ── ALWAYS save optional fields to KV overlay (authoritative source) ──
       // This guarantees price_level, address, notes, tags, and financial data
@@ -555,6 +545,10 @@ export function contactsAPI(app: Hono) {
         if (body.city !== undefined) kvExtras.city = body.city;
         if (body.province !== undefined) kvExtras.province = body.province;
         if (body.postal_code !== undefined) kvExtras.postal_code = body.postal_code;
+        // Legacy & Core field fallbacks
+        if (body.legacy_number !== undefined) kvExtras.legacy_number = body.legacy_number;
+        if (body.company !== undefined) kvExtras.company = body.company;
+        if (body.status !== undefined) kvExtras.status = body.status;
         
         if (Object.keys(kvExtras).length > 0) {
           // Merge with any existing overlay to preserve fields not in this update
@@ -569,10 +563,8 @@ export function contactsAPI(app: Hono) {
           } catch {
             await kv.set(`contact_extras:${contactId}`, kvExtras);
           }
-          console.log(`[contacts-api] KV overlay saved for contact ${contactId}:`, Object.keys(kvExtras));
         }
       } catch (kvOverlayErr: any) {
-        console.error(`[contacts-api] Failed to save KV overlay:`, kvOverlayErr.message);
       }
 
       // ── VERIFICATION: re-read the row from DB to confirm write ────────
@@ -582,9 +574,7 @@ export function contactsAPI(app: Hono) {
           .select('id, name, email, phone, company, status, updated_at')
           .eq('id', contactId)
           .single();
-        console.log(`[contacts-api] VERIFY — DB row after update: name="${verifyRow?.name}", email="${verifyRow?.email}", status="${verifyRow?.status}", updated_at="${verifyRow?.updated_at}"`);
       } catch (verifyErr: any) {
-        console.warn(`[contacts-api] Verification read failed:`, verifyErr.message);
       }
 
       // Enrich the response with the price_level from KV if needed
@@ -603,10 +593,12 @@ export function contactsAPI(app: Hono) {
       if (body.ytd_gp_percent !== undefined) enrichedContact.ytd_gp_percent = body.ytd_gp_percent;
       if (body.lyr_sales !== undefined) enrichedContact.lyr_sales = body.lyr_sales;
       if (body.lyr_gp_percent !== undefined) enrichedContact.lyr_gp_percent = body.lyr_gp_percent;
+      if (body.legacy_number !== undefined) enrichedContact.legacy_number = body.legacy_number;
+      if (body.company !== undefined) enrichedContact.company = body.company;
+      if (body.status !== undefined) enrichedContact.status = body.status;
 
       return c.json({ contact: enrichedContact });
     } catch (error: any) {
-      console.error('[contacts-api] Unexpected error during update:', error);
       return c.json({ error: 'Internal server error in contacts update API: ' + error.message }, 500);
     }
   });
@@ -625,7 +617,7 @@ export function contactsAPI(app: Hono) {
         return c.json({ error: 'Missing Authorization header in contacts create API' }, 401);
       }
 
-      const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+      const { data: { user }, error: authError } = await getUserWithRetry(supabase, accessToken);
       if (authError || !user) {
         return c.json({ error: 'Unauthorized in contacts create API: ' + (authError?.message || 'No user') }, 401);
       }
@@ -642,8 +634,6 @@ export function contactsAPI(app: Hono) {
       }
 
       const userOrgId = profile.organization_id;
-
-      console.log(`[contacts-api] POST /contacts — user=${profile.email}, org=${userOrgId}`);
 
       const body = await c.req.json();
 
@@ -681,9 +671,7 @@ export function contactsAPI(app: Hono) {
       const hasPriceLevelInBody = priceLevelValue !== undefined;
       if (hasPriceLevelInBody && hasPLCol) {
         insertPayload.price_level = priceLevelValue;
-        console.log(`[contacts-api] price_level column exists — including in insert: "${priceLevelValue}"`);
       } else if (hasPriceLevelInBody) {
-        console.log(`[contacts-api] price_level column missing — will save "${priceLevelValue}" to KV after insert`);
       }
 
       // Conditional columns
@@ -697,8 +685,6 @@ export function contactsAPI(app: Hono) {
       if (hasFinCols && body.ytd_gp_percent !== undefined) insertPayload.ytd_gp_percent = body.ytd_gp_percent;
       if (hasFinCols && body.lyr_sales !== undefined) insertPayload.lyr_sales = body.lyr_sales;
       if (hasFinCols && body.lyr_gp_percent !== undefined) insertPayload.lyr_gp_percent = body.lyr_gp_percent;
-
-      console.log(`[contacts-api] Insert payload keys:`, Object.keys(insertPayload));
 
       // ── Attempt the insert ──
       let newContact: any = null;
@@ -718,7 +704,6 @@ export function contactsAPI(app: Hono) {
         );
 
         if (isPriceLevelInsertError) {
-          console.warn(`[contacts-api] Stale cache — price_level column gone on insert. Retrying without it.`);
           _hasPriceLevelCol = false;
           _plcolCheckTime = 0;
           delete insertPayload.price_level;
@@ -730,12 +715,10 @@ export function contactsAPI(app: Hono) {
             .single();
 
           if (retryError) {
-            console.error('[contacts-api] Retry insert error:', retryError);
             return c.json({ error: 'Failed to create contact on retry: ' + retryError.message }, 500);
           }
           newContact = retryData;
         } else {
-          console.error('[contacts-api] Insert error:', insertError);
           return c.json({ error: 'Failed to create contact: ' + insertError.message }, 500);
         }
       } else {
@@ -751,13 +734,9 @@ export function contactsAPI(app: Hono) {
         try {
           await kv.set(`contact_price_level:${newContact.id}`, priceLevelValue);
           priceLevelSavedToKV = true;
-          console.log(`[contacts-api] price_level saved to KV for new contact ${newContact.id}`);
         } catch (kvErr: any) {
-          console.error(`[contacts-api] Failed to save price_level to KV:`, kvErr.message);
         }
       }
-
-      console.log(`[contacts-api] Contact created successfully: ${newContact?.id}, name=${newContact?.name}`);
 
       // Enrich response if price_level was saved to KV
       const enrichedContact = { ...newContact };
@@ -784,20 +763,21 @@ export function contactsAPI(app: Hono) {
           if (body.city !== undefined) kvExtras.city = body.city;
           if (body.province !== undefined) kvExtras.province = body.province;
           if (body.postal_code !== undefined) kvExtras.postal_code = body.postal_code;
+          // Legacy & Core field fallbacks
+          if (body.legacy_number !== undefined) kvExtras.legacy_number = body.legacy_number;
+          if (body.company !== undefined) kvExtras.company = body.company;
+          if (body.status !== undefined) kvExtras.status = body.status;
           if (Object.keys(kvExtras).length > 0) {
             await kv.set(`contact_extras:${newContact.id}`, kvExtras);
-            console.log(`[contacts-api] KV overlay saved for new contact ${newContact.id}:`, Object.keys(kvExtras));
             // Also reflect in the response
             Object.assign(enrichedContact, kvExtras);
           }
         } catch (kvOverlayErr: any) {
-          console.error(`[contacts-api] Failed to save KV overlay for new contact:`, kvOverlayErr.message);
         }
       }
 
       return c.json({ contact: enrichedContact }, 201);
     } catch (error: any) {
-      console.error('[contacts-api] Unexpected error during create:', error);
       return c.json({ error: 'Internal server error in contacts create API: ' + error.message }, 500);
     }
   });
@@ -815,7 +795,7 @@ export function contactsAPI(app: Hono) {
         return c.json({ error: 'Missing Authorization header in contacts delete API' }, 401);
       }
 
-      const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+      const { data: { user }, error: authError } = await getUserWithRetry(supabase, accessToken);
       if (authError || !user) {
         return c.json({ error: 'Unauthorized in contacts delete API: ' + (authError?.message || 'No user') }, 401);
       }
@@ -833,8 +813,6 @@ export function contactsAPI(app: Hono) {
       const userRole = profile.role || 'standard_user';
       const userOrgId = profile.organization_id;
       const contactId = c.req.param('id');
-
-      console.log(`[contacts-api] DELETE /contacts/${contactId} — user=${profile.email}, role=${userRole}`);
 
       // Verify the contact exists and belongs to user's org
       const { data: existingContact, error: fetchError } = await supabase
@@ -861,7 +839,6 @@ export function contactsAPI(app: Hono) {
         .eq('id', contactId);
 
       if (deleteError) {
-        console.error('[contacts-api] Delete error:', deleteError);
         return c.json({ error: 'Failed to delete contact: ' + deleteError.message }, 500);
       }
 
@@ -871,10 +848,8 @@ export function contactsAPI(app: Hono) {
         await kv.del(`contact_extras:${contactId}`);
       } catch (_) { /* ignore */ }
 
-      console.log(`[contacts-api] Contact deleted successfully: ${contactId}`);
       return c.json({ success: true });
     } catch (error: any) {
-      console.error('[contacts-api] Unexpected error during delete:', error);
       return c.json({ error: 'Internal server error in contacts delete API: ' + error.message }, 500);
     }
   });

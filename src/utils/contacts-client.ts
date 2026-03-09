@@ -50,19 +50,12 @@ async function resolveOwnerByAccountOwnerNumber(
     .maybeSingle();
 
   if (error) {
-    console.warn('[resolveOwner] Error looking up profile by email:', error.message);
     _ownerProfileCache.set(cacheKey, null);
     return null;
   }
 
   const resolvedId = matchedProfile?.id ?? null;
   _ownerProfileCache.set(cacheKey, resolvedId);
-
-  if (resolvedId) {
-    console.log(`[resolveOwner] Resolved "${normalizedEmail}" → profile ${resolvedId}`);
-  } else {
-    console.log(`[resolveOwner] No profile found for "${normalizedEmail}" in org ${organizationId}`);
-  }
 
   return resolvedId;
 }
@@ -92,7 +85,6 @@ async function getExistingContactColumns(supabase: any): Promise<Set<string>> {
   if (sample && sample.length > 0) {
     _existingColumns = new Set(Object.keys(sample[0]));
     _columnCacheTime = Date.now();
-    console.log('📋 Contact columns (from sample row):', [..._existingColumns].sort().join(', '));
     return _existingColumns;
   }
 
@@ -120,7 +112,6 @@ async function getExistingContactColumns(supabase: any): Promise<Set<string>> {
   }
 
   _columnCacheTime = Date.now();
-  console.log('📋 Contact columns (probed):', [..._existingColumns].sort().join(', '));
   return _existingColumns;
 }
 
@@ -154,10 +145,12 @@ function transformToDbFormat(contactData: any) {
   }
   // Transform priceLevel from camelCase to snake_case for database
   if ('priceLevel' in transformed) {
-    // Guard: ensure price_level is always a non-undefined string so that
-    // JSON.stringify won't silently strip it from the request body.
     const pl = transformed.priceLevel;
-    transformed.price_level = (pl !== undefined && pl !== null && pl !== '') ? pl : getPriceTierLabel(1);
+    if (pl === undefined || pl === null || pl === '') {
+      transformed.price_level = pl === '' ? null : pl;
+    } else {
+      transformed.price_level = pl;
+    }
     delete transformed.priceLevel;
   }
   if ('createdBy' in transformed) {
@@ -168,13 +161,13 @@ function transformToDbFormat(contactData: any) {
   // Transform new fields from camelCase to snake_case
   // Only include if they have actual values (not empty strings or undefined)
   if ('legacyNumber' in transformed) {
-    if (transformed.legacyNumber) {
+    if (transformed.legacyNumber !== undefined && transformed.legacyNumber !== null) {
       transformed.legacy_number = transformed.legacyNumber;
     }
     delete transformed.legacyNumber;
   }
   if ('accountOwnerNumber' in transformed) {
-    if (transformed.accountOwnerNumber) {
+    if (transformed.accountOwnerNumber !== undefined && transformed.accountOwnerNumber !== null) {
       transformed.account_owner_number = transformed.accountOwnerNumber;
     }
     delete transformed.accountOwnerNumber;
@@ -257,6 +250,16 @@ function transformFromDbFormat(contactData: any) {
     delete transformed.owner_id;
   }
   
+  if ('status' in transformed) {
+    const s = transformed.status;
+    if (typeof s === 'string') {
+      const lower = s.toLowerCase();
+      if (lower === 'active') transformed.status = 'Active';
+      else if (lower === 'prospect') transformed.status = 'Prospect';
+      else if (lower === 'inactive') transformed.status = 'Inactive';
+    }
+  }
+
   // Handle price_level with migration logic BEFORE deleting it
   if ('price_level' in transformed) {
     let oldValue = transformed.price_level;
@@ -270,42 +273,54 @@ function transformFromDbFormat(contactData: any) {
       oldValue = oldValue.value;
     }
     
-    console.log(`[contacts-client] transformFromDbFormat price_level: raw="${transformed.price_level}" → unwrapped="${oldValue}" (type=${typeof oldValue})`);
-    
-    // Check if it matches any currently configured tier label
+    // Normalize string for looser matching (e.g. handle em-dash vs en-dash)
     const activeLabels = getActivePriceLevels();
-    if (activeLabels.includes(oldValue)) {
-      transformed.priceLevel = oldValue;
+    let matched = false;
+    
+    if (typeof oldValue === 'string') {
+      const normalizedOld = oldValue.replace(/[-\u2013\u2014]/g, '').replace(/\s+/g, '').toLowerCase();
+      const matchedLabel = activeLabels.find(l => l.replace(/[-\u2013\u2014]/g, '').replace(/\s+/g, '').toLowerCase() === normalizedOld);
+      
+      if (matchedLabel) {
+        transformed.priceLevel = matchedLabel;
+        matched = true;
+      }
     }
-    // Handle legacy names from old system
-    else if (['Wholesale', 'Contractor', 'Premium', 'Standard', 'VIP'].includes(oldValue)) {
-      const legacyMapping: Record<string, string> = {
-        'VIP': getPriceTierLabel(2),
-        'Wholesale': getPriceTierLabel(3),
-        'Contractor': getPriceTierLabel(4),
-        'Premium': getPriceTierLabel(4),
-        'Standard': getPriceTierLabel(4),
-      };
-      transformed.priceLevel = legacyMapping[oldValue] || getPriceTierLabel(1);
-    }
-    // If it's an old tier format (tier1, tier2, etc.), convert it
-    else if (typeof oldValue === 'string' && oldValue.startsWith('tier')) {
-      const tierNumber = parseInt(oldValue.replace('tier', ''));
-      transformed.priceLevel = getPriceTierLabel(tierNumber) || getPriceTierLabel(1);
-    }
-    // If it's a number, convert it
-    else if (typeof oldValue === 'number') {
-      transformed.priceLevel = getPriceTierLabel(oldValue) || getPriceTierLabel(1);
-    }
-    // If it's a non-empty string that didn't match anything, preserve it as-is
-    // (user may have custom labels that aren't in activeLabels yet)
-    else if (typeof oldValue === 'string' && oldValue.trim() !== '') {
-      console.warn(`[contacts-client] price_level "${oldValue}" not in activeLabels [${activeLabels.join(', ')}] — preserving as-is`);
-      transformed.priceLevel = oldValue;
-    }
-    // Default fallback (null, undefined, empty string)
-    else {
-      transformed.priceLevel = getPriceTierLabel(1);
+    
+    if (!matched) {
+      if (activeLabels.includes(oldValue)) {
+        transformed.priceLevel = oldValue;
+      }
+      // Handle legacy names from old system
+      else if (['Wholesale', 'Contractor', 'Premium', 'Standard', 'VIP', 'VIP A', 'VIP B'].includes(oldValue)) {
+        const legacyMapping: Record<string, string> = {
+          'VIP': getPriceTierLabel(2),
+          'VIP A': 'VIPA',
+          'VIP B': 'VIPB',
+          'Wholesale': getPriceTierLabel(3),
+          'Contractor': getPriceTierLabel(4),
+          'Premium': getPriceTierLabel(4),
+          'Standard': getPriceTierLabel(4),
+        };
+        transformed.priceLevel = legacyMapping[oldValue] || getPriceTierLabel(1);
+      }
+      // If it's an old tier format (tier1, tier2, etc.), convert it
+      else if (typeof oldValue === 'string' && oldValue.startsWith('tier')) {
+        const tierNumber = parseInt(oldValue.replace('tier', ''));
+        transformed.priceLevel = getPriceTierLabel(tierNumber) || getPriceTierLabel(1);
+      }
+      // If it's a number, convert it
+      else if (typeof oldValue === 'number') {
+        transformed.priceLevel = getPriceTierLabel(oldValue) || getPriceTierLabel(1);
+      }
+      // If it's a non-empty string that didn't match anything, preserve it as-is
+      else if (typeof oldValue === 'string' && oldValue.trim() !== '') {
+        transformed.priceLevel = oldValue;
+      }
+      // Default fallback
+      else {
+        transformed.priceLevel = getPriceTierLabel(1);
+      }
     }
     delete transformed.price_level;
   } else {
@@ -371,14 +386,11 @@ function transformFromDbFormat(contactData: any) {
 export async function getAllContactsClient(filterByAccountOwner?: string, scope: 'personal' | 'team' = 'personal') {
   try {
     const supabase = createClient();
-
-    console.log(`[contacts-client] Fetching contacts via server endpoint (scope=${scope})...`);
     
     const headers = await getServerHeaders();
 
     // Skip server call if no user token — it will 401 anyway
     if (!headers['X-User-Token']) {
-      console.log('[contacts-client] No user token yet, skipping server endpoint');
       return await getAllContactsClientDirect(scope);
     }
 
@@ -434,8 +446,6 @@ export async function getAllContactsClient(filterByAccountOwner?: string, scope:
     }
 
     const result = await response.json();
-    
-    console.log(`[contacts-client] Server returned ${result.meta?.count || 0} contacts for role=${result.meta?.role}`);
     
     // Transform from DB snake_case to app camelCase
     const transformedData = (result.contacts || []).map(transformFromDbFormat);
@@ -649,9 +659,9 @@ export async function upsertContactByLegacyNumberClient(contactData: any, preloa
       }
     }
     // Location fields — stored as strings, not numbers
-    const locationFields = ['city', 'province', 'postal_code', 'price_level'];
+    const locationFields = ['city', 'province', 'postal_code', 'price_level', 'legacy_number', 'company', 'status'];
     for (const f of locationFields) {
-      if (transformedData[f] !== undefined && transformedData[f] !== null && String(transformedData[f]).trim() !== '') {
+      if (transformedData[f] !== undefined && transformedData[f] !== null) {
         financialExtras[f] = String(transformedData[f]).trim();
       }
     }
@@ -660,29 +670,33 @@ export async function upsertContactByLegacyNumberClient(contactData: any, preloa
       console.log(`[upsert] Captured extras before filtering:`, Object.keys(financialExtras));
     }
 
-    // ── Helper: persist financial extras to KV via server PATCH ────────
+    // ── Helper: persist financial extras to KV directly ────────
     // Called after each DB write to ensure financial data survives
     // even when DB columns don't exist (filterToExistingColumns strips them).
     const persistFinancialExtras = async (contactId: string) => {
       if (!hasFinancialExtras || !contactId) return;
       try {
-        const headers = await getServerHeaders();
-        if (!headers['X-User-Token']) {
-          console.warn('[upsert] No user token — skipping financial extras persistence');
-          return;
-        }
-        const res = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/contacts/${contactId}`,
-          {
-            method: 'PATCH',
-            headers,
-            body: JSON.stringify(financialExtras),
-          }
-        );
-        if (res.ok) {
-          console.log(`[upsert] Financial extras persisted to KV for contact ${contactId}:`, Object.keys(financialExtras));
+        // Fetch existing overlay to merge
+        const { data: existingData } = await supabase
+          .from('kv_store_8405be07')
+          .select('value')
+          .eq('key', `contact_extras:${contactId}`)
+          .maybeSingle();
+          
+        const existing = existingData?.value && typeof existingData.value === 'object' 
+          ? existingData.value 
+          : {};
+          
+        const merged = { ...existing, ...financialExtras };
+
+        const { error: kvError } = await supabase
+          .from('kv_store_8405be07')
+          .upsert({ key: `contact_extras:${contactId}`, value: merged });
+
+        if (kvError) {
+          console.warn(`[upsert] Failed to persist financial extras to KV:`, kvError.message);
         } else {
-          console.warn(`[upsert] Failed to persist financial extras (${res.status}) — data may be lost on reload`);
+          console.log(`[upsert] Financial extras persisted to KV for contact ${contactId}:`, Object.keys(financialExtras));
         }
       } catch (e: any) {
         console.warn(`[upsert] Financial extras persistence error (non-fatal):`, e.message);
@@ -863,6 +877,10 @@ export async function upsertContactByLegacyNumberClient(contactData: any, preloa
       updated_at: new Date().toISOString(),
     }, existingCols);
     
+    if (!insertData.status) {
+      insertData.status = 'Prospect';
+    }
+    
     if (!insertData.email || String(insertData.email).trim() === '') {
       const nameSlug = (contactData.name || 'contact').toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').substring(0, 30);
       insertData.email = `${nameSlug}-${Date.now()}@import.placeholder`;
@@ -877,7 +895,19 @@ export async function upsertContactByLegacyNumberClient(contactData: any, preloa
     if (error) throw error;
 
     console.log('✅ Contact created (via import):', data?.name || data?.email, '| owner:', resolvedOwnerId);
-    await persistFinancialExtras(data.id);
+    
+    // Default price_level for new contacts if not provided
+    if (!financialExtras.price_level) {
+      financialExtras.price_level = getPriceTierLabel(1);
+    }
+    
+    // Re-evaluate hasFinancialExtras since we might have added price_level
+    const shouldPersistExtras = Object.keys(financialExtras).length > 0;
+    
+    if (shouldPersistExtras) {
+      await persistFinancialExtras(data.id);
+    }
+    
     return { contact: transformFromDbFormat(data), action: 'created' as const };
   } catch (error: any) {
     console.error('Error upserting contact:', error.message, error.code, error.details);

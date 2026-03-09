@@ -105,16 +105,6 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
         appointmentsAPI.getAll()
       ]);
 
-      console.log('🔍 DASHBOARD DEBUG:', {
-        user: { id: user.id, role: user.role, org: user.organizationId },
-        rawData: {
-          bidsCount: bidsData?.bids?.length,
-          quotesCount: quotesData?.quotes?.length,
-          bidsRaw: bidsData,
-          quotesRaw: quotesData
-        }
-      });
-
       const allBidsRaw = [...(bidsData.bids || []), ...(quotesData.quotes || [])];
 
       // All data is already filtered to the user's own data by the API (scope=personal default)
@@ -142,8 +132,6 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
       const winRate = totalClosed > 0 ? (wonDeals.length / totalClosed) * 100 : 0;
 
       // 5. Avg Days to Close (Calculated from won deals)
-      console.log('🔍 DEBUG: Won deals for avg calculation:', wonDeals);
-      console.log('🔍 DEBUG: Won deals count:', wonDeals.length);
       
       const totalDaysToClose = wonDeals.reduce((sum, d) => {
         // Use updated_at as proxy for close date if not available
@@ -152,29 +140,18 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
         const createdField = d.created_at || d.createdAt;
         const updatedField = d.updated_at || d.updatedAt || d.created_at || d.createdAt;
         
-        console.log('🔍 DEBUG: Deal dates -', {
-          id: d.id,
-          status: d.status,
-          created: createdField,
-          updated: updatedField
-        });
-        
         const created = new Date(createdField).getTime();
         const closed = new Date(updatedField).getTime();
         
         if (isNaN(created) || isNaN(closed)) {
-          console.log('⚠️ Invalid dates for deal:', d.id);
           return sum;
         }
         
         const days = Math.max(0, (closed - created) / (1000 * 60 * 60 * 24));
-        console.log('🔍 DEBUG: Days to close for deal', d.id, ':', days);
         return sum + days;
       }, 0);
       
       const avgDaysToClose = wonDeals.length > 0 ? totalDaysToClose / wonDeals.length : 0;
-      
-      console.log('📊 Avg Days to Close - Won deals:', wonDeals.length, 'Avg days:', avgDaysToClose.toFixed(1));
 
       // 6. Weighted Value (Pipeline Value * Probability)
       const weightedValue = openBids.reduce((sum, b) => {
@@ -210,8 +187,6 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
       }).length;
       const avgOpenDealAge = validDealsCount > 0 ? totalAge / validDealsCount : 0;
       
-      console.log('📊 Avg Open Deal Age - Open bids:', openBids.length, 'Valid:', validDealsCount, 'Avg days:', avgOpenDealAge.toFixed(1));
-      
       setMetrics({
         totalSales,
         winRate,
@@ -228,20 +203,13 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
       // 1. Sales Pipeline (Donut) - Deals by Status
       const statusCounts: Record<string, number> = {};
       
-      console.log('📊 About to count pipeline data:');
-      console.log('  - allBids.length:', allBids.length);
-      console.log('  - allBids data:', allBids);
-      
       // Count Deals by status
       allBids.forEach((b: any) => {
         const status = b.status || 'draft';
         // Normalize 'sent' and 'viewed' to 'Active' for simpler chart if desired, or keep granular
         const displayName = status.charAt(0).toUpperCase() + status.slice(1);
         statusCounts[displayName] = (statusCounts[displayName] || 0) + 1;
-        console.log('  - Adding deal:', status, '->', displayName);
       });
-      
-      console.log('📊 Pipeline Status Counts:', statusCounts);
       
       const pipelineData = Object.entries(statusCounts)
         .filter(([name, value]) => name && value > 0)
@@ -250,8 +218,6 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
           name, 
           value 
         }));
-      
-      console.log('📊 Pipeline Chart Data:', pipelineData);
       
       // No fallback data - show actual database data only
 
@@ -325,7 +291,6 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
       setAppointments(appointmentsData.appointments || []);
 
     } catch (error) {
-      console.error('Error loading dashboard:', error);
       toast.error('Failed to load dashboard data');
     } finally {
       setIsLoading(false);

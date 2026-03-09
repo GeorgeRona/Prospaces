@@ -89,8 +89,6 @@ export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
       if (error) throw error;
 
       if (dueJobs && dueJobs.length > 0) {
-        console.log(`⏰ Found ${dueJobs.length} due job(s) to process`);
-        
         for (const job of dueJobs) {
           await processJob(job);
         }
@@ -99,7 +97,7 @@ export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
         loadJobs();
       }
     } catch (error: any) {
-      console.error('Failed to check for due jobs:', error);
+      // Failed to check due jobs
     }
   };
 
@@ -107,8 +105,6 @@ export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
     const supabase = createClient();
     
     try {
-      console.log(`🚀 Processing job ${job.id}: ${job.job_type} ${job.data_type}`);
-
       // Mark as processing
       await supabase
         .from('scheduled_jobs')
@@ -137,8 +133,6 @@ export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
 
       toast.success(`${job.job_type === 'import' ? 'Import' : 'Export'} completed: ${recordCount} records`);
     } catch (error: any) {
-      console.error(`Failed to process job ${job.id}:`, error);
-
       // Mark as failed
       await supabase
         .from('scheduled_jobs')
@@ -210,43 +204,51 @@ export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
     const errors: string[] = [];
 
     if (job.data_type === 'contacts') {
+      // Pre-load auth to avoid triggering Auth API connection resets during large batches
+      const supabase = createClient();
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      let preloadedAuth: any = undefined;
+      if (authUser) {
+        const { ensureUserProfile } = await import('../utils/ensure-profile');
+        const profile = await ensureUserProfile(authUser.id);
+        preloadedAuth = { userId: authUser.id, profile };
+      }
+
       for (const record of data) {
         try {
-          // Validate required fields
-          if (!record.name || !record.email) {
-            throw new Error('Missing required fields (name, email)');
-          }
-
           // Clean the contact data
           const cleanContact: any = {
-            name: record.name,
-            email: record.email,
-            phone: record.phone || '',
-            company: record.company || '',
-            status: record.status || 'Prospect',
-            priceLevel: record.priceLevel || getPriceTierLabel(1),
+            name: record.name ? String(record.name).trim() : '',
           };
 
-          // Add optional fields
-          if (record.address) cleanContact.address = record.address;
-          if (record.notes) cleanContact.notes = record.notes;
-          if (record.legacyNumber) cleanContact.legacyNumber = record.legacyNumber;
-          if (record.accountOwnerNumber) cleanContact.accountOwnerNumber = record.accountOwnerNumber;
-          if (record.ptdSales) cleanContact.ptdSales = parseFloat(record.ptdSales);
-          if (record.ptdGpPercent) cleanContact.ptdGpPercent = parseFloat(record.ptdGpPercent);
-          if (record.ytdSales) cleanContact.ytdSales = parseFloat(record.ytdSales);
-          if (record.ytdGpPercent) cleanContact.ytdGpPercent = parseFloat(record.ytdGpPercent);
-          if (record.lyrSales) cleanContact.lyrSales = parseFloat(record.lyrSales);
-          if (record.lyrGpPercent) cleanContact.lyrGpPercent = parseFloat(record.lyrGpPercent);
-
-          // Check if contact exists by email
-          const existing = await contactsAPI.getByEmail(cleanContact.email);
+          const stringFields = [
+            'email', 'phone', 'company', 'status', 'priceLevel', 'address', 'city', 
+            'province', 'postalCode', 'notes', 'legacyNumber', 'accountOwnerNumber'
+          ];
           
-          if (existing) {
-            await contactsAPI.update(existing.id, cleanContact);
-          } else {
-            await contactsAPI.create(cleanContact);
-          }
+          const numericFields = [
+            'ptdSales', 'ptdGpPercent', 'ytdSales', 'ytdGpPercent', 'lyrSales', 'lyrGpPercent'
+          ];
+
+          stringFields.forEach(field => {
+            if (record[field] !== undefined) {
+              cleanContact[field] = record[field] != null ? String(record[field]).trim() : '';
+            }
+          });
+
+          numericFields.forEach(field => {
+            if (record[field] !== undefined) {
+              if (record[field] === null || record[field] === '') {
+                cleanContact[field] = null;
+              } else {
+                const val = parseFloat(record[field]);
+                cleanContact[field] = !isNaN(val) ? val : null;
+              }
+            }
+          });
+
+          // Use the modern upsert API (handles legacy number matching, custom column detection, and auth context)
+          await contactsAPI.upsertByLegacyNumber(cleanContact, preloadedAuth);
 
           successCount++;
         } catch (error: any) {
@@ -323,7 +325,7 @@ export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
     }
 
     if (errors.length > 0) {
-      console.warn('Import completed with errors:', errors);
+      // Import completed with errors
     }
 
     return successCount;
@@ -344,7 +346,7 @@ export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
 
       setJobs(data || []);
     } catch (error: any) {
-      console.error('Failed to load scheduled jobs:', error);
+      // Failed to load scheduled jobs
     } finally {
       setIsLoading(false);
     }

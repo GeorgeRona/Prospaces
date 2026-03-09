@@ -18,7 +18,7 @@ export function Logo({ size = 'md', className = '' }: LogoProps) {
     <img 
       src={logoImage} 
       alt="ProSpaces CRM Logo" 
-      className={`${sizeClasses[size]} ${className} object-contain`}
+      className={`${sizeClasses[size]} ${className} object-contain mix-blend-multiply bg-transparent`}
     />
   );
 }

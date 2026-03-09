@@ -36,9 +36,9 @@ export function createClient() {
   const supabaseKey = envKey || publicAnonKey;
 
   if (!envUrl) {
-    console.log('Using default Supabase URL from info.tsx');
+    // default
   } else {
-    console.log('Using Supabase URL from environment variables');
+    // env
   }
 
   supabaseClient = createSupabaseClient<Database>(supabaseUrl, supabaseKey, {

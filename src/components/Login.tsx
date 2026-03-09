@@ -62,7 +62,6 @@ export function Login({ onLogin, onBack }: LoginProps) {
 
       setSuccessMessage('✅ Confirmation email sent! Please check your inbox and spam folder.');
     } catch (err: any) {
-      console.error('Resend email error:', err);
       setError(`Failed to resend confirmation email: ${err.message}`);
     } finally {
       setIsResendingEmail(false);
@@ -101,7 +100,6 @@ export function Login({ onLogin, onBack }: LoginProps) {
       setSuccessMessage('✅ Password reset email sent! Please check your inbox (and spam folder) for the reset link.');
       setShowForgotPassword(false);
     } catch (err: any) {
-      console.error('Password reset error:', err);
       setError(`Failed to send password reset email: ${err.message}`);
     } finally {
       setIsResetLoading(false);
@@ -115,8 +113,6 @@ export function Login({ onLogin, onBack }: LoginProps) {
 
     try {
       const supabase = createClient();
-      
-      console.log('🔐 Attempting sign in for:', email);
       
       // Use direct Supabase Auth instead of Edge Function
       const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
@@ -143,7 +139,6 @@ export function Login({ onLogin, onBack }: LoginProps) {
             if (existingProfile) {
               // Profile exists — the issue may be an unconfirmed email in Supabase Auth.
               // Try to auto-confirm via server endpoint, then retry sign-in once.
-              console.log('🔧 Profile exists but login failed. Attempting auto-confirm email fix...');
               try {
                 const confirmResp = await fetch(
                   `${getSupabaseUrl()}/functions/v1/make-server-8405be07/confirm-email`,
@@ -154,12 +149,10 @@ export function Login({ onLogin, onBack }: LoginProps) {
                   }
                 );
                 if (confirmResp.ok) {
-                  console.log('✅ Email confirmed server-side. Retrying sign-in...');
                   // Retry sign-in after confirming email
                   const { data: retryData, error: retryError } = await supabase.auth.signInWithPassword({ email, password });
                   if (!retryError && retryData?.session && retryData?.user) {
                     // Success! Replace signInData reference by re-assigning and continuing
-                    console.log('✅ Retry sign-in successful after email confirmation fix!');
                     // We can't reassign const, so we throw a special marker to re-run
                     // Instead, just proceed inline with the retry data
                     Object.assign(signInData || {}, retryData);
@@ -170,7 +163,6 @@ export function Login({ onLogin, onBack }: LoginProps) {
                 }
               } catch (confirmErr: any) {
                 if (confirmErr?.__retrySuccess) throw confirmErr;
-                console.warn('⚠️ Auto-confirm attempt failed:', confirmErr);
               }
 
               if (!existingProfile.email_confirmed) {
@@ -196,14 +188,11 @@ export function Login({ onLogin, onBack }: LoginProps) {
         throw new Error('Invalid response from server');
       }
 
-      console.log('✅ Sign in successful!')
-
       // Always call /profiles/ensure first — it finds or creates the profile,
       // and auto-fixes org mismatches and missing needs_password_change from admin metadata
       let profile: any = null;
 
       try {
-        console.log('📋 Calling /profiles/ensure for profile resolution...');
         const serverResp = await fetch(
           `${getSupabaseUrl()}/functions/v1/make-server-8405be07/profiles/ensure`,
           {
@@ -215,19 +204,16 @@ export function Login({ onLogin, onBack }: LoginProps) {
           }
         );
         const serverResult = await serverResp.json();
-        console.log('Server /profiles/ensure response:', serverResp.status, serverResult);
 
         if (serverResp.ok && serverResult.profile) {
           profile = serverResult.profile;
-          console.log('✅ Profile resolved via server:', profile.id, 'org:', profile.organization_id, 'needs_pw:', profile.needs_password_change);
 
           // If server created a new profile with a new org, set org mode to single
           if (serverResult.created) {
             try {
               await setOrgMode(profile.organization_id, 'single');
-              console.log('✅ Org mode set to single for new self-registered org');
             } catch (modeErr) {
-              console.warn('⚠️ Failed to set org mode to single (non-critical):', modeErr);
+              // Ignore
             }
           }
         } else if (serverResp.ok && serverResult.profileId) {
@@ -239,18 +225,14 @@ export function Login({ onLogin, onBack }: LoginProps) {
             .maybeSingle();
           if (refetched) {
             profile = refetched;
-            console.log('✅ Profile re-fetched after server ensure:', profile.id);
           }
-        } else {
-          console.warn('⚠️ Server /profiles/ensure did not return profile:', serverResult.error);
         }
       } catch (ensureErr) {
-        console.warn('Server-side profile ensure failed, falling back to client-side fetch:', ensureErr);
+        // Fall back gracefully
       }
 
       // Fallback: fetch profile directly from client
       if (!profile) {
-        console.log('📋 Falling back to client-side profile fetch...');
         const { data: clientProfile } = await supabase
           .from('profiles')
           .select('*')
@@ -263,13 +245,8 @@ export function Login({ onLogin, onBack }: LoginProps) {
         throw new Error('Could not load or create your user profile. Please contact your administrator.');
       }
 
-      console.log('🔐 needs_password_change value:', profile.needs_password_change);
-      console.log('🔐 needs_password_change type:', typeof profile.needs_password_change);
-
       // Check if user needs to change password
       if (profile.needs_password_change) {
-        console.log('⚠️ User needs to change password');
-        console.log('🔄 Setting up Change Password dialog...');
         const user: User = {
           id: signInData.user.id,
           email: signInData.user.email || email,
@@ -278,13 +255,9 @@ export function Login({ onLogin, onBack }: LoginProps) {
           organization_id: profile.organization_id,
           organizationId: profile.organization_id,
         };
-        console.log('👤 Pending user object:', user);
         setPendingUser({ user, token: signInData.session.access_token });
-        console.log('🎬 Setting showChangePassword to TRUE');
         setShowChangePassword(true);
-        console.log('⏸️ Setting loading to FALSE');
         setIsLoading(false);
-        console.log('🛑 RETURNING EARLY - Should NOT call onLogin');
         return;
       }
 
@@ -310,16 +283,14 @@ export function Login({ onLogin, onBack }: LoginProps) {
           .from('profiles')
           .update({ last_login: new Date().toISOString(), status: 'active' })
           .eq('id', signInData.user.id);
-        console.log('✅ last_login and status updated');
       } catch (lastLoginErr) {
-        console.warn('⚠️ Failed to update last_login (non-critical):', lastLoginErr);
+        // Ignore
       }
 
       onLogin(user, signInData.session.access_token);
     } catch (err: any) {
       // Handle retry-success from auto-confirm flow: re-run the sign-in success path
       if (err?.__retrySuccess && err.signInData) {
-        console.log('🔄 Processing retry-success after email confirmation fix');
         try {
           const retrySignIn = err.signInData;
           let { data: profile } = await supabase
@@ -331,7 +302,6 @@ export function Login({ onLogin, onBack }: LoginProps) {
           if (!profile) {
             // Delegate profile creation to server-side endpoint (uses service role key,
             // properly handles org resolution, and sets needs_password_change from metadata)
-            console.log('🔄 Retry path: Profile not found. Delegating to server-side /profiles/ensure...');
             try {
               const serverResp = await fetch(
                 `${getSupabaseUrl()}/functions/v1/make-server-8405be07/profiles/ensure`,
@@ -346,7 +316,6 @@ export function Login({ onLogin, onBack }: LoginProps) {
               const serverResult = await serverResp.json();
               if (serverResp.ok && serverResult.profile) {
                 profile = serverResult.profile;
-                console.log('✅ Profile resolved via server in retry path:', profile.id);
               } else if (serverResp.ok && serverResult.profileId) {
                 const { data: refetched } = await supabase
                   .from('profiles')
@@ -356,7 +325,7 @@ export function Login({ onLogin, onBack }: LoginProps) {
                 if (refetched) profile = refetched;
               }
             } catch (ensureErr) {
-              console.warn('Server-side profile ensure failed in retry path:', ensureErr);
+              // Ignore
             }
           }
 
@@ -388,22 +357,12 @@ export function Login({ onLogin, onBack }: LoginProps) {
           onLogin(user, retrySignIn.session.access_token);
           return;
         } catch (retryErr: any) {
-          console.error('Error in retry-success path:', retryErr);
           setError('Sign in failed after email confirmation fix. Please try again.');
           setIsLoading(false);
           return;
         }
       }
 
-      // Only log unexpected errors to console to avoid alarm
-      if (err.message !== 'INVALID_CREDENTIALS' && 
-          err.message !== 'EMAIL_NOT_CONFIRMED' && 
-          err.message !== 'EMAIL_NOT_CONFIRMED_OR_WRONG_PASSWORD') {
-        console.error('Sign in error:', err);
-      } else {
-        console.log('Sign in failed (expected):', err.message);
-      }
-      
       // Handle specific error types
       if (err.message === 'EMAIL_NOT_CONFIRMED') {
         setError('Email not confirmed. Please check your inbox for the confirmation link.');
@@ -520,7 +479,6 @@ export function Login({ onLogin, onBack }: LoginProps) {
       if (profileError) {
         // If profile already exists (duplicate id or email), fetch it instead
         if (profileError.code === '23505') {
-          console.log('Profile already exists during sign-up, fetching it...');
           const { data: existingProfile, error: fetchError } = await supabase
             .from('profiles')
             .select('*')
@@ -528,7 +486,6 @@ export function Login({ onLogin, onBack }: LoginProps) {
             .single();
           
           if (fetchError || !existingProfile) {
-            console.error('Failed to fetch existing profile:', fetchError);
             // Try fetching by email as fallback
             const { data: profileByEmail, error: emailFetchError } = await supabase
               .from('profiles')
@@ -538,11 +495,9 @@ export function Login({ onLogin, onBack }: LoginProps) {
             
             if (!emailFetchError && profileByEmail) {
               userProfile = profileByEmail;
-              console.log('✅ Using existing profile (found by email):', userProfile);
             }
           } else {
             userProfile = existingProfile;
-            console.log('✅ Using existing profile (found by id):', userProfile);
           }
         }
       }
@@ -563,16 +518,8 @@ export function Login({ onLogin, onBack }: LoginProps) {
       });
 
       if (signInError) {
-        console.log('========================================');
-        console.log('🔍 SIGNUP COMPLETED BUT AUTO-SIGNIN FAILED');
-        console.log('Error message:', signInError.message);
-        console.log('Error name:', signInError.name);
-        console.log('This usually means EMAIL CONFIRMATION is required');
-        console.log('========================================');
-        
         // Check if it's an email confirmation error
         if (signInError.message.toLowerCase().includes('email not confirmed')) {
-          console.log('✅ Confirmed: Email confirmation is required');
           setSuccessMessage('✅ Account created! 📧 Please check your email inbox (and spam folder) for a confirmation link. You must click the link before you can sign in.');
           setActiveTab('signin');
           setIsLoading(false);
@@ -581,14 +528,12 @@ export function Login({ onLogin, onBack }: LoginProps) {
         
         // Check if it's invalid credentials (this is the most common case when email confirmation is required)
         if (signInError.message.includes('Invalid login credentials')) {
-          console.log('✅ Signup successful but cannot sign in yet - email confirmation likely required');
           setSuccessMessage('✅ Account created! 📧 IMPORTANT: Your Supabase project requires email confirmation. Check your email inbox (and spam folder) for a confirmation link. You MUST click the link before you can sign in.');
           setActiveTab('signin');
           setIsLoading(false);
           return;
         }
         
-        console.log('✅ Signup successful but sign-in failed for another reason');
         setSuccessMessage('✅ Account created! Please check your email for a confirmation link, then try signing in.');
         setActiveTab('signin');
         setIsLoading(false);
@@ -617,7 +562,6 @@ export function Login({ onLogin, onBack }: LoginProps) {
 
       onLogin(user, signInData.session.access_token);
     } catch (err: any) {
-      console.error('Sign up error:', err);
       
       // Check if it's a duplicate email error
       if (err.message && (err.message.includes('already been registered') || err.message.includes('already registered'))) {

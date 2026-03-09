@@ -46,8 +46,6 @@ export function BackgroundJobProcessor({ user, onNavigate }: BackgroundJobProces
     const supabase = createClient();
 
     try {
-      console.log(`[JobProcessor] Processing job ${job.id} (${job.data_type})`);
-
       // Mark as processing
       await supabase
         .from('scheduled_jobs')
@@ -60,6 +58,17 @@ export function BackgroundJobProcessor({ user, onNavigate }: BackgroundJobProces
       let failCount = 0;
       const errors: string[] = [];
       const dataType = job.data_type;
+
+      // Pre-load auth for contacts batch processing
+      let preloadedAuth: any = undefined;
+      if (dataType === 'contacts') {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (authUser) {
+          const { ensureUserProfile } = await import('../utils/ensure-profile');
+          const profile = await ensureUserProfile(authUser.id);
+          preloadedAuth = { userId: authUser.id, profile };
+        }
+      }
 
       // Process in batches of 100
       const batchSize = 100;
@@ -105,41 +114,43 @@ export function BackgroundJobProcessor({ user, onNavigate }: BackgroundJobProces
                 await inventoryAPI.create(inventoryData);
               }
             } else if (dataType === 'contacts') {
-              if (!record.name || !record.email) {
-                throw new Error('Missing required fields: name and email are required');
-              }
-
-              const contactData = {
-                name: record.name,
-                email: record.email,
-                phone: record.phone || '',
-                company: record.company || '',
-                status: record.status || 'Prospect',
-                priceLevel: record.priceLevel || getPriceTierLabel(1),
-                address: record.address || '',
-                notes: record.notes || '',
-                legacyNumber: record.legacyNumber || '',
-                accountOwnerNumber: record.accountOwnerNumber || '',
-                ptdSales: parseFloat(record.ptdSales) || 0,
-                ptdGpPercent: parseFloat(record.ptdGpPercent) || 0,
-                ytdSales: parseFloat(record.ytdSales) || 0,
-                ytdGpPercent: parseFloat(record.ytdGpPercent) || 0,
-                lyrSales: parseFloat(record.lyrSales) || 0,
-                lyrGpPercent: parseFloat(record.lyrGpPercent) || 0,
+              // Clean the contact data
+              const cleanContact: any = {
+                name: record.name ? String(record.name).trim() : '',
               };
 
-              const { data: existing } = await supabase
-                .from('contacts')
-                .select('id')
-                .eq('organization_id', user.organizationId)
-                .eq('email', record.email)
-                .maybeSingle();
+              const stringFields = [
+                'email', 'phone', 'company', 'status', 'priceLevel', 'address', 'city', 
+                'province', 'postalCode', 'notes', 'legacyNumber', 'accountOwnerNumber'
+              ];
+              
+              const numericFields = [
+                'ptdSales', 'ptdGpPercent', 'ytdSales', 'ytdGpPercent', 'lyrSales', 'lyrGpPercent'
+              ];
 
-              if (existing) {
-                await contactsAPI.updateContact(existing.id, contactData);
-              } else {
-                await contactsAPI.createContact(contactData);
-              }
+              stringFields.forEach(field => {
+                if (record[field] !== undefined) {
+                  if (record[field] === null || record[field] === '') {
+                    cleanContact[field] = null;
+                  } else {
+                    cleanContact[field] = String(record[field]).trim();
+                  }
+                }
+              });
+
+              numericFields.forEach(field => {
+                if (record[field] !== undefined) {
+                  if (record[field] === null || record[field] === '') {
+                    cleanContact[field] = null;
+                  } else {
+                    const val = parseFloat(record[field]);
+                    cleanContact[field] = !isNaN(val) ? val : null;
+                  }
+                }
+              });
+
+              // Use the modern upsert API (handles legacy number matching, custom column detection, and auth context)
+              await contactsAPI.upsertByLegacyNumber(cleanContact, preloadedAuth);
             } else if (dataType === 'bids') {
               if (!record.clientName || !record.projectName) {
                 throw new Error('Missing required fields: clientName and projectName are required');
@@ -191,8 +202,6 @@ export function BackgroundJobProcessor({ user, onNavigate }: BackgroundJobProces
         })
         .eq('id', job.id);
 
-      console.log(`[JobProcessor] Job ${job.id} completed: ${successCount} imported, ${failCount} failed`);
-
       // Notify user
       const dataTypeLabel = dataType === 'inventory' ? 'items' : dataType === 'contacts' ? 'contacts' : 'bids';
       toast.success(`Import Complete!`, {
@@ -213,8 +222,6 @@ export function BackgroundJobProcessor({ user, onNavigate }: BackgroundJobProces
         });
       }
     } catch (error: any) {
-      console.error(`[JobProcessor] Job ${job.id} failed:`, error);
-
       await supabase
         .from('scheduled_jobs')
         .update({
@@ -255,15 +262,11 @@ export function BackgroundJobProcessor({ user, onNavigate }: BackgroundJobProces
         const msg = error.message || '';
         if (msg.includes('Failed to fetch') || error.code === '42P01' || error.code === 'PGRST205') {
           // Transient — silently retry on next poll
-        } else {
-          console.error('[JobProcessor] Error querying due jobs:', error);
         }
         return;
       }
 
       if (dueJobs && dueJobs.length > 0) {
-        console.log(`[JobProcessor] Found ${dueJobs.length} due job(s) to process`);
-
         for (const job of dueJobs as JobRow[]) {
           if (job.job_type === 'import') {
             await processImportJob(job);
@@ -274,7 +277,7 @@ export function BackgroundJobProcessor({ user, onNavigate }: BackgroundJobProces
         }
       }
     } catch (error: any) {
-      console.error('[JobProcessor] Unexpected error:', error);
+      // Suppress unexpected errors
     } finally {
       processingRef.current = false;
     }

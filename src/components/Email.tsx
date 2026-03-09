@@ -80,11 +80,9 @@ async function checkEdgeFunctionAvailability(): Promise<boolean> {
       { headers: { 'Authorization': `Bearer ${publicAnonKey}` } }
     );
     const available = res.ok;
-    console.log(`[Email] Server health check: ${available ? 'available' : 'unavailable'} (status ${res.status})`);
     backendAvailabilityCache = { checked: true, available, timestamp: Date.now() };
     return available;
   } catch (error: any) {
-    console.log('[Email] Server health check error:', error.message);
     backendAvailabilityCache = { checked: true, available: false, timestamp: Date.now() };
     return false;
   }
@@ -185,7 +183,6 @@ export function Email({ user }: EmailProps) {
 
     // Set up interval for auto-sync every 5 minutes
     const syncInterval = setInterval(() => {
-      console.log('[Email] 🔄 Auto-syncing emails (5-minute interval)');
       handleSync();
     }, 5 * 60 * 1000); // 5 minutes in milliseconds
 
@@ -199,7 +196,6 @@ export function Email({ user }: EmailProps) {
   useEffect(() => {
     const preloaded = getPreloadedAccounts();
     if (preloaded && preloaded.length > 0) {
-      console.log(`[Email] Using ${preloaded.length} preloaded account(s) from login`);
       const transformed: EmailAccount[] = preloaded.map(a => ({
         id: a.id,
         provider: a.provider,
@@ -246,13 +242,11 @@ export function Email({ user }: EmailProps) {
     // If nothing selected, pick the first account
     if (!selectedAccount) {
       setSelectedAccount(accounts[0].id);
-      console.log(`[Email] Auto-selected first account: ${accounts[0].email}`);
       return;
     }
     // If the persisted account no longer exists in the loaded list, reset to first
     if (!accounts.find(a => a.id === selectedAccount)) {
       setSelectedAccount(accounts[0].id);
-      console.log(`[Email] Persisted account not found, switched to: ${accounts[0].email}`);
     }
   }, [accounts]);
 
@@ -260,7 +254,6 @@ export function Email({ user }: EmailProps) {
     try {
       const headers = await getServerHeaders();
       if (!headers['X-User-Token']) {
-        console.log('[Email] No session, skipping account load');
         setIsLoading(false);
         return;
       }
@@ -271,7 +264,6 @@ export function Email({ user }: EmailProps) {
       );
       if (!res.ok) {
         const errBody = await res.text();
-        console.error('[Email] Error loading accounts from server:', res.status, errBody);
         return;
       }
       const json = await res.json();
@@ -279,7 +271,6 @@ export function Email({ user }: EmailProps) {
       const error = json.error;
 
       if (error) {
-        console.error('[Email] Error loading accounts:', error);
         return;
       }
 
@@ -306,18 +297,11 @@ export function Email({ user }: EmailProps) {
         }));
 
         setAccounts(transformedAccounts);
-        console.log(`[Email] Loaded ${transformedAccounts.length} account(s) from server`);
-        
-        // Debug: Log account IDs
-        const accountIds = transformedAccounts.map(a => `${a.id} (${a.email})`);
-        console.log(`[Email] Account IDs:`, accountIds);
       } else {
         // No accounts found — clear the list
         setAccounts([]);
-        console.log('[Email] No accounts found on server');
       }
     } catch (error) {
-      console.error('[Email] Failed to load accounts:', error);
     } finally {
       setIsLoading(false);
     }
@@ -340,7 +324,6 @@ export function Email({ user }: EmailProps) {
         .limit(100);
 
       if (error) {
-        console.error('[Email] Error loading emails:', error);
         return;
       }
 
@@ -365,14 +348,8 @@ export function Email({ user }: EmailProps) {
         }));
 
         setEmails(transformedEmails);
-        console.log(`[Email] Loaded ${transformedEmails.length} email(s) from Supabase`);
-        
-        // Debug: Log unique account IDs in emails
-        const uniqueAccountIds = [...new Set(transformedEmails.map(e => e.accountId))];
-        console.log(`[Email] Unique account IDs in emails:`, uniqueAccountIds);
       }
     } catch (error) {
-      console.error('[Email] Failed to load emails:', error);
     }
   };
 
@@ -407,9 +384,7 @@ export function Email({ user }: EmailProps) {
         const errBody = await res.json().catch(() => ({ error: 'Unknown server error' }));
         throw new Error(errBody.error || `Server returned ${res.status}`);
       }
-      console.log('[Email] Account saved via server (bypasses RLS)');
     } catch (error) {
-      console.error('[Email] Failed to save account:', error);
       throw error;
     }
   };
@@ -446,10 +421,7 @@ export function Email({ user }: EmailProps) {
       if (error) {
         throw error;
       }
-
-      console.log('[Email] Email saved to Supabase');
     } catch (error) {
-      console.error('[Email] Failed to save email:', error);
       // Don't throw - we'll still save to localStorage as fallback
     }
   };
@@ -463,17 +435,11 @@ export function Email({ user }: EmailProps) {
       );
       if (!res.ok) {
         const errBody = await res.json().catch(() => ({ error: 'Unknown error' }));
-        console.error('[Email] Server delete failed:', res.status, errBody);
         throw new Error(errBody.error || `Server returned ${res.status}`);
       }
       const result = await res.json();
-      console.log('[Email] Server delete response:', JSON.stringify(result));
-      if (!result.deletedFromDb && !result.deletedFromKv) {
-        console.warn('[Email] Server reported nothing was deleted — account may have ghost entries');
-      }
       return true;
     } catch (error) {
-      console.error('[Email] Failed to delete account:', error);
       throw error;
     }
   };
@@ -496,16 +462,13 @@ export function Email({ user }: EmailProps) {
       if (error) {
         // Table might not exist yet
         if (error.code === '42P01') {
-          console.log('[Email] Custom folders table does not exist yet. Run migration to create it.');
           return;
         }
         throw error;
       }
 
       setCustomFolders(data || []);
-      console.log(`[Email] Loaded ${data?.length || 0} custom folders`);
     } catch (error) {
-      console.error('[Email] Failed to load custom folders:', error);
     }
   };
 
@@ -549,7 +512,6 @@ export function Email({ user }: EmailProps) {
       setIsFolderDialogOpen(false);
       toast.success(`Folder "${data.name}" created!`);
     } catch (error: any) {
-      console.error('[Email] Failed to create folder:', error);
       toast.error(`Failed to create folder: ${error.message}`);
     }
   };
@@ -599,7 +561,6 @@ export function Email({ user }: EmailProps) {
 
       toast.success(`Folder "${folderName}" deleted`);
     } catch (error: any) {
-      console.error('[Email] Failed to delete folder:', error);
       toast.error(`Failed to delete folder: ${error.message}`);
     }
   };
@@ -632,9 +593,6 @@ export function Email({ user }: EmailProps) {
         email.to.toLowerCase().includes(query) ||
         email.body.toLowerCase().includes(query);
     });
-  
-  // Debug: Log filtering info
-  console.log(`[Email] Total emails: ${emails.length}, Current folder: ${currentFolder}, Filtered: ${filteredEmails.length}, Selected account: ${selectedAccount}`);
 
   const handleSendEmail = async () => {
     if (!selectedAccount) {
@@ -675,7 +633,6 @@ export function Email({ user }: EmailProps) {
 
       // Use consolidated server endpoint for sending (supports Outlook + Gmail)
       if (currentAccount.provider === 'outlook' || currentAccount.provider === 'gmail') {
-        console.log(`[Email] Using consolidated send for ${currentAccount.provider}:`, selectedAccount);
         
         try {
           const sendHeaders = await getServerHeaders();
@@ -698,15 +655,12 @@ export function Email({ user }: EmailProps) {
             throw new Error(sendData.error || `Server returned ${sendRes.status}`);
           }
 
-          console.log('[Email] Email sent successfully via consolidated server');
-          
           await loadEmailsFromSupabase();
           setComposeEmail({ to: '', subject: '', body: '', linkTo: '' });
           setIsComposeOpen(false);
           toast.success('Email sent successfully!');
           return;
         } catch (sendError: any) {
-          console.error('[Email] Send failed:', sendError);
           toast.error(`Failed to send email: ${sendError.message}`);
           
           // Save as draft
@@ -735,13 +689,11 @@ export function Email({ user }: EmailProps) {
 
       // Check if we have SMTP credentials for direct sending
       if (currentAccount.smtpConfig) {
-        console.log('[Email] Checking if Edge Function is available...');
         
         // Check if Edge Function is deployed before attempting to send
         const isFunctionAvailable = await checkEdgeFunctionAvailability();
         
         if (!isFunctionAvailable) {
-          console.log('[Email] Edge Function not available, skipping to demo mode');
           toast.error(
             'Email sending function not deployed yet. ' +
             'Deploy it via Supabase Dashboard at: ' +
@@ -751,7 +703,6 @@ export function Email({ user }: EmailProps) {
           
           // Fall through to demo mode
         } else {
-          console.log('[Email] Edge Function available, attempting SMTP send...');
           
           // Validate SMTP config before sending
           if (!currentAccount.smtpConfig.host || !currentAccount.smtpConfig.port || 
@@ -772,11 +723,6 @@ export function Email({ user }: EmailProps) {
               password: currentAccount.smtpConfig.password,
             },
           };
-          
-          console.log('[Email] Sending payload:', {
-            ...payload,
-            smtpConfig: { ...payload.smtpConfig, password: '***' }
-          });
           
           // Try to use simple-send-email function with SMTP credentials
           try {
@@ -800,23 +746,18 @@ export function Email({ user }: EmailProps) {
               body: JSON.stringify(payload),
             });
 
-            console.log('[Email] Fetch response status:', fetchResponse.status);
-            
             if (!fetchResponse.ok) {
               const errorText = await fetchResponse.text();
-              console.error('[Email] Fetch error:', errorText);
               throw new Error(`HTTP ${fetchResponse.status}: ${errorText}`);
             }
 
             const responseData = await fetchResponse.json();
-            console.log('[Email] Response data:', responseData);
 
             if (!responseData.success) {
               throw new Error(responseData.error || 'Failed to send email');
             }
 
             // Success! Email sent via SMTP
-            console.log('[Email] ✅ Email sent successfully via SMTP');
             
             const newEmail: Email = {
               id: crypto.randomUUID(),
@@ -841,7 +782,6 @@ export function Email({ user }: EmailProps) {
             toast.success('✅ Email sent successfully via SMTP!');
             return;
           } catch (smtpError: any) {
-            console.error('[Email] SMTP send error:', smtpError);
             
             // Check if it's a CORS/network error
             if (smtpError instanceof TypeError && smtpError.message === 'Failed to fetch') {
@@ -881,7 +821,6 @@ export function Email({ user }: EmailProps) {
                 smtpError.message?.includes('FunctionsHttpError') ||
                 smtpError.message?.includes('FunctionsRelayError') ||
                 smtpError.message?.includes('404')) {
-              console.log('[Email] simple-send-email function not deployed, falling back to demo mode');
               toast.error('Email function not deployed. Run: supabase functions deploy simple-send-email');
               // Continue to demo mode below
             } else {
@@ -893,7 +832,6 @@ export function Email({ user }: EmailProps) {
       }
 
       // Demo mode fallback
-      console.log('[Email] Using demo mode (backend not available)');
       
       toast.error('Email sending failed', {
         description: 'The simple-send-email Edge Function is not responding. Please check:\n1. Edge Function is deployed in Supabase Dashboard\n2. SMTP configuration is complete\n3. Check browser console for detailed error',
@@ -922,7 +860,6 @@ export function Email({ user }: EmailProps) {
       toast.info('💾 Email saved as draft - please check email configuration');
       return;
     } catch (error: any) {
-      console.error('[Email] Send error:', error);
       
       // Show specific error message
       if (error.message?.includes('SMTP') || error.message?.includes('connection')) {
@@ -951,7 +888,6 @@ export function Email({ user }: EmailProps) {
       ));
       toast.success(read ? 'Marked as read' : 'Marked as unread');
     } catch (error) {
-      console.error('[Email] Failed to update read status:', error);
     }
   };
 
@@ -971,7 +907,6 @@ export function Email({ user }: EmailProps) {
       ));
       toast.success(email.starred ? 'Unstarred' : 'Starred');
     } catch (error) {
-      console.error('[Email] Failed to toggle star:', error);
     }
   };
 
@@ -991,18 +926,14 @@ export function Email({ user }: EmailProps) {
       ));
       toast.success(email.flagged ? 'Flag removed' : 'Flagged');
     } catch (error) {
-      console.error('[Email] Failed to toggle flag:', error);
     }
   };
 
   const handleMoveToFolder = async (id: string, folder: string) => {
     const email = emails.find(e => e.id === id);
     if (!email) {
-      console.error('[Email] Could not find email with id:', id);
       return;
     }
-
-    console.log(`[Email] Moving email ${id} from "${email.folder}" to "${folder}"`);
 
     try {
       const supabase = createClient();
@@ -1013,12 +944,9 @@ export function Email({ user }: EmailProps) {
         .select();
 
       if (error) {
-        console.error('[Email] Database error moving email to folder:', error);
         toast.error(`Failed to move email: ${error.message}`);
         return;
       }
-
-      console.log('[Email] Database update successful:', data);
 
       setEmails(emails.map(e =>
         e.id === id ? { ...e, folder } : e
@@ -1040,10 +968,8 @@ export function Email({ user }: EmailProps) {
       const customFolder = customFolders.find(f => f.id === folder);
       const folderName = customFolder ? customFolder.name : (folderNames[folder] || folder);
       
-      console.log(`[Email] Successfully moved email to ${folderName}`);
       toast.success(`Moved to ${folderName}`);
     } catch (error: any) {
-      console.error('[Email] Exception while moving email:', error);
       toast.error(`Failed to move email: ${error.message || 'Unknown error'}`);
     }
   };
@@ -1081,7 +1007,6 @@ export function Email({ user }: EmailProps) {
         .eq('id', id);
 
       if (error) {
-        console.error('[Email] Failed to delete email from database:', error);
         toast.error('Failed to delete email from database');
         return;
       }
@@ -1091,7 +1016,6 @@ export function Email({ user }: EmailProps) {
       setSelectedEmail(null);
       toast.success('Email permanently deleted');
     } catch (error) {
-      console.error('[Email] Failed to delete email:', error);
       toast.error('Failed to delete email');
     }
   };
@@ -1125,21 +1049,17 @@ export function Email({ user }: EmailProps) {
       setSelectedEmail(null);
       toast.success(`${trashEmails.length} email(s) permanently deleted`);
     } catch (error) {
-      console.error('[Email] Failed to empty trash:', error);
       toast.error('Failed to empty trash');
     }
   };
 
   const handleSync = async () => {
-    console.log('[Email] Sync button clicked');
     
     if (!selectedAccount) {
-      console.log('[Email] No account selected');
       toast.error('Please select an email account first');
       return;
     }
     
-    console.log('[Email] Starting sync for account:', selectedAccount);
     setIsSyncing(true);
     
     try {
@@ -1151,8 +1071,6 @@ export function Email({ user }: EmailProps) {
         return;
       }
 
-      console.log('[Email] Current account:', currentAccount.email, 'Provider:', currentAccount.provider);
-
       const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
       
@@ -1163,7 +1081,6 @@ export function Email({ user }: EmailProps) {
       }
 
       // Use consolidated server sync endpoint (handles Outlook + Gmail)
-      console.log(`[Email] Using consolidated sync for ${currentAccount.provider}`);
 
       const syncHeaders = await getServerHeaders();
       const syncRes = await fetch(
@@ -1179,7 +1096,6 @@ export function Email({ user }: EmailProps) {
       );
 
       const syncData = await syncRes.json();
-      console.log('[Email] Sync response:', syncData);
 
       if (!syncRes.ok || !syncData.success) {
         throw new Error(syncData.error || `Sync failed with status ${syncRes.status}`);
@@ -1206,10 +1122,8 @@ export function Email({ user }: EmailProps) {
       }
       
     } catch (error: any) {
-      console.error('[Email] Sync error:', error);
       toast.error(`Failed to sync emails: ${error.message}`);
     } finally {
-      console.log('[Email] Sync complete, resetting isSyncing state');
       setIsSyncing(false);
     }
   };
@@ -1232,7 +1146,6 @@ export function Email({ user }: EmailProps) {
       setIsSettingsOpen(false);
       setEditingAccount(null);
     } catch (error: any) {
-      console.error('[Email] Failed to save account:', error);
       toast.error(`Failed to save account: ${error.message}`);
     }
   };
@@ -1279,7 +1192,6 @@ export function Email({ user }: EmailProps) {
         // Re-fetch from server to confirm deletion stuck
         await loadAccountsFromSupabase();
       } catch (error) {
-        console.error('[Email] Delete account failed:', error);
         toast.error(`Failed to delete account: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }

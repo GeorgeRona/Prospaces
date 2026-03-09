@@ -118,7 +118,6 @@ class PlannerErrorBoundary extends React.Component<
     return { hasError: true };
   }
   componentDidCatch(error: any, info: any) {
-    console.warn('3D Planner failed to load:', error, info);
   }
   componentDidUpdate(prevProps: { plannerKey: string }) {
     // Reset error state when switching to a different planner
@@ -229,7 +228,6 @@ export function AppContent() {
     // Check active session
     supabase.auth.getSession().then(({ data: { session }, error }) => {
       if (error) {
-        console.warn("Session validation failed:", error.message);
         handleLogout();
         setLoading(false);
         return;
@@ -292,12 +290,10 @@ export function AppContent() {
           .single();
 
         if (profile?.needs_password_change === true && !showChangePassword) {
-          console.log('⚠️ Password change required detected!');
           setShowChangePassword(true);
         }
       } catch (error) {
         // Silently fail - this is just a background check
-        console.debug('Background password check failed:', error);
       }
     };
 
@@ -322,7 +318,6 @@ export function AppContent() {
       if (profile) {
         // Check if user needs to change password
         if (profile.needs_password_change === true) {
-          console.log('⚠️ User needs to change password!');
           setShowChangePassword(true);
         }
 
@@ -381,11 +376,9 @@ export function AppContent() {
         try {
           preloadEmailAccounts();
         } catch (preloadErr) {
-          console.warn('[App] Email preload failed (non-critical):', preloadErr);
         }
       }
     } catch (error) {
-      console.error('Error loading user data:', error);
     } finally {
       setLoading(false);
     }
@@ -395,7 +388,6 @@ export function AppContent() {
     try {
       await supabase.auth.signOut();
     } catch (error) {
-      console.error("Error signing out:", error);
     } finally {
       setUser(null);
       setOrganization(null);
@@ -407,7 +399,6 @@ export function AppContent() {
       try {
         resetEmailPreloader();
       } catch (err) {
-        console.warn('[App] Email preloader reset failed (non-critical):', err);
       }
     }
   };

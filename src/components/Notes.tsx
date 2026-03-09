@@ -82,7 +82,6 @@ export function Notes({ user }: NotesProps) {
 
       setNotes(mappedNotes);
     } catch (error) {
-      console.error('Failed to load data:', error);
       toast.error('Failed to load notes');
     } finally {
       setIsLoading(false);
@@ -92,9 +91,7 @@ export function Notes({ user }: NotesProps) {
   const loadNotes = async () => {
     try {
       const { notes: data } = await notesAPI.getAll();
-      console.log('[Notes] loadNotes returned', data?.length ?? 0, 'notes');
       if (data && data.length > 0) {
-        console.log('[Notes] Sample note keys:', Object.keys(data[0]));
         const mappedNotes: Note[] = data.map((item: any) => ({
           id: item.id,
           title: item.title || 'Untitled Note',
@@ -107,10 +104,8 @@ export function Notes({ user }: NotesProps) {
         setNotes(mappedNotes);
       } else {
         // Query returned empty — don't wipe optimistic state
-        console.log('[Notes] loadNotes returned empty, keeping current state');
       }
     } catch (error) {
-      console.error('[Notes] Failed to reload notes:', error);
     }
   };
 
@@ -155,8 +150,6 @@ export function Notes({ user }: NotesProps) {
         contact_id: contactId
       });
 
-      console.log('[Notes] Create result:', result);
-
       // Optimistically add the note to state so it appears immediately
       if (result?.note) {
         const createdNote: Note = {
@@ -178,7 +171,6 @@ export function Notes({ user }: NotesProps) {
       // Also reload in background to sync with DB (catches any RLS-filtered data)
       loadNotes();
     } catch (error: any) {
-      console.error('[Notes] Failed to create note:', error);
       toast.error(error.message || 'Failed to create note');
     } finally {
       setIsSubmitting(false);
@@ -193,7 +185,6 @@ export function Notes({ user }: NotesProps) {
       toast.success('Note deleted');
       setNotes(notes.filter(n => n.id !== id));
     } catch (error: any) {
-      console.error('Failed to delete note:', error);
       toast.error('Failed to delete note');
     }
   };

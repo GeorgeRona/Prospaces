@@ -131,9 +131,7 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
       const result = await usersAPI.getAll();
       const allUsers = result?.users || [];
 
-      console.log(`[Users] Loaded ${allUsers.length} total profiles, filtering for org: ${user.organizationId}`);
       if (allUsers.length > 0) {
-        console.log('[Users] Sample orgs:', allUsers.slice(0, 5).map((u: any) => `${u.email}: ${u.organization_id}`));
       }
 
       if (allUsers.length === 0) {
@@ -159,8 +157,6 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
       setUsers(mappedUsers);
       setError(null);
     } catch (err: any) {
-      console.error('[Users Component] ❌ Unexpected error:', err);
-      
       if (err?.code === '42P17' || err?.message?.includes('infinite recursion')) {
         setError('infinite recursion: ' + String(err));
       } else {
@@ -185,7 +181,6 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
         .order('name', { ascending: true });
       
       if (error) {
-        console.error('Failed to load organizations:', error);
         return;
       }
       
@@ -199,7 +194,6 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
       
       setTenants(loadedTenants);
     } catch (error) {
-      console.error('Failed to load tenants:', error);
     } finally {
       setIsLoadingTenants(false);
     }
@@ -253,7 +247,6 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
       toast.success('Organization name updated!');
       setIsEditingOrgName(false);
     } catch (err) {
-      console.error('[Users] Failed to save org name:', err);
       toast.error('Failed to update organization name');
     } finally {
       setIsSavingOrgName(false);
@@ -273,7 +266,6 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
       );
       if (!res.ok) {
         const body = await res.text();
-        console.error('[Users] find-missing error:', body);
         toast.error('Failed to scan for missing users');
         return;
       }
@@ -286,7 +278,6 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
         toast.warning(`Found ${total} user(s) with profile issues`);
       }
     } catch (err: any) {
-      console.error('[Users] Sync missing error:', err);
       toast.error('Error scanning: ' + err.message);
     } finally {
       setIsSyncingMissing(false);
@@ -307,7 +298,6 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
       );
       if (!res.ok) {
         const body = await res.text();
-        console.error('[Users] fix-missing error:', body);
         toast.error('Failed to fix users');
         return;
       }
@@ -316,7 +306,6 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
       setMissingUsersResult(null);
       loadUsers(); // Refresh the list
     } catch (err: any) {
-      console.error('[Users] Fix missing error:', err);
       toast.error('Error fixing: ' + err.message);
     }
   };
@@ -393,8 +382,6 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
         toast.success('User invited successfully!');
       }
     } catch (error: any) {
-      console.error('Failed to invite user:', error);
-      
       // Check for organization not found error
       if (error.message?.includes('does not exist') && error.message?.includes('Organization')) {
         toast.error(error.message + ' Please create it in the Tenants module first.');
@@ -431,9 +418,8 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
         if (sub) {
           toast.info(`Billing updated: ${sub.seat_count} active seat${sub.seat_count !== 1 ? 's' : ''}`);
         }
-      }).catch(err => console.warn('[Users] adjust-seats after delete:', err));
+      }).catch(() => {});
     } catch (error) {
-      console.error('Failed to delete user:', error);
       alert('Failed to remove user. Please try again.');
     }
   };
@@ -485,17 +471,7 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
         return;
       }
       
-      // Log the organization change for audit purposes
-      console.log('🔄 ORGANIZATION CHANGE:', {
-        user: selectedUser.name,
-        email: selectedUser.email,
-        oldOrg: oldOrgName,
-        newOrg: newOrgName,
-        oldOrgId: originalOrganizationId,
-        newOrgId: editUser.organizationId,
-        changedBy: user.email,
-        timestamp: new Date().toISOString()
-      });
+      // Removed log
       
       toast.success(`User organization changed from "${oldOrgName}" to "${newOrgName}"`);
     }
@@ -532,7 +508,6 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
           .eq('id', selectedUser.id);
 
         if (retryError) {
-          console.error('Failed to update user:', retryError);
           toast.error('Failed to update user: ' + retryError.message);
           return;
         }
@@ -545,7 +520,6 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
       }
 
       if (error) {
-        console.error('Failed to update user:', error);
         toast.error('Failed to update user: ' + error.message);
         return;
       }
@@ -561,14 +535,13 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
           if (sub) {
             toast.info(`Billing updated: ${sub.seat_count} active seat${sub.seat_count !== 1 ? 's' : ''}`);
           }
-        }).catch(err => console.warn('[Users] adjust-seats after status change:', err));
+        }).catch(() => {});
       }
 
       // Close dialog
       setIsEditDialogOpen(false);
       setSelectedUser(null);
     } catch (error) {
-      console.error('Failed to update user:', error);
       toast.error('Failed to update user. Please try again.');
     }
   };
@@ -580,23 +553,15 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
       return;
     }
     
-    console.log('🔄 Resetting password for user:', orgUser.email);
     setResetPasswordUser(orgUser);
     setIsResettingPassword(true);
     
     // Generate a secure temporary password
     const tempPassword = generateSecurePassword();
-    console.log('═══════════════════════════════════════════════════════');
-    console.log('🔐 GENERATED PASSWORD FOR:', orgUser.email);
-    console.log('Password:', tempPassword);
-    console.log('User:', orgUser.name);
-    console.log('Email:', orgUser.email);
-    console.log('═══════════════════════════════════════════════════════');
     setNewPassword(tempPassword);
     
     try {
       // Call the server endpoint to reset the password
-      console.log('🔐 Calling server to reset password...');
       const serverUrl = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07/reset-password`;
       
       const response = await fetch(serverUrl, {
@@ -614,40 +579,29 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        console.error('❌ Server returned error:', result);
         throw new Error(result.error || 'Failed to reset password');
       }
 
-      console.log('✅ Password reset successfully!');
-      console.log('✅ Server result:', JSON.stringify(result, null, 2));
-      
       // Check if profile was updated
       if (!result.profileUpdated && result.warning) {
-        console.warn('⚠️ WARNING:', result.warning);
         toast.warning('Password reset successful! Note: Run the database migration to enable password change prompts.', {
           duration: 8000,
         });
       } else if (result.profileUpdated) {
-        console.log('✅ Profile flags updated - user will be prompted to change password on login');
       }
       
       // Try to send password reset email (optional - not critical)
       try {
-        console.log('📧 Attempting to send password reset email...');
         await supabase.auth.resetPasswordForEmail(orgUser.email, {
           redirectTo: `${window.location.origin}/reset-password`,
         });
-        console.log('✅ Password reset email sent');
       } catch (emailError) {
-        console.log('⚠️  Email not sent (non-critical):', emailError);
       }
 
       // Show the dialog with the generated password
       setIsResetPasswordDialogOpen(true);
       toast.success('✅ Temporary password set! User can now log in.');
     } catch (error: any) {
-      console.error('❌ Exception during password reset:', error);
-      console.error('Exception details:', JSON.stringify(error, null, 2));
       toast.error(error.message || 'Failed to set temporary password');
     } finally {
       setIsResettingPassword(false);
