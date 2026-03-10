@@ -83,6 +83,7 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
   const [isSavingOrgName, setIsSavingOrgName] = useState(false);
   const [isSyncingMissing, setIsSyncingMissing] = useState(false);
   const [missingUsersResult, setMissingUsersResult] = useState<{ missing: any[]; wrongOrg: any[] } | null>(null);
+  const [inviteMethod, setInviteMethod] = useState<'email' | 'manual'>('email');
 
   // Check permissions using the permissions system
   // Director can VIEW users but not add/edit/delete
@@ -111,6 +112,17 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
   // Load users on mount
   useEffect(() => {
     loadUsers();
+    
+    // Load default invite method from organization settings
+    if (user.organizationId) {
+      settingsAPI.getOrganizationSettings(user.organizationId).then(settings => {
+        if (settings?.user_invite_method) {
+          setInviteMethod(settings.user_invite_method as 'email' | 'manual');
+        }
+      }).catch(err => {
+        console.error('Failed to load user settings:', err);
+      });
+    }
   }, []);
 
   // Load tenants if super admin
@@ -348,6 +360,7 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
         email: newUser.email,
         name: newUser.name,
         role: newUser.role,
+        inviteMethod,
       };
       
       // If super_admin, include the organizationId; also pass org name for auto-creation
@@ -379,7 +392,7 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
         setIsInviteCredentialsDialogOpen(true);
         toast.success('User account created! Share the temporary password with the user.');
       } else {
-        toast.success('User invited successfully!');
+        toast.success('User invited successfully! An email has been sent to them.');
       }
     } catch (error: any) {
       // Check for organization not found error
@@ -946,6 +959,23 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
                         {newUser.role === 'super_admin' && 'Full access across all organizations'}
                       </p>
                     </div>
+
+                    <div className="space-y-2 pt-2 border-t">
+                      <Label htmlFor="inviteMethodOverride">Delivery Method</Label>
+                      <Select value={inviteMethod} onValueChange={(value: 'email' | 'manual') => setInviteMethod(value)}>
+                        <SelectTrigger id="inviteMethodOverride">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="email">Automatically Email Invite Link</SelectItem>
+                          <SelectItem value="manual">Generate Temporary Password</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-[11px] text-gray-500">
+                        {inviteMethod === 'email' ? 'Requires SMTP setup in Supabase Auth.' : 'You will need to manually share the temporary password.'}
+                      </p>
+                    </div>
+
                     <div className="flex gap-2 pt-4">
                       <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)} className="flex-1">
                         Cancel

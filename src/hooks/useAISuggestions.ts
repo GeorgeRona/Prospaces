@@ -58,12 +58,15 @@ export function useAISuggestions(user: User) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (user) {
+    if (user && user.role !== 'super_admin') {
       loadAISuggestions();
       
       // Poll for updates every 5 minutes
       const intervalId = setInterval(loadAISuggestions, 5 * 60 * 1000);
       return () => clearInterval(intervalId);
+    } else if (user?.role === 'super_admin') {
+      setIsLoading(false);
+      setSuggestions([]);
     }
   }, [user]);
 

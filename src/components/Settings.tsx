@@ -124,6 +124,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
     quoteTerms: 'Payment due within 30 days. All prices in USD.',
     audienceSegments: ['VIP', 'New Lead', 'Active Customer', 'Inactive', 'Prospect'], // Marketing segments
     priceTierLabels: { ...DEFAULT_PRICE_TIER_LABELS } as PriceTierLabels,
+    userInviteMethod: 'email', // 'manual' or 'email'
   });
 
   // Organization user mode (single/multi)
@@ -225,6 +226,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
           quoteTerms: orgSettings.quote_terms || 'Payment due within 30 days. All prices in USD.',
           audienceSegments: orgSettings.audience_segments || ['VIP', 'New Lead', 'Active Customer', 'Inactive', 'Prospect'],
           priceTierLabels: orgSettings.price_tier_labels || storedPriceTierLabels || { ...DEFAULT_PRICE_TIER_LABELS },
+          userInviteMethod: orgSettings.user_invite_method || 'email',
         });
         
         // Load organization name
@@ -245,6 +247,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
               quoteTerms: parsedSettings.quoteTerms || 'Payment due within 30 days. All prices in USD.',
               audienceSegments: parsedSettings.audienceSegments || ['VIP', 'New Lead', 'Active Customer', 'Inactive', 'Prospect'],
               priceTierLabels: parsedSettings.priceTierLabels || { ...DEFAULT_PRICE_TIER_LABELS },
+              userInviteMethod: parsedSettings.userInviteMethod || 'email',
             });
           } catch (_) { /* ignore parse errors */ }
         }
@@ -560,6 +563,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
         organization_name: orgName,
         audience_segments: globalSettings.audienceSegments, // Marketing segments
         price_tier_labels: globalSettings.priceTierLabels,
+        user_invite_method: globalSettings.userInviteMethod,
       });
       
       // Keep localStorage as backup (always save regardless of Supabase status)
@@ -1004,6 +1008,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                       <TabsTrigger value="contacts" className="whitespace-nowrap px-4">Contacts</TabsTrigger>
                       <TabsTrigger value="inventory" className="whitespace-nowrap px-4">Inventory & Pricing</TabsTrigger>
                       <TabsTrigger value="wizards" className="whitespace-nowrap px-4">Project Wizards</TabsTrigger>
+                      <TabsTrigger value="users" className="whitespace-nowrap px-4">Users</TabsTrigger>
                     </TabsList>
                   </div>
                   
@@ -1254,6 +1259,34 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                           organizationId={user.organizationId}
                           onSave={showAlert}
                         />
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+
+                  <TabsContent value="users" className="mt-4">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-lg">User Management Settings</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="userInviteMethod">Default Invite Method</Label>
+                          <Select
+                            value={globalSettings.userInviteMethod}
+                            onValueChange={(value) => setGlobalSettings({ ...globalSettings, userInviteMethod: value })}
+                          >
+                            <SelectTrigger id="userInviteMethod">
+                              <SelectValue placeholder="Select invite method" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="email">Automatically email invite & password reset link (Requires SMTP setup)</SelectItem>
+                              <SelectItem value="manual">Generate temporary password manually</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-gray-500 mt-2">
+                            Choose how users are notified when invited. Emailing directly requires that you have configured SMTP settings in your Supabase Auth dashboard.
+                          </p>
+                        </div>
                       </CardContent>
                     </Card>
                   </TabsContent>

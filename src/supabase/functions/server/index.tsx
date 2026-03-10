@@ -648,10 +648,12 @@ app.put(`${PREFIX}/settings/organization`, async (c) => {
     const kvSettings = {
       price_tier_labels: body.price_tier_labels,
       audience_segments: body.audience_segments,
+      user_invite_method: body.user_invite_method,
     };
     
     delete dbSettings.price_tier_labels;
     delete dbSettings.audience_segments;
+    delete dbSettings.user_invite_method;
     
     await kv.set(`org_settings_extra:${orgId}`, kvSettings);
 
@@ -2211,8 +2213,8 @@ app.delete(`${PREFIX}/email-accounts/:id`, async (c) => {
 // ── UTILITY ─────────────────────────────────────────────────────────────
 app.post(`${PREFIX}/create-user`, async (c) => {
   try {
-    const { email, name, role, organizationId, tempPassword, organizationName } = await c.req.json();
-    if (!email || !tempPassword) return c.json({ error: 'Missing fields' }, 400);
+    const { email, name, role, organizationId, tempPassword, organizationName, inviteMethod } = await c.req.json();
+    if (!email) return c.json({ error: 'Missing email' }, 400);
     const supabase = getSupabase();
 
     // Verify the organization exists; auto-create the row if missing
@@ -2240,11 +2242,25 @@ app.post(`${PREFIX}/create-user`, async (c) => {
     let uid: string;
     if (found) {
       uid = found.id;
-      await supabase.auth.admin.updateUserById(uid, { password: tempPassword, email_confirm: true, user_metadata: { name, role, organizationId, needs_password_change: true } });
+      if (inviteMethod === 'email') {
+        // If user exists, we might still want to trigger an invite or reset password?
+        // Usually, an existing user doesn't need invite, just update role.
+        await supabase.auth.admin.updateUserById(uid, { user_metadata: { name, role, organizationId, needs_password_change: true } });
+      } else {
+        await supabase.auth.admin.updateUserById(uid, { password: tempPassword, email_confirm: true, user_metadata: { name, role, organizationId, needs_password_change: true } });
+      }
     } else {
-      const { data, error } = await supabase.auth.admin.createUser({ email: email.toLowerCase(), password: tempPassword, user_metadata: { name, role, organizationId, needs_password_change: true }, email_confirm: true });
-      if (error) return c.json({ error: error.message }, 500);
-      uid = data.user.id;
+      if (inviteMethod === 'email') {
+        const { data, error } = await supabase.auth.admin.inviteUserByEmail(email.toLowerCase(), {
+          data: { name, role, organizationId, needs_password_change: false },
+        });
+        if (error) return c.json({ error: error.message }, 500);
+        uid = data.user.id;
+      } else {
+        const { data, error } = await supabase.auth.admin.createUser({ email: email.toLowerCase(), password: tempPassword, user_metadata: { name, role, organizationId, needs_password_change: true }, email_confirm: true });
+        if (error) return c.json({ error: error.message }, 500);
+        uid = data.user.id;
+      }
     }
 
     // Fix ID mismatch: if a profile exists for this email with a different ID, update it

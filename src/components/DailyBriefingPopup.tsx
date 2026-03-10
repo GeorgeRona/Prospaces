@@ -101,7 +101,7 @@ export function DailyBriefingPopup({ user, onNavigate, organization }: DailyBrie
   });
 
   // Check if AI suggestions are enabled for the organization
-  const aiEnabled = organization?.ai_suggestions_enabled !== false;
+  const aiEnabled = organization?.ai_suggestions_enabled !== false && user?.role !== 'super_admin';
 
   // Check if briefing should show today
   useEffect(() => {
