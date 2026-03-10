@@ -541,7 +541,7 @@ export function Navigation({
 
             <DropdownMenu>
               <DropdownMenuTrigger className="focus:outline-none">
-                <Avatar className="h-8 w-8">
+                <Avatar className="h-8 w-8 shrink-0">
                   <AvatarImage src={user.avatar_url} alt={user.full_name || user.email || 'User'} />
                   <AvatarFallback className="bg-blue-600 text-white text-sm">
                     {getInitials(user.full_name || user.email || '')}
@@ -860,7 +860,7 @@ export function Navigation({
 
             <DropdownMenu>
               <DropdownMenuTrigger className="focus:outline-none">
-                <Avatar className="h-8 w-8 cursor-pointer ring-2 ring-offset-2 ring-transparent hover:ring-blue-500 transition-all" style={{ '--tw-ring-offset-color': theme.colors.topBarBackground } as any}>
+                <Avatar className="h-8 w-8 shrink-0 cursor-pointer ring-2 ring-offset-2 ring-transparent hover:ring-blue-500 transition-all" style={{ '--tw-ring-offset-color': theme.colors.topBarBackground } as any}>
                   <AvatarImage src={user.avatar_url} alt={user.full_name || user.email || 'User'} />
                   <AvatarFallback className="bg-blue-600 text-white text-sm">
                     {getInitials(user.full_name || user.email || '')}

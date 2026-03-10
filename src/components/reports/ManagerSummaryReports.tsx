@@ -56,8 +56,6 @@ export function ManagerSummaryReports({ user, showCost = false }: ManagerSummary
       const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
       const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
 
-      console.log('📊 [ManagerSummaryReports] Fetching data for org:', user.organizationId);
-
       // Fetch bids (filtered by organization)
       const { data: bids, error: bidsError } = await supabase
         .from('bids')
@@ -225,7 +223,6 @@ export function ManagerSummaryReports({ user, showCost = false }: ManagerSummary
 
       setLoading(false);
     } catch (error) {
-      console.error('Error fetching manager summary data:', error);
       setError('Failed to fetch data. Please try again later.');
       setLoading(false);
     }
@@ -330,7 +327,7 @@ export function ManagerSummaryReports({ user, showCost = false }: ManagerSummary
   return (
     <div className="space-y-6">
       {/* KPI Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {kpis.map((kpi) => {
           const Icon = kpi.icon;
           const colorMap: Record<string, string> = {

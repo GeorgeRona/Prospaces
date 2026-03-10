@@ -177,7 +177,7 @@ export function Bids({ user }: BidsProps) {
     setIsLoading(true);
     setError(null);
     try {
-      const scope = user.role === 'admin' || user.role === 'manager' ? 'team' : 'personal';
+      const scope = 'personal';
       
       // Load both quotes and legacy bids
       const [quotesResponse, bidsResponse, contactsResponse, inventoryResponse, settingsData] = await Promise.all([

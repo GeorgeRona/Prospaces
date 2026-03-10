@@ -32,29 +32,18 @@ export function BidProposalReports({ user, showCost = false }: BidProposalReport
     const supabase = createClient();
     
     try {
-      console.log('📊 [BidProposalReports] Fetching data for org:', user.organizationId);
-
       // Fetch bids (filtered by organization)
       const { data: bids, error: bidsError } = await supabase
         .from('bids')
         .select('*')
         .eq('organization_id', user.organizationId);
 
-      if (bidsError) {
-        console.error('❌ [BidProposalReports] Error fetching bids:', bidsError);
-      }
-
       const { data: quotes, error: quotesError } = await supabase
         .from('quotes')
         .select('*')
         .eq('organization_id', user.organizationId);
 
-      if (quotesError) {
-        console.error('❌ [BidProposalReports] Error fetching quotes:', quotesError);
-      }
-
       const allBids = [...(bids || []), ...(quotes || [])];
-      console.log('✅ [BidProposalReports] Fetched bids:', bids?.length || 0, 'quotes:', quotes?.length || 0);
 
       if (allBids.length > 0) {
         const wonBids = allBids.filter(b => 
@@ -97,10 +86,6 @@ export function BidProposalReports({ user, showCost = false }: BidProposalReport
           .select('*')
           .eq('organization_id', user.organizationId);
 
-        if (usersError) {
-          console.error('❌ [BidProposalReports] Error fetching users:', usersError);
-        }
-
         if (users) {
           const repStats = users.map(u => {
             const userBids = allBids.filter(b => b.created_by === u.id || b.assigned_to === u.id);
@@ -126,7 +111,6 @@ export function BidProposalReports({ user, showCost = false }: BidProposalReport
 
       setLoading(false);
     } catch (error) {
-      console.error('Error fetching bid proposal data:', error);
       setLoading(false);
     }
   };

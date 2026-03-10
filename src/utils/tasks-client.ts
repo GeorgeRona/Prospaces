@@ -69,9 +69,19 @@ export async function createTaskClient(taskData: any) {
     
     if (!user) throw new Error('Not authenticated');
 
+    let organizationId = user.user_metadata?.organizationId;
+    try {
+      const profile = await ensureUserProfile(user.id);
+      if (profile?.organization_id) {
+        organizationId = profile.organization_id;
+      }
+    } catch (e) {
+      // ignore
+    }
+
     const newTask = {
       ...taskData,
-      organization_id: user.user_metadata?.organizationId,
+      organization_id: organizationId,
       owner_id: user.id,
       created_at: new Date().toISOString(),
     };

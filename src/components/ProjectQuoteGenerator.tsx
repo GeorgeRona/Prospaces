@@ -130,7 +130,7 @@ export function ProjectQuoteGenerator({
     try {
       setIsLoading(true);
       console.log('[ProjectQuoteGenerator] Loading contacts...');
-      const scope = user.role === 'admin' || user.role === 'manager' ? 'team' : 'personal';
+      const scope = 'personal';
       const { contacts: data } = await contactsAPI.getAll(scope);
       console.log('[ProjectQuoteGenerator] Loaded contacts:', data?.length || 0, data);
       setContacts(data || []);
