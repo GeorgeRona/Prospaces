@@ -1,10 +1,72 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { KitchenConfig, CABINET_CATALOG, PlacedCabinet, Appliance } from '../../types/kitchen';
 import { LayoutTemplate } from 'lucide-react';
 
 interface KitchenTemplatesProps {
   onLoadTemplate: (config: KitchenConfig) => void;
   currentConfig?: KitchenConfig;
+}
+
+function TemplateMiniMap({ config }: { config: Partial<KitchenConfig> }) {
+  const rw = (config.roomWidth || 10) * 12; // inches
+  const rl = (config.roomLength || 10) * 12; // inches
+  
+  return (
+    <div className="h-40 w-full bg-slate-100 flex items-center justify-center p-4 border-b border-slate-200">
+      <svg 
+        viewBox={`-24 -24 ${rw + 48} ${rl + 48}`} 
+        className="w-full h-full max-w-full max-h-full drop-shadow-sm" 
+        style={{ overflow: 'visible' }}
+      >
+        {/* Floor */}
+        <rect x="0" y="0" width={rw} height={rl} fill="#f1f5f9" stroke="#cbd5e1" strokeWidth="2" />
+        
+        {/* Wall Outline */}
+        <rect x="0" y="0" width={rw} height={rl} fill="none" stroke="#64748b" strokeWidth="4" />
+        
+        {/* Cabinets */}
+        {config.cabinets?.map((cab, i) => {
+          const isWall = cab.catalogId.includes('wall');
+          const isTall = cab.catalogId.includes('tall');
+          
+          let fill = isWall ? '#cbd5e1' : '#94a3b8';
+          if (isTall) fill = '#64748b';
+          
+          return (
+            <g key={`cab-${i}`} transform={`translate(${cab.x}, ${cab.y}) rotate(${cab.rotation || 0})`}>
+              <rect 
+                x={0} 
+                y={0} 
+                width={cab.width} 
+                height={cab.depth} 
+                fill={fill} 
+                stroke="#475569" 
+                strokeWidth="1"
+                opacity={isWall ? 0.7 : 1}
+              />
+            </g>
+          );
+        })}
+
+        {/* Appliances */}
+        {config.appliances?.map((app, i) => (
+          <g key={`app-${i}`} transform={`translate(${app.x}, ${app.y}) rotate(${app.rotation || 0})`}>
+            <rect 
+              x={0} 
+              y={0} 
+              width={app.width} 
+              height={app.depth} 
+              fill="#fbbf24" 
+              stroke="#b45309" 
+              strokeWidth="1"
+            />
+            {/* Appliance Inner details */}
+            <rect x="4" y="4" width={app.width - 8} height={app.depth - 8} fill="none" stroke="#b45309" strokeWidth="0.5" opacity="0.5" />
+          </g>
+        ))}
+      </svg>
+    </div>
+  );
 }
 
 // Helper to calculate X and Y such that the visually rendered cabinet
@@ -94,10 +156,11 @@ function placeApp(
   };
 }
 
-const templates: Array<{ name: string; description: string; config: Partial<KitchenConfig> }> = [
+const templates: Array<{ name: string; description: string; imageUrl?: string; config: Partial<KitchenConfig> }> = [
   {
     name: 'Classic L-Shape',
     description: '12\' × 13\' with optimal work triangle',
+    imageUrl: 'https://images.unsplash.com/photo-1572534382965-ef9f328c8db4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxsLXNoYXBlZCUyMG1vZGVybiUyMGtpdGNoZW58ZW58MXx8fHwxNzczMTg2Mzc0fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
     config: {
       roomWidth: 12,
       roomLength: 13,
@@ -144,6 +207,7 @@ const templates: Array<{ name: string; description: string; config: Partial<Kitc
   {
     name: 'Efficient Galley',
     description: '8\' × 12\' dual-wall layout',
+    imageUrl: 'https://images.unsplash.com/photo-1715021128220-f0cfcd1627e2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxnYWxsZXklMjBzbWFsbCUyMGtpdGNoZW58ZW58MXx8fHwxNzczMTg2Mzc0fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
     config: {
       roomWidth: 8,
       roomLength: 12,
@@ -186,6 +250,7 @@ const templates: Array<{ name: string; description: string; config: Partial<Kitc
   {
     name: 'Spacious Island',
     description: '16\' × 16\' entertainer\'s kitchen',
+    imageUrl: 'https://images.unsplash.com/photo-1771888703722-ee7ad9143a67?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxsYXJnZSUyMGtpdGNoZW4lMjB3aXRoJTIwaXNsYW5kfGVufDF8fHx8MTc3MzE4NjM3NHww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
     config: {
       roomWidth: 16,
       roomLength: 16,
@@ -224,6 +289,94 @@ const templates: Array<{ name: string; description: string; config: Partial<Kitc
         placeApp('microwave', 'Over-Range Microwave 30"', 30, 17, 16, 99, 0, 0, 300),
         placeApp('dishwasher', 'Dishwasher 24"', 24, 34, 24, 72, 72, 180, 600),
         placeApp('sink', 'Undermount Sink 33"', 33, 9, 22, 97.5, 72, 180, 250),
+      ],
+    },
+  },
+  {
+    name: 'Optimal U-Shape',
+    description: '10\' × 10\' wrapping workspace',
+    config: {
+      roomWidth: 10,
+      roomLength: 10,
+      cabinets: [
+        // --- Top Wall (North, Y=0, Rot=0) ---
+        placeCab('corner-base-36', 0, 0, 0),
+        placeCab('base-18', 36, 0, 0),
+        // Stove at 54
+        placeCab('corner-base-36', 84, 0, 90), // Top Right Corner
+        
+        // --- Left Wall (West, X=0, Rot=-90) ---
+        // Starts below the 36" corner
+        // Dishwasher at Y=36
+        placeCab('base-36', 0, 60, -90), // Sink base
+        placeCab('base-24', 0, 96, -90),
+        
+        // --- Right Wall (East, VisX=96, Rot=90) ---
+        // Room Width = 120". Right wall is at X=120. Standard cabinet depth is 24". 120 - 24 = 96.
+        // Refrigerator at Y=36 (depth 30". 120 - 30 = 90)
+        placeCab('base-24', 96, 72, 90),
+        placeCab('tall-24', 96, 96, 90),
+      ],
+      appliances: [
+        placeApp('stove', 'Gas Range 30"', 30, 36, 28, 54, 0, 0, 800),
+        placeApp('dishwasher', 'Dishwasher 24"', 24, 34, 24, 0, 36, -90, 600),
+        placeApp('sink', 'Undermount Sink 33"', 33, 9, 22, 0, 61.5, -90, 250),
+        placeApp('refrigerator', 'Refrigerator 36"', 36, 70, 30, 90, 36, 90, 1200),
+      ],
+    },
+  },
+  {
+    name: 'One-Wall Studio',
+    description: '12\' × 8\' linear apartment layout',
+    config: {
+      roomWidth: 12,
+      roomLength: 8,
+      cabinets: [
+        // --- Top Wall (North, Y=0, Rot=0) ---
+        // Fridge at X=0
+        // Stove at X=36
+        placeCab('base-18', 66, 0, 0),
+        placeCab('base-36', 84, 0, 0), // Sink base
+        // Dishwasher at X=120
+      ],
+      appliances: [
+        placeApp('refrigerator', 'Refrigerator 36"', 36, 70, 30, 0, 0, 0, 1200),
+        placeApp('stove', 'Gas Range 30"', 30, 36, 28, 36, 0, 0, 800),
+        placeApp('sink', 'Undermount Sink 33"', 33, 9, 22, 85.5, 0, 0, 250),
+        placeApp('dishwasher', 'Dishwasher 24"', 24, 34, 24, 120, 0, 0, 600),
+      ],
+    },
+  },
+  {
+    name: 'Peninsula Entertaining',
+    description: '12\' × 12\' with connected bar',
+    config: {
+      roomWidth: 12,
+      roomLength: 12,
+      cabinets: [
+        // --- Top Wall (North, Y=0, Rot=0) ---
+        placeCab('corner-base-36', 0, 0, 0),
+        placeCab('base-24', 36, 0, 0),
+        // Stove at X=60
+        placeCab('base-18', 90, 0, 0),
+        // Fridge at X=108
+        
+        // --- Left Wall (West, X=0, Rot=-90) ---
+        // Dishwasher at Y=36
+        placeCab('base-36', 0, 60, -90), // Sink base
+        placeCab('base-12', 0, 96, -90),
+        placeCab('corner-base-36', 0, 108, -90), // Bottom Left Corner
+        
+        // --- Peninsula (Sticking East, Rot=180 facing North) ---
+        placeCab('base-24', 36, 108, 180),
+        placeCab('base-24', 60, 108, 180),
+        placeCab('base-24', 84, 108, 180),
+      ],
+      appliances: [
+        placeApp('stove', 'Gas Range 30"', 30, 36, 28, 60, 0, 0, 800),
+        placeApp('refrigerator', 'Refrigerator 36"', 36, 70, 30, 108, 0, 0, 1200),
+        placeApp('dishwasher', 'Dishwasher 24"', 24, 34, 24, 0, 36, -90, 600),
+        placeApp('sink', 'Undermount Sink 33"', 33, 9, 22, 0, 61.5, -90, 250),
       ],
     },
   },
@@ -288,7 +441,7 @@ export function KitchenTemplates({ onLoadTemplate, currentConfig }: KitchenTempl
             <div 
               key={template.name}
               className={`
-                relative group rounded-xl border-2 transition-all duration-200 overflow-hidden cursor-pointer
+                relative group rounded-xl border-2 transition-all duration-200 overflow-hidden cursor-pointer flex flex-col
                 ${selected 
                   ? 'border-purple-600 bg-purple-50 shadow-md' 
                   : 'border-slate-200 bg-white hover:border-purple-300 hover:bg-slate-50'
@@ -296,7 +449,9 @@ export function KitchenTemplates({ onLoadTemplate, currentConfig }: KitchenTempl
               `}
               onClick={() => handleApplyTemplate(template)}
             >
-              <div className="p-4 h-full flex flex-col">
+              <TemplateMiniMap config={template.config} />
+              
+              <div className="p-4 flex-1 flex flex-col">
                 <h3 className={`font-medium mb-1 ${selected ? 'text-purple-900' : 'text-slate-900'}`}>
                   {template.name}
                 </h3>
