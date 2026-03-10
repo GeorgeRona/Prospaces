@@ -5,6 +5,7 @@ import { KitchenConfigurator } from './KitchenConfigurator';
 import { SavedKitchenDesigns } from './SavedKitchenDesigns';
 import { PlannerDefaults } from '../PlannerDefaults';
 import { ProjectQuoteGenerator } from '../ProjectQuoteGenerator';
+import { SavedProjectDesigns } from '../SavedProjectDesigns';
 import { calculateKitchenMaterials } from '../../utils/kitchenCalculations';
 import { enrichMaterialsWithT1Pricing } from '../../utils/enrichMaterialsWithPricing';
 import { KitchenConfig, PlacedCabinet, CABINET_CATALOG, CabinetItem, Appliance } from '../../types/kitchen';
@@ -637,6 +638,18 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
                   projectData={config}
                 />
               </div>
+
+              <div className="mb-6">
+                <SavedProjectDesigns
+                  user={user}
+                  projectType="kitchen"
+                  currentConfig={config}
+                  materials={flatMaterials}
+                  totalCost={totalPrice}
+                  onLoadDesign={(savedConfig) => setConfig(savedConfig as KitchenConfig)}
+                />
+              </div>
+              
               <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
                 <table className="w-full">
                   <thead className="bg-gray-50">

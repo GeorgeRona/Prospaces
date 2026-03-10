@@ -42,6 +42,7 @@ export function ProjectQuoteGenerator({
   const [customerPriceLevel, setCustomerPriceLevel] = useState<string>(getPriceTierLabel(1));
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [createAsDeal, setCreateAsDeal] = useState(false);
   const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   
   // Organization tax settings
@@ -243,7 +244,7 @@ export function ProjectQuoteGenerator({
         tax_amount: taxAmount,
         tax_amount_2: taxAmount2,
         total: total,
-        status: 'draft',
+        status: createAsDeal ? 'draft' : 'draft',
         valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days from now
         notes: enhancedNotes,
         terms: defaultTerms,
@@ -274,7 +275,7 @@ export function ProjectQuoteGenerator({
 
   if (!isOpen) {
     return (
-      <div className="print:hidden">
+      <div className="print:hidden flex gap-2 flex-wrap">
         <Button 
           onClick={() => setIsOpen(true)}
           className="flex items-center gap-2"
@@ -282,6 +283,13 @@ export function ProjectQuoteGenerator({
         >
           <FileText className="w-4 h-4" />
           Create Quote for Contact
+        </Button>
+        <Button
+          onClick={() => window.print()}
+          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+        >
+          <FileText className="w-4 h-4" />
+          Generate PDF Proposal
         </Button>
       </div>
     );
@@ -446,6 +454,19 @@ export function ProjectQuoteGenerator({
         </div>
 
         {/* Actions */}
+        <div className="flex items-center gap-2 py-2">
+          <input 
+            type="checkbox" 
+            id="createAsDeal" 
+            checked={createAsDeal} 
+            onChange={(e) => setCreateAsDeal(e.target.checked)} 
+            className="w-4 h-4 rounded border-gray-300"
+          />
+          <Label htmlFor="createAsDeal" className="text-sm font-normal cursor-pointer">
+            Track as active Deal in Pipeline
+          </Label>
+        </div>
+
         <div className="flex gap-2 pt-2">
           <Button 
             onClick={handleGenerateQuote}

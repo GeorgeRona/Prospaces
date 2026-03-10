@@ -9,6 +9,7 @@ import { toast } from 'sonner@2.0.3';
 import type { User } from '../../App';
 import { PermissionGate } from '../PermissionGate';
 import { ProjectQuoteGenerator } from '../ProjectQuoteGenerator';
+import { SavedProjectDesigns } from '../SavedProjectDesigns';
 import { searchInventoryClient } from '../../utils/inventory-client';
 import { projectId, publicAnonKey } from '../../utils/supabase/info';
 import { createClient } from '../../utils/supabase/client';
@@ -1384,6 +1385,32 @@ export function InteriorFinishingPlanner({ user }: InteriorFinishingPlannerProps
                       materials={materials}
                       totalCost={totalCost}
                       projectData={{ sqFt, exteriorLF, interiorLF, doors: allDoors.length, windows: allWindows.length, baseboardId, casingId, crownId, wainscottingId }}
+                    />
+                  </div>
+
+                  <div className="mt-8 border-t pt-8">
+                    <SavedProjectDesigns
+                      user={user}
+                      projectType="interior"
+                      currentConfig={{
+                        sqFt, exteriorLF, interiorLF, 
+                        allDoors, allWindows, 
+                        baseboardId, casingId, crownId, wainscottingId, ceilingHeight
+                      }}
+                      materials={materials}
+                      totalCost={totalCost}
+                      onLoadDesign={(savedConfig) => {
+                        if (savedConfig.sqFt) setSqFt(savedConfig.sqFt);
+                        if (savedConfig.exteriorLF) setExteriorLF(savedConfig.exteriorLF);
+                        if (savedConfig.interiorLF) setInteriorLF(savedConfig.interiorLF);
+                        if (savedConfig.allDoors) setAllDoors(savedConfig.allDoors);
+                        if (savedConfig.allWindows) setAllWindows(savedConfig.allWindows);
+                        if (savedConfig.baseboardId !== undefined) setBaseboardId(savedConfig.baseboardId);
+                        if (savedConfig.casingId !== undefined) setCasingId(savedConfig.casingId);
+                        if (savedConfig.crownId !== undefined) setCrownId(savedConfig.crownId);
+                        if (savedConfig.wainscottingId !== undefined) setWainscottingId(savedConfig.wainscottingId);
+                        if (savedConfig.ceilingHeight !== undefined) setCeilingHeight(savedConfig.ceilingHeight);
+                      }}
                     />
                   </div>
 

@@ -8,6 +8,7 @@ import { SavedShedDesigns } from '../shed/SavedShedDesigns';
 import { PrintableShedDesign } from '../project-wizard/PrintableShedDesign';
 import { PlannerDefaults } from '../PlannerDefaults';
 import { ProjectQuoteGenerator } from '../ProjectQuoteGenerator';
+import { SavedProjectDesigns } from '../SavedProjectDesigns';
 import { calculateMaterials } from '../../utils/shedCalculations';
 import { enrichMaterialsWithT1Pricing } from '../../utils/enrichMaterialsWithPricing';
 import { getUserDefaults, extractConversionFactors, getOrgConversionFactors, extractOrgConversionFactors } from '../../utils/project-wizard-defaults-client';
@@ -339,6 +340,17 @@ export function ShedPlanner({ user }: ShedPlannerProps) {
                   materials={enrichedMaterials.length > 0 ? enrichedMaterials : flatMaterials}
                   totalCost={totalT1Price}
                   projectData={config}
+                />
+              </div>
+
+              <div className="mt-8 border-t pt-8">
+                <SavedProjectDesigns
+                  user={user}
+                  projectType="shed"
+                  currentConfig={config}
+                  materials={enrichedMaterials.length > 0 ? enrichedMaterials : flatMaterials}
+                  totalCost={totalT1Price}
+                  onLoadDesign={(savedConfig) => setConfig(savedConfig)}
                 />
               </div>
 
