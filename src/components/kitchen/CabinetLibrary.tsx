@@ -148,21 +148,25 @@ export function CabinetLibrary({ config, onAddCabinet }: CabinetLibraryProps) {
                       </div>
                       
                       {/* Visual representation */}
-                      <div className="mt-3 border rounded p-2 bg-white">
-                        <div 
-                          className="bg-gradient-to-b from-gray-200 to-gray-300 border border-gray-400 rounded"
-                          style={{
-                            width: '100%',
-                            height: `${Math.min(60, cabinet.height / 2)}px`,
-                          }}
-                        >
-                          {/* Simple cabinet visualization */}
-                          <div className="h-full flex items-center justify-center">
-                            <div className="text-xs text-gray-600 font-mono">
-                              {cabinet.width}"
+                      <div className="mt-3 border rounded p-2 bg-white flex justify-center items-center h-20">
+                        {cabinet.image ? (
+                          <img src={cabinet.image} alt={cabinet.name} className="max-h-full max-w-full object-contain" />
+                        ) : (
+                          <div 
+                            className="bg-gradient-to-b from-gray-200 to-gray-300 border border-gray-400 rounded"
+                            style={{
+                              width: '100%',
+                              height: `${Math.min(60, cabinet.height / 2)}px`,
+                            }}
+                          >
+                            {/* Simple cabinet visualization */}
+                            <div className="h-full flex items-center justify-center">
+                              <div className="text-xs text-gray-600 font-mono">
+                                {cabinet.width}"
+                              </div>
                             </div>
                           </div>
-                        </div>
+                        )}
                       </div>
                     </Card>
                   ))}

@@ -7,15 +7,33 @@ interface KitchenTemplatesProps {
   currentConfig?: KitchenConfig;
 }
 
-// Helper to reliably create a PlacedCabinet from the catalog
-function createCab(
+// Helper to calculate X and Y such that the visually rendered cabinet
+// perfectly aligns its bounding box to (visX, visY) given its rotation.
+function placeCab(
   catalogId: string, 
-  x: number, 
-  y: number, 
+  visX: number, 
+  visY: number, 
   rotation: number
 ): PlacedCabinet {
   const catItem = CABINET_CATALOG.find(c => c.id === catalogId);
   if (!catItem) throw new Error(`Cabinet not found: ${catalogId}`);
+  
+  const w = catItem.width;
+  const d = catItem.depth;
+  
+  let x = visX;
+  let y = visY;
+  
+  if (rotation === 90 || rotation === -90 || rotation === 270) {
+    x = visX + d / 2 - w / 2;
+    y = visY + w / 2 - d / 2;
+  }
+  
+  let wall: 'north'|'south'|'east'|'west'|'island' = 'north';
+  if (rotation === 180 || rotation === -180) wall = 'south';
+  else if (rotation === 90) wall = 'east';
+  else if (rotation === -90 || rotation === 270) wall = 'west';
+  // If it's an island, maybe it needs 'island' flag, but for templates this is fine.
   
   return {
     ...catItem,
@@ -24,22 +42,30 @@ function createCab(
     x,
     y,
     rotation,
-    wall: 'north' as any, // Add the required wall property with a cast
+    wall,
   } as PlacedCabinet;
 }
 
-// Helper to create an Appliance
-function createApp(
+// Helper to calculate X and Y for appliances using the exact same logic
+function placeApp(
   type: any,
   name: string,
   width: number,
   height: number,
   depth: number,
-  x: number,
-  y: number,
+  visX: number,
+  visY: number,
   rotation: number,
   price: number
 ): Appliance {
+  let x = visX;
+  let y = visY;
+  
+  if (rotation === 90 || rotation === -90 || rotation === 270) {
+    x = visX + depth / 2 - width / 2;
+    y = visY + width / 2 - depth / 2;
+  }
+  
   return {
     id: `template-app-${Math.random().toString(36).substr(2, 9)}`,
     type,
@@ -62,37 +88,42 @@ const templates: Array<{ name: string; description: string; config: Partial<Kitc
       roomWidth: 12,
       roomLength: 13,
       cabinets: [
-        // Top Wall (rot=0, Y=0)
-        createCab('corner-base-36', 0, 0, 0),
-        createCab('base-18', 36, 0, 0),
-        createCab('base-18', 84, 0, 0),
-        createCab('base-36', 102, 0, 0),
-        createCab('base-filler-6', 138, 0, 0),
+        // --- Top Wall (North, Y=0, Rot=0) ---
+        placeCab('corner-base-36', 0, 0, 0),
+        placeCab('base-18', 36, 0, 0),
+        // Stove at 54 (30" wide)
+        placeCab('base-18', 84, 0, 0),
+        placeCab('base-36', 102, 0, 0),
+        placeCab('base-filler-6', 138, 0, 0),
         
-        // Top Wall Wall Cabinets (Y=0, rot=0)
-        createCab('corner-wall-24', 0, 0, 0),
-        createCab('wall-12', 24, 0, 0),
-        createCab('wall-18', 36, 0, 0),
-        createCab('wall-18', 84, 0, 0),
-        createCab('wall-36', 102, 0, 0),
-        createCab('wall-filler-6', 138, 0, 0),
+        // --- Top Wall Wall Cabinets (Y=0, Rot=0) ---
+        placeCab('corner-wall-24', 0, 0, 0),
+        placeCab('wall-12', 24, 0, 0),
+        placeCab('wall-18', 36, 0, 0),
+        // Microwave at 54 (30" wide)
+        placeCab('wall-18', 84, 0, 0),
+        placeCab('wall-36', 102, 0, 0),
+        placeCab('wall-filler-6', 138, 0, 0),
 
-        // Left Wall (rot=-90)
-        createCab('base-36', -6, 66, -90),
-        createCab('base-18', 3, 93, -90),
-        
-        // Left Wall Wall Cabinets (rot=-90)
-        createCab('wall-12', 0, 24, -90),
-        createCab('wall-24', -6, 42, -90),
-        createCab('wall-18', -3, 99, -90),
-        createCab('wall-36', -12, 126, -90),
+        // --- Left Wall (West, X=0, Rot=-90) ---
+        // Dishwasher at Y=36 (24" wide)
+        placeCab('base-36', 0, 60, -90), // Sink base
+        placeCab('base-24', 0, 96, -90),
+        // Refrigerator at Y=120 (36" wide)
+
+        // --- Left Wall Wall Cabinets (X=0, Rot=-90) ---
+        placeCab('wall-12', 0, 24, -90),
+        placeCab('wall-24', 0, 36, -90),
+        // Sink void at 60-96
+        placeCab('wall-24', 0, 96, -90),
+        placeCab('wall-36', 0, 120, -90),
       ],
       appliances: [
-        createApp('stove', 'Gas Range 30"', 30, 36, 28, 54, 0, 0, 800),
-        createApp('microwave', 'Over-Range Microwave 30"', 30, 17, 16, 54, 0, 0, 300),
-        createApp('dishwasher', 'Dishwasher 24"', 24, 34, 24, 0, 36, -90, 600),
-        createApp('sink', 'Undermount Sink 33"', 33, 9, 22, -4.5, 67, -90, 250),
-        createApp('refrigerator', 'Refrigerator 36"', 36, 70, 30, -3, 117, -90, 1200),
+        placeApp('stove', 'Gas Range 30"', 30, 36, 28, 54, 0, 0, 800),
+        placeApp('microwave', 'Over-Range Microwave 30"', 30, 17, 16, 54, 0, 0, 300),
+        placeApp('dishwasher', 'Dishwasher 24"', 24, 34, 24, 0, 36, -90, 600),
+        placeApp('sink', 'Undermount Sink 33"', 33, 9, 22, 0, 61.5, -90, 250),
+        placeApp('refrigerator', 'Refrigerator 36"', 36, 70, 30, 0, 120, -90, 1200),
       ],
     },
   },
@@ -103,30 +134,38 @@ const templates: Array<{ name: string; description: string; config: Partial<Kitc
       roomWidth: 8,
       roomLength: 12,
       cabinets: [
-        // Left Wall (rot=-90)
-        createCab('base-24', 0, 48, -90),
-        createCab('base-24', 0, 102, -90),
-        createCab('wall-36', -12, 24, -90),
-        createCab('wall-24', -6, 54, -90),
-        createCab('wall-24', -6, 108, -90),
+        // --- Left Wall (West, X=0, Rot=-90) ---
+        placeCab('base-24', 0, 18, -90),
+        // Stove at Y=42 (30" wide)
+        placeCab('base-24', 0, 72, -90),
+        // Refrigerator at Y=96 (36" wide)
+
+        // Left Wall Cabinets
+        placeCab('wall-24', 0, 18, -90),
+        // Microwave at Y=42 (30" wide)
+        placeCab('wall-24', 0, 72, -90),
+        placeCab('wall-36', 0, 96, -90),
         
-        // Right Wall (rot=90)
-        createCab('tall-18', 75, 9, 90),
-        createCab('base-24', 72, 30, 90),
-        createCab('base-36', 66, 84, 90),
-        createCab('base-18', 75, 111, 90),
-        createCab('wall-24', 78, 36, 90),
-        createCab('wall-24', 78, 60, 90),
-        createCab('wall-18', 81, 117, 90),
+        // --- Right Wall (East, Rot=90) ---
+        // Room width is 96. Depth 24 -> visX = 72
+        placeCab('tall-18', 72, 18, 90),
+        placeCab('base-24', 72, 36, 90),
+        placeCab('base-36', 72, 60, 90), // Sink base
+        // Dishwasher at Y=96 (24" wide)
+        placeCab('base-12', 72, 120, 90),
+
+        // Right Wall Cabinets (Depth 12 -> visX = 84)
+        placeCab('wall-24', 84, 36, 90),
+        // Sink void at 60-96
+        placeCab('wall-24', 84, 96, 90),
+        placeCab('wall-12', 84, 120, 90),
       ],
       appliances: [
-        // Left Wall
-        createApp('refrigerator', 'Refrigerator 36"', 36, 70, 30, -3, 15, -90, 1200),
-        createApp('stove', 'Gas Range 30"', 30, 36, 28, -1, 73, -90, 800),
-        createApp('microwave', 'Over-Range Microwave 30"', 30, 17, 16, -7, 79, -90, 300),
-        // Right Wall
-        createApp('dishwasher', 'Dishwasher 24"', 24, 34, 24, 72, 54, 90, 600),
-        createApp('sink', 'Undermount Sink 33"', 33, 9, 22, 68.5, 85, 90, 250),
+        placeApp('stove', 'Gas Range 30"', 30, 36, 28, 0, 42, -90, 800),
+        placeApp('microwave', 'Over-Range Microwave 30"', 30, 17, 16, 0, 42, -90, 300),
+        placeApp('refrigerator', 'Refrigerator 36"', 36, 70, 30, 0, 96, -90, 1200),
+        placeApp('sink', 'Undermount Sink 33"', 33, 9, 22, 72, 61.5, 90, 250),
+        placeApp('dishwasher', 'Dishwasher 24"', 24, 34, 24, 72, 96, 90, 600),
       ],
     },
   },
@@ -137,33 +176,40 @@ const templates: Array<{ name: string; description: string; config: Partial<Kitc
       roomWidth: 16,
       roomLength: 16,
       cabinets: [
-        // Top Wall (rot=0)
-        createCab('tall-24', 21, 0, 0),
-        createCab('base-18', 81, 0, 0),
-        createCab('base-18', 129, 0, 0),
-        createCab('tall-24', 147, 0, 0),
-        createCab('wall-36', 45, 0, 0),
-        createCab('wall-18', 81, 0, 0),
-        createCab('wall-18', 129, 0, 0),
+        // --- Top Wall (North, Y=0, Rot=0) ---
+        placeCab('tall-24', 15, 0, 0),
+        // Refrigerator at X=39 (36" wide)
+        placeCab('base-24', 75, 0, 0),
+        // Stove at X=99 (30" wide)
+        placeCab('base-24', 129, 0, 0),
+        placeCab('base-24', 153, 0, 0),
         
-        // Island Working Side (rot=180, Y=72)
-        createCab('base-36', 78, 72, 180),
-        createCab('base-24', 114, 72, 180),
+        // Top Wall Cabinets
+        placeCab('wall-36', 39, 0, 0),
+        placeCab('wall-24', 75, 0, 0),
+        // Microwave at X=99 (30" wide)
+        placeCab('wall-24', 129, 0, 0),
+        placeCab('wall-24', 153, 0, 0),
         
-        // Island Seating Side (rot=0, Y=96)
-        createCab('base-36', 54, 96, 0),
-        createCab('base-12', 90, 96, 0),
-        createCab('base-36', 102, 96, 0),
+        // --- Island Working Side (Rot=180, Y=72, Depth=24) ---
+        // Facing south, so we align bounds to Y=72
+        placeCab('base-24', 48, 72, 180),
+        // Dishwasher at X=72 (24" wide)
+        placeCab('base-36', 96, 72, 180), // Sink base
+        placeCab('base-12', 132, 72, 180),
+        
+        // --- Island Seating Side (Rot=0, Y=96, Depth=24) ---
+        placeCab('base-24', 48, 96, 0),
+        placeCab('base-24', 72, 96, 0),
+        placeCab('base-24', 96, 96, 0),
+        placeCab('base-24', 120, 96, 0),
       ],
       appliances: [
-        // Top Wall
-        createApp('refrigerator', 'Refrigerator 36"', 36, 70, 30, 45, 0, 0, 1200),
-        createApp('stove', 'Gas Range 30"', 30, 36, 28, 99, 0, 0, 800),
-        createApp('microwave', 'Over-Range Microwave 30"', 30, 17, 16, 99, 0, 0, 300),
-        
-        // Island (rot=180)
-        createApp('dishwasher', 'Dishwasher 24"', 24, 34, 24, 54, 72, 180, 600),
-        createApp('sink', 'Undermount Sink 33"', 33, 9, 22, 79.5, 73, 180, 250),
+        placeApp('refrigerator', 'Refrigerator 36"', 36, 70, 30, 39, 0, 0, 1200),
+        placeApp('stove', 'Gas Range 30"', 30, 36, 28, 99, 0, 0, 800),
+        placeApp('microwave', 'Over-Range Microwave 30"', 30, 17, 16, 99, 0, 0, 300),
+        placeApp('dishwasher', 'Dishwasher 24"', 24, 34, 24, 72, 72, 180, 600),
+        placeApp('sink', 'Undermount Sink 33"', 33, 9, 22, 97.5, 72, 180, 250),
       ],
     },
   },
