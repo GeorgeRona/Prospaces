@@ -488,6 +488,7 @@ export function Appointments({ user }: AppointmentsProps) {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
+                      type="button"
                       onClick={() => setViewMode('list')}
                       className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'list' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
                     >
@@ -501,6 +502,7 @@ export function Appointments({ user }: AppointmentsProps) {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
+                      type="button"
                       onClick={() => setViewMode('week')}
                       className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'week' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
                     >
@@ -514,6 +516,7 @@ export function Appointments({ user }: AppointmentsProps) {
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
+                      type="button"
                       onClick={() => setViewMode('month')}
                       className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'month' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
                     >

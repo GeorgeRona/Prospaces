@@ -405,25 +405,25 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
           </CardHeader>
           <CardContent>
             <div className="h-[300px] w-full">
-              <ExplicitChartContainer>
-                <AreaChart data={charts.wonDeals} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                  <defs>
+              <ExplicitChartContainer key="dashboard-wondeals-container">
+                <AreaChart key="dashboard-wondeals-chart" data={charts.wonDeals} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <defs key="dashboard-wondeals-defs">
                     <linearGradient id="colorValueWonDeals" x1="0" y1="0" x2="0" y2="1">
-                      <stop key="wondeals-gradient-stop-5" offset="5%" stopColor={theme.colors.primary} stopOpacity={0.3}/>
-                      <stop key="wondeals-gradient-stop-95" offset="95%" stopColor={theme.colors.primary} stopOpacity={0}/>
+                      <stop key="dashboard-wondeals-stop-5" offset="5%" stopColor={theme.colors.primary} stopOpacity={0.3}/>
+                      <stop key="dashboard-wondeals-stop-95" offset="95%" stopColor={theme.colors.primary} stopOpacity={0}/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid key="wondeals-grid" strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-                  <XAxis key="wondeals-xaxis" dataKey="name" axisLine={false} tickLine={false} tick={{fill: 'var(--muted-foreground)'}} fontSize={12} />
-                  <YAxis key="wondeals-yaxis" yAxisId="left" axisLine={false} tickLine={false} tick={{fill: 'var(--muted-foreground)'}} width={40} fontSize={12} />
+                  <CartesianGrid key="dashboard-wondeals-grid" strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                  <XAxis key="dashboard-wondeals-xaxis" dataKey="name" axisLine={false} tickLine={false} tick={{fill: 'var(--muted-foreground)'}} fontSize={12} />
+                  <YAxis key="dashboard-wondeals-yaxis" yAxisId="left" axisLine={false} tickLine={false} tick={{fill: 'var(--muted-foreground)'}} width={40} fontSize={12} />
                   <Tooltip 
-                    key="wondeals-tooltip"
+                    key="dashboard-wondeals-tooltip"
                     contentStyle={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)', borderRadius: '8px' }}
                     itemStyle={{ color: 'var(--foreground)' }}
                   />
-                  <Legend key="wondeals-legend" />
+                  <Legend key="dashboard-wondeals-legend" />
                   <Area 
-                    key="area-won-deals"
+                    key="dashboard-wondeals-area"
                     yAxisId="left" 
                     type="monotone" 
                     dataKey="value" 
@@ -446,10 +446,10 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
           <CardContent>
             <div className="h-[300px] w-full flex items-center justify-center">
               {charts.pipeline.length > 0 ? (
-                <ExplicitChartContainer>
-                  <PieChart>
+                <ExplicitChartContainer key="dashboard-pipeline-container">
+                  <PieChart key="sales-pipeline-chart">
                     <Pie
-                      key="sales-pipeline-pie-chart"
+                      key="dashboard-pipeline-pie"
                       data={charts.pipeline}
                       cx="50%"
                       cy="50%"
@@ -459,15 +459,15 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
                       dataKey="value"
                     >
                       {charts.pipeline.map((entry, index) => (
-                        <Cell key={`pipeline-cell-${entry.name}-${index}`} fill={PIPELINE_COLORS[index % PIPELINE_COLORS.length]} />
+                        <Cell key={`dashboard-pipeline-cell-${entry.name || 'unknown'}-${index}`} fill={PIPELINE_COLORS[index % PIPELINE_COLORS.length]} />
                       ))}
                     </Pie>
                     <Tooltip 
-                      key="pipeline-tooltip"
+                      key="dashboard-pipeline-tooltip"
                       contentStyle={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)', borderRadius: '8px' }}
                       itemStyle={{ color: 'var(--foreground)' }}
                     />
-                    <Legend key="pipeline-legend" verticalAlign="bottom" height={36} iconType="circle" />
+                    <Legend key="dashboard-pipeline-legend" verticalAlign="bottom" height={36} iconType="circle" />
                   </PieChart>
                 </ExplicitChartContainer>
               ) : (
@@ -484,19 +484,19 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
           </CardHeader>
           <CardContent>
             <div className="h-[300px] w-full">
-              <ExplicitChartContainer>
-                <LineChart data={charts.projection} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                  <CartesianGrid key="projection-grid" strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-                  <XAxis key="projection-xaxis" dataKey="name" axisLine={false} tickLine={false} tick={{fill: 'var(--muted-foreground)'}} fontSize={12} />
-                  <YAxis key="projection-yaxis" axisLine={false} tickLine={false} tick={{fill: 'var(--muted-foreground)'}} width={40} fontSize={12} />
+              <ExplicitChartContainer key="dashboard-projection-container">
+                <LineChart key="dashboard-projection-chart" data={charts.projection} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <CartesianGrid key="dashboard-projection-grid" strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                  <XAxis key="dashboard-projection-xaxis" dataKey="name" axisLine={false} tickLine={false} tick={{fill: 'var(--muted-foreground)'}} fontSize={12} />
+                  <YAxis key="dashboard-projection-yaxis" axisLine={false} tickLine={false} tick={{fill: 'var(--muted-foreground)'}} width={40} fontSize={12} />
                   <Tooltip 
-                    key="projection-tooltip"
+                    key="dashboard-projection-tooltip"
                     contentStyle={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)', borderRadius: '8px' }}
                     itemStyle={{ color: 'var(--foreground)' }}
                   />
-                  <Legend key="projection-legend" />
-                  <Line key="line-projected" type="monotone" dataKey="projected" stroke={theme.colors.info} strokeWidth={2} dot={false} name="Projected" />
-                  <Line key="line-actual" type="monotone" dataKey="actual" stroke={theme.colors.primary} strokeWidth={2} dot={false} name="Actual" />
+                  <Legend key="dashboard-projection-legend" />
+                  <Line key="dashboard-projection-line-projected" type="monotone" dataKey="projected" stroke={theme.colors.info} strokeWidth={2} dot={false} name="Projected" />
+                  <Line key="dashboard-projection-line-actual" type="monotone" dataKey="actual" stroke={theme.colors.primary} strokeWidth={2} dot={false} name="Actual" />
                 </LineChart>
               </ExplicitChartContainer>
             </div>
@@ -511,10 +511,10 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
           <CardContent>
             <div className="h-[300px] w-full flex items-center justify-center">
               {charts.lossReasons.length > 0 ? (
-                <ExplicitChartContainer>
-                  <PieChart>
+                <ExplicitChartContainer key="dashboard-loss-container">
+                  <PieChart key="loss-reasons-chart">
                     <Pie
-                      key="loss-reasons-pie-chart"
+                      key="dashboard-loss-pie"
                       data={charts.lossReasons}
                       cx="50%"
                       cy="50%"
@@ -524,15 +524,15 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
                       dataKey="value"
                     >
                       {charts.lossReasons.map((entry, index) => (
-                        <Cell key={`loss-cell-${entry.name}-${index}`} fill={LOSS_COLORS[index % LOSS_COLORS.length]} />
+                        <Cell key={`dashboard-loss-cell-${entry.name || 'unknown'}-${index}`} fill={LOSS_COLORS[index % LOSS_COLORS.length]} />
                       ))}
                     </Pie>
                     <Tooltip 
-                      key="loss-tooltip"
+                      key="dashboard-loss-tooltip"
                       contentStyle={{ backgroundColor: 'var(--card)', borderColor: 'var(--border)', borderRadius: '8px' }}
                       itemStyle={{ color: 'var(--foreground)' }}
                     />
-                    <Legend key="loss-legend" verticalAlign="bottom" height={36} iconType="circle" />
+                    <Legend key="dashboard-loss-legend" verticalAlign="bottom" height={36} iconType="circle" />
                   </PieChart>
                 </ExplicitChartContainer>
               ) : (

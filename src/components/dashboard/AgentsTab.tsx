@@ -243,20 +243,21 @@ export function AgentsTab({ opportunities, users }: AgentsTabProps) {
             {/* Using absolute positioning trick to fix Recharts width issue */}
             <div className="relative h-[400px] w-full min-w-0">
               <div className="absolute inset-0">
-                <ExplicitChartContainer>
+                <ExplicitChartContainer key="agents-chart-container">
                     <BarChart
+                        key="agents-barchart"
                         layout="vertical"
                         data={chartData}
                         margin={{ top: 20, right: 30, left: 40, bottom: 5 }}
                     >
-                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e5e7eb" />
-                        <XAxis type="number" hide />
-                        <YAxis dataKey="name" type="category" width={100} tick={{fontSize: 12}} />
-                        <Tooltip />
-                        <Legend wrapperStyle={{paddingTop: '20px'}} />
+                        <CartesianGrid key="agents-grid" strokeDasharray="3 3" horizontal={false} stroke="#e5e7eb" />
+                        <XAxis key="agents-xaxis" type="number" hide />
+                        <YAxis key="agents-yaxis" dataKey="name" type="category" width={100} tick={{fontSize: 12}} />
+                        <Tooltip key="agents-tooltip" />
+                        <Legend key="agents-legend" wrapperStyle={{paddingTop: '20px'}} />
                         {allStages.map((stage, index) => (
                             <Bar 
-                                key={stage as string} 
+                                key={`agents-bar-${(stage || 'unknown').toString().replace(/\s+/g, '-')}`} 
                                 dataKey={stage as string} 
                                 stackId="a" 
                                 fill={COLORS[index % COLORS.length]} 

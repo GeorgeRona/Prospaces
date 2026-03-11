@@ -126,16 +126,16 @@ export function OverviewTab({ metrics, charts }: OverviewTabProps) {
             {/* Using absolute positioning trick to fix Recharts width issue */}
             <div className="relative h-[300px] w-full min-w-0">
               <div className="absolute inset-0">
-                <ExplicitChartContainer>
-                  <LineChart data={charts.wonDeals} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#6b7280'}} />
-                    <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{fill: '#6b7280'}} width={40} />
-                    <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{fill: '#6b7280'}} width={40} />
-                    <Tooltip />
-                    <Legend />
-                    <Line yAxisId="left" type="monotone" dataKey="value" stroke="#0ea5e9" strokeWidth={3} dot={{r: 4}} name="Closed Value ($)" />
-                    <Line yAxisId="right" type="monotone" dataKey="deals" stroke="#38bdf8" strokeWidth={3} dot={{r: 4}} name="Won Deals (Qty)" />
+                <ExplicitChartContainer key="overview-wondeals-container">
+                  <LineChart key="won-deals-chart" data={charts.wonDeals} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    <CartesianGrid key="overview-wondeals-grid" strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                    <XAxis key="overview-wondeals-xaxis" dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#6b7280'}} />
+                    <YAxis key="overview-wondeals-yaxis-left" yAxisId="left" axisLine={false} tickLine={false} tick={{fill: '#6b7280'}} width={40} />
+                    <YAxis key="overview-wondeals-yaxis-right" yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{fill: '#6b7280'}} width={40} />
+                    <Tooltip key="overview-wondeals-tooltip" />
+                    <Legend key="overview-wondeals-legend" />
+                    <Line key="overview-wondeals-line-value" yAxisId="left" type="monotone" dataKey="value" stroke="#0ea5e9" strokeWidth={3} dot={{r: 4}} name="Closed Value ($)" />
+                    <Line key="overview-wondeals-line-deals" yAxisId="right" type="monotone" dataKey="deals" stroke="#38bdf8" strokeWidth={3} dot={{r: 4}} name="Won Deals (Qty)" />
                   </LineChart>
                 </ExplicitChartContainer>
               </div>
@@ -151,9 +151,10 @@ export function OverviewTab({ metrics, charts }: OverviewTabProps) {
           <CardContent>
             <div className="relative h-[300px] w-full min-w-0">
               <div className="absolute inset-0">
-                <ExplicitChartContainer>
-                  <PieChart margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                <ExplicitChartContainer key="overview-pipeline-container">
+                  <PieChart key="overview-pipeline-chart" margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
                     <Pie
+                      key="overview-pipeline-pie"
                       data={charts.pipeline}
                       cx="50%"
                       cy="40%"
@@ -163,11 +164,11 @@ export function OverviewTab({ metrics, charts }: OverviewTabProps) {
                       dataKey="value"
                     >
                       {charts.pipeline.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={PIPELINE_COLORS[index % PIPELINE_COLORS.length]} />
+                        <Cell key={`overview-pipeline-cell-${entry.name || 'unknown'}-${index}`} fill={PIPELINE_COLORS[index % PIPELINE_COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip />
-                    <Legend verticalAlign="bottom" height={72} iconType="circle" wrapperStyle={{ bottom: 0 }} />
+                    <Tooltip key="overview-pipeline-tooltip" />
+                    <Legend key="overview-pipeline-legend" verticalAlign="bottom" height={72} iconType="circle" wrapperStyle={{ bottom: 0 }} />
                   </PieChart>
                 </ExplicitChartContainer>
               </div>
@@ -183,15 +184,15 @@ export function OverviewTab({ metrics, charts }: OverviewTabProps) {
           <CardContent>
             <div className="relative h-[300px] w-full min-w-0">
               <div className="absolute inset-0">
-                <ExplicitChartContainer>
-                  <LineChart data={charts.projection} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#6b7280'}} />
-                    <YAxis axisLine={false} tickLine={false} tick={{fill: '#6b7280'}} width={40} />
-                    <Tooltip />
-                    <Legend />
-                    <Line type="monotone" dataKey="projected" stroke="#0ea5e9" strokeWidth={3} dot={false} name="Projected Value" />
-                    <Line type="monotone" dataKey="actual" stroke="#38bdf8" strokeWidth={3} dot={false} name="Actual / Target" />
+                <ExplicitChartContainer key="overview-projection-container">
+                  <LineChart key="overview-projection-chart" data={charts.projection} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    <CartesianGrid key="overview-projection-grid" strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                    <XAxis key="overview-projection-xaxis" dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#6b7280'}} />
+                    <YAxis key="overview-projection-yaxis" axisLine={false} tickLine={false} tick={{fill: '#6b7280'}} width={40} />
+                    <Tooltip key="overview-projection-tooltip" />
+                    <Legend key="overview-projection-legend" />
+                    <Line key="overview-projection-line-projected" type="monotone" dataKey="projected" stroke="#0ea5e9" strokeWidth={3} dot={false} name="Projected Value" />
+                    <Line key="overview-projection-line-actual" type="monotone" dataKey="actual" stroke="#38bdf8" strokeWidth={3} dot={false} name="Actual / Target" />
                   </LineChart>
                 </ExplicitChartContainer>
               </div>
@@ -207,9 +208,10 @@ export function OverviewTab({ metrics, charts }: OverviewTabProps) {
           <CardContent>
             <div className="relative h-[300px] w-full min-w-0">
               <div className="absolute inset-0">
-                <ExplicitChartContainer>
-                  <PieChart margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                <ExplicitChartContainer key="overview-loss-container">
+                  <PieChart key="overview-loss-chart" margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
                     <Pie
+                      key="overview-loss-pie"
                       data={charts.lossReasons}
                       cx="50%"
                       cy="40%"
@@ -219,11 +221,11 @@ export function OverviewTab({ metrics, charts }: OverviewTabProps) {
                       dataKey="value"
                     >
                       {charts.lossReasons.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={LOSS_COLORS[index % LOSS_COLORS.length]} />
+                        <Cell key={`overview-loss-cell-${entry.name || 'unknown'}-${index}`} fill={LOSS_COLORS[index % LOSS_COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip />
-                    <Legend verticalAlign="bottom" height={72} iconType="circle" wrapperStyle={{ bottom: 0 }} />
+                    <Tooltip key="overview-loss-tooltip" />
+                    <Legend key="overview-loss-legend" verticalAlign="bottom" height={72} iconType="circle" wrapperStyle={{ bottom: 0 }} />
                   </PieChart>
                 </ExplicitChartContainer>
               </div>
