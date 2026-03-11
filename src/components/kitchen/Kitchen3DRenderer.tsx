@@ -672,21 +672,27 @@ export const Kitchen3DRenderer = React.forwardRef<Kitchen3DRendererRef, Kitchen3
 
     sceneRef.current = { scene, camera, renderer, controls: null };
 
-    // Handle resize
-    const handleResize = () => {
-      if (!containerRef.current || !sceneRef.current) return;
-      const width = containerRef.current.clientWidth;
-      const height = containerRef.current.clientHeight;
-      sceneRef.current.camera.aspect = width / height;
-      sceneRef.current.camera.updateProjectionMatrix();
-      sceneRef.current.renderer.setSize(width, height);
-    };
-
-    window.addEventListener('resize', handleResize);
+    // Handle resize with ResizeObserver to capture layout changes
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        if (!sceneRef.current) return;
+        const width = entry.contentRect.width;
+        const height = entry.contentRect.height;
+        if (width > 0 && height > 0) {
+          sceneRef.current.camera.aspect = width / height;
+          sceneRef.current.camera.updateProjectionMatrix();
+          sceneRef.current.renderer.setSize(width, height);
+        }
+      }
+    });
+    
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
 
     // Cleanup
     return () => {
-      window.removeEventListener('resize', handleResize);
+      resizeObserver.disconnect();
       renderer.domElement.removeEventListener('mousedown', onMouseDown);
       renderer.domElement.removeEventListener('mousemove', onMouseMove);
       renderer.domElement.removeEventListener('mouseup', onMouseUp);

@@ -558,21 +558,27 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
 
     sceneRef.current = { scene, camera, renderer };
 
-    // Handle resize
-    const handleResize = () => {
-      if (!containerRef.current || !sceneRef.current) return;
-      const width = containerRef.current.clientWidth;
-      const height = containerRef.current.clientHeight;
-      sceneRef.current.camera.aspect = width / height;
-      sceneRef.current.camera.updateProjectionMatrix();
-      sceneRef.current.renderer.setSize(width, height);
-    };
+    // Handle resize with ResizeObserver
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        if (!sceneRef.current) return;
+        const width = entry.contentRect.width;
+        const height = entry.contentRect.height;
+        if (width > 0 && height > 0) {
+          sceneRef.current.camera.aspect = width / height;
+          sceneRef.current.camera.updateProjectionMatrix();
+          sceneRef.current.renderer.setSize(width, height);
+        }
+      }
+    });
 
-    window.addEventListener('resize', handleResize);
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
 
     // Cleanup
     return () => {
-      window.removeEventListener('resize', handleResize);
+      resizeObserver.disconnect();
       renderer.domElement.removeEventListener('mousedown', onMouseDown);
       renderer.domElement.removeEventListener('mousemove', onMouseMove);
       renderer.domElement.removeEventListener('mouseup', onMouseUp);

@@ -521,7 +521,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
       </div>
 
       {/* Main Content Area */}
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === 'design' && (
           <div className="flex gap-6">
             {/* Left Catalog Panel */}
