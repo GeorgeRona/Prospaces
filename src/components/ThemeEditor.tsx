@@ -5,7 +5,6 @@ import { Label } from './ui/label';
 import { Input } from './ui/input';
 import { useTheme } from './ThemeProvider';
 import { Theme, getTheme, themes } from '../utils/themes';
-import { ScrollArea } from './ui/scroll-area';
 
 interface ThemeEditorProps {
   themeId: string | null;
@@ -100,7 +99,7 @@ export function ThemeEditor({ themeId, open, onOpenChange }: ThemeEditorProps) {
           </DialogHeader>
         </div>
         
-        <ScrollArea className="flex-1 p-6">
+        <div className="flex-1 overflow-y-auto min-h-0 p-6 kitchen-planner-scroll">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pb-4">
             {colorGroups.map(group => (
               <div key={group.title} className="space-y-3">
@@ -141,7 +140,7 @@ export function ThemeEditor({ themeId, open, onOpenChange }: ThemeEditorProps) {
               </div>
             ))}
           </div>
-        </ScrollArea>
+        </div>
         
         <div className="p-4 border-t flex justify-between gap-2 rounded-b-xl bg-muted/20">
           <Button 
