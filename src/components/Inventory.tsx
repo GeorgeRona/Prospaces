@@ -51,6 +51,7 @@ import { loadInventoryPage } from '../utils/inventory-loader';
 import { showOptimizationInstructions } from '../utils/show-optimization-instructions';
 import { getPriceTierLabel, isTierActive, getActiveTierNumbers } from '../lib/global-settings';
 import { InventoryDiagnostic } from './InventoryDiagnostic';
+import { InventoryImageBulkUpload } from './InventoryImageBulkUpload';
 
 interface InventoryProps {
   user: User;
@@ -1046,6 +1047,9 @@ export function Inventory({ user }: InventoryProps) {
                 <Badge className="ml-2 bg-red-100 text-red-700">{displayLowStockCount.toLocaleString()}</Badge>
               )}
             </TabsTrigger>
+            <TabsTrigger value="bulk-upload" className="whitespace-nowrap">
+              Bulk Image Upload
+            </TabsTrigger>
             {(user.role === 'admin' || user.role === 'super_admin') && (
               <TabsTrigger value="diagnostic" className="whitespace-nowrap">
                 Diagnostic
@@ -1714,6 +1718,18 @@ export function Inventory({ user }: InventoryProps) {
               ))
             )}
           </div>
+        </TabsContent>
+
+        <TabsContent value="bulk-upload" className="space-y-4 mt-6">
+          {organizationId && (
+            <InventoryImageBulkUpload 
+              organizationId={organizationId} 
+              onComplete={() => {
+                loadInventory();
+                setActiveTab('items');
+              }}
+            />
+          )}
         </TabsContent>
 
         {(user.role === 'admin' || user.role === 'super_admin') && (

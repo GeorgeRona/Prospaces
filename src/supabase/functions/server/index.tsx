@@ -3298,22 +3298,161 @@ app.post(`${PREFIX}/kv/set`, async (c) => {
   } catch (err: any) { return c.json({ error: err.message }, 500); }
 });
 
+// Catch Deno HTTP connection closed errors gracefully to prevent unhandled rejection crashes
+globalThis.addEventListener("unhandledrejection", (e) => {
+  if (e.reason?.name === "Http" || e.reason?.message?.includes("connection closed")) {
+    e.preventDefault();
+  }
+});
+
+// ── INVENTORY IMAGE BULK UPLOAD ────────────────────────────────────────
+app.post(`${PREFIX}/inventory-image-upload`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+
+    // Parse multipart form data
+    const formData = await c.req.formData();
+    const file = formData.get('file') as File | null;
+    const sku = formData.get('sku') as string | null;
+    const organizationId = formData.get('organizationId') as string | null;
+
+    if (!file) {
+      return c.json({ success: false, error: 'No file provided' }, 400);
+    }
+
+    if (!sku) {
+      return c.json({ success: false, error: 'No SKU provided' }, 400);
+    }
+
+    if (!organizationId) {
+      return c.json({ success: false, error: 'No organization ID provided' }, 400);
+    }
+
+    // Verify user belongs to this organization
+    if (auth.profile.organization_id !== organizationId) {
+      return c.json({ success: false, error: 'Unauthorized: Organization mismatch' }, 403);
+    }
+
+    // Check if inventory item with this SKU exists
+    const { data: inventoryItem, error: inventoryError } = await auth.supabase
+      .from('inventory')
+      .select('id, sku, name')
+      .eq('sku', sku)
+      .eq('organization_id', organizationId)
+      .maybeSingle();
+
+    if (inventoryError) {
+      return c.json({ 
+        success: false, 
+        error: `Database error: ${inventoryError.message}` 
+      }, 500);
+    }
+
+    if (!inventoryItem) {
+      return c.json({ 
+        success: false, 
+        error: `No inventory item found with SKU: ${sku}` 
+      }, 404);
+    }
+
+    // Create bucket if it doesn't exist
+    const bucketName = 'make-8405be07-inventory';
+    const { data: buckets } = await auth.supabase.storage.listBuckets();
+    const bucketExists = buckets?.some(bucket => bucket.name === bucketName);
+    
+    if (!bucketExists) {
+      const { error: bucketError } = await auth.supabase.storage.createBucket(bucketName, {
+        public: false,
+        fileSizeLimit: 5242880, // 5MB
+        allowedMimeTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+      });
+      
+      if (bucketError) {
+        return c.json({ 
+          success: false, 
+          error: `Failed to create storage bucket: ${bucketError.message}` 
+        }, 500);
+      }
+    }
+
+    // Generate unique filename
+    const fileExt = file.name.split('.').pop() || 'jpg';
+    const timestamp = Date.now();
+    const sanitizedSKU = sku.replace(/[^a-zA-Z0-9-_]/g, '_');
+    const fileName = `${organizationId}/${sanitizedSKU}_${timestamp}.${fileExt}`;
+
+    // Convert File to ArrayBuffer
+    const arrayBuffer = await file.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+
+    // Upload to Supabase Storage
+    const { data: uploadData, error: uploadError } = await auth.supabase.storage
+      .from(bucketName)
+      .upload(fileName, uint8Array, {
+        contentType: file.type,
+        upsert: true
+      });
+
+    if (uploadError) {
+      return c.json({ 
+        success: false, 
+        error: `Upload failed: ${uploadError.message}` 
+      }, 500);
+    }
+
+    // Get signed URL (valid for 1 year)
+    const { data: signedUrlData, error: signedUrlError } = await auth.supabase.storage
+      .from(bucketName)
+      .createSignedUrl(fileName, 31536000); // 1 year in seconds
+
+    if (signedUrlError) {
+      return c.json({ 
+        success: false, 
+        error: `Failed to generate signed URL: ${signedUrlError.message}` 
+      }, 500);
+    }
+
+    const imageUrl = signedUrlData.signedUrl;
+
+    // Update inventory item with image URL
+    const { error: updateError } = await auth.supabase
+      .from('inventory')
+      .update({ 
+        image_url: imageUrl,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', inventoryItem.id);
+
+    if (updateError) {
+      return c.json({ 
+        success: false, 
+        error: `Failed to update inventory: ${updateError.message}` 
+      }, 500);
+    }
+
+    return c.json({ 
+      success: true, 
+      message: `Image uploaded for ${inventoryItem.name} (${sku})`,
+      imageUrl,
+      itemId: inventoryItem.id,
+      sku: inventoryItem.sku
+    });
+
+  } catch (err: any) {
+    return c.json({ 
+      success: false, 
+      error: `Server error: ${err.message}` 
+    }, 500);
+  }
+});
+
 // ── CATCH-ALL ───────────────────────────────────────────────────────────
 // Return 200 with diagnostic info so platform health checks always succeed.
 // The `matched: false` flag lets callers distinguish real routes from the fallback.
 app.all('*', (c) => {
   // catch-all unmatched route
   return c.json({ status: 'ok', matched: false, method: c.req.method, path: c.req.path, version: 'v5', timestamp: new Date().toISOString() });
-});
-
-// ── Mount with prefix stripping for both deployment targets ─────────────
-// v5 ProSpaces CRM server starting
-
-// Catch Deno HTTP connection closed errors gracefully to prevent unhandled rejection crashes
-globalThis.addEventListener("unhandledrejection", (e) => {
-  if (e.reason?.name === "Http" || e.reason?.message?.includes("connection closed")) {
-    e.preventDefault();
-  }
 });
 
 Deno.serve(async (req, info) => {
