@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner@2.0.3';
 import { Security } from './Security';
 import { ThemeSelector } from './ThemeSelector';
@@ -38,6 +38,8 @@ import {
   Trash2,
   Loader2,
   Hammer,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import type { User } from '../App';
 import { PermissionGate } from './PermissionGate';
@@ -78,7 +80,104 @@ import { useSubscription } from '../hooks/useSubscription';
 import { getOrgMode, setOrgMode } from '../utils/settings-client';
 import type { OrgUserMode } from '../utils/settings-client';
 import { WorkflowSettingsDialog } from './settings/WorkflowSettingsDialog';
+import { useTheme, type ThemeMode } from './ThemeProvider';
 import { CustomFieldsDialog } from './settings/CustomFieldsDialog';
+
+function ThemeModeCard() {
+  const { themeMode, setThemeMode, theme } = useTheme();
+
+  const modes: { value: ThemeMode; label: string; icon: React.ReactNode; description: string }[] = [
+    {
+      value: 'light',
+      label: 'Light',
+      icon: <Sun className="h-5 w-5" />,
+      description: 'Always use a light theme',
+    },
+    {
+      value: 'dark',
+      label: 'Dark',
+      icon: <Moon className="h-5 w-5" />,
+      description: 'Always use a dark theme',
+    },
+    {
+      value: 'system',
+      label: 'System',
+      icon: <Monitor className="h-5 w-5" />,
+      description: 'Match your device settings',
+    },
+  ];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2" style={{ color: 'var(--color-text)' }}>
+          <Palette className="h-5 w-5" />
+          Theme Mode
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p className="text-sm mb-4" style={{ color: 'var(--color-text-secondary)' }}>
+          Choose how ProSpaces CRM looks to you. Select a single theme mode or sync with your system settings.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {modes.map((mode) => {
+            const isActive = themeMode === mode.value;
+            return (
+              <div
+                key={mode.value}
+                role="button"
+                tabIndex={0}
+                onClick={() => setThemeMode(mode.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setThemeMode(mode.value);
+                  }
+                }}
+                className={`relative flex flex-col items-center gap-2 rounded-lg border-2 p-4 cursor-pointer transition-all ${
+                  isActive
+                    ? 'border-[var(--color-primary)] shadow-md'
+                    : 'border-[var(--color-border)] hover:border-[var(--color-border-light)]'
+                }`}
+                style={{
+                  backgroundColor: isActive ? 'var(--color-background-secondary)' : 'var(--color-background)',
+                }}
+              >
+                <div
+                  className={`rounded-full p-2.5 transition-colors ${
+                    isActive ? 'text-[var(--color-primary-text)]' : ''
+                  }`}
+                  style={{
+                    backgroundColor: isActive ? 'var(--color-primary)' : 'var(--color-background-tertiary)',
+                    color: isActive ? 'var(--color-primary-text)' : 'var(--color-text-secondary)',
+                  }}
+                >
+                  {mode.icon}
+                </div>
+                <span className="font-medium text-sm" style={{ color: 'var(--color-text)' }}>
+                  {mode.label}
+                </span>
+                <span className="text-xs text-center" style={{ color: 'var(--color-text-muted)' }}>
+                  {mode.description}
+                </span>
+                {isActive && (
+                  <div className="absolute top-2 right-2">
+                    <CheckCircle2 className="h-4 w-4" style={{ color: 'var(--color-primary)' }} />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        <p className="text-xs mt-3" style={{ color: 'var(--color-text-muted)' }}>
+          {themeMode === 'system'
+            ? `Currently using ${theme.isDark ? 'dark' : 'light'} mode based on your system preference.`
+            : `You can further customize your theme in the Appearance tab.`}
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
 
 export function Settings({ user, organization, onUserUpdate, onOrganizationUpdate }: SettingsProps) {
   const [orgName, setOrgName] = useState('ProSpaces Organization');
@@ -796,6 +895,8 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
               </Button>
             </CardContent>
           </Card>
+
+          <ThemeModeCard />
         </TabsContent>
 
         <TabsContent value="notifications" className="space-y-4">

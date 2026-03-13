@@ -1,5 +1,7 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { Theme, getTheme, saveTheme, loadTheme, saveThemeToDatabase, loadThemeFromDatabase } from '../utils/themes';
+
+export type ThemeMode = 'light' | 'dark' | 'system';
 
 // Fallback theme used when useTheme is called outside of ThemeProvider
 // (e.g. during hot-reload boundary resets)
@@ -9,6 +11,8 @@ const fallbackContext: ThemeContextType = {
   themeId: 'vibrant',
   setTheme: () => {},
   updateThemeColors: () => {},
+  themeMode: 'system',
+  setThemeMode: () => {},
 };
 
 interface ThemeContextType {
@@ -17,6 +21,8 @@ interface ThemeContextType {
   setTheme: (themeId: string) => void;
   updateThemeColors: (themeId: string, colors: Partial<Theme['colors']>) => void;
   userId?: string;
+  themeMode: ThemeMode;
+  setThemeMode: (mode: ThemeMode) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -54,9 +60,71 @@ function hexToHSL(hex: string): string {
 }
 
 export function ThemeProvider({ children, userId }: { children: ReactNode; userId?: string }) {
+  const [themeMode, setThemeModeState] = useState<ThemeMode>(loadThemeMode());
   const [themeId, setThemeId] = useState<string>(loadTheme());
   const [theme, setThemeState] = useState<Theme>(getTheme(themeId));
   const [customColorsVersion, setCustomColorsVersion] = useState(0);
+
+  // Resolve theme based on mode
+  const resolveThemeForMode = useCallback((mode: ThemeMode): string => {
+    if (mode === 'light') return getPreferredThemeForMode('light');
+    if (mode === 'dark') return getPreferredThemeForMode('dark');
+    // system mode
+    return getSystemPrefersDark() ? getPreferredThemeForMode('dark') : getPreferredThemeForMode('light');
+  }, []);
+
+  // Handle mode change
+  const handleSetThemeMode = useCallback(async (mode: ThemeMode) => {
+    setThemeModeState(mode);
+    saveThemeModeToStorage(mode);
+    const resolvedId = mode === 'light'
+      ? getPreferredThemeForMode('light')
+      : mode === 'dark'
+        ? getPreferredThemeForMode('dark')
+        : getSystemPrefersDark()
+          ? getPreferredThemeForMode('dark')
+          : getPreferredThemeForMode('light');
+    setThemeId(resolvedId);
+    saveTheme(resolvedId);
+    if (userId) {
+      await saveThemeToDatabase(resolvedId, userId);
+    }
+    // Persist mode to server
+    if (userId) {
+      try {
+        const { projectId, publicAnonKey } = await import('../utils/supabase/info');
+        const { createClient } = await import('../utils/supabase/client');
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/settings/theme`, {
+            method: 'PUT',
+            headers: {
+              'Authorization': `Bearer ${publicAnonKey}`,
+              'X-User-Token': session.access_token,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ theme: resolvedId, themeMode: mode }),
+          });
+        }
+      } catch {
+        // Non-fatal: mode saved locally
+      }
+    }
+  }, [userId]);
+
+  // Listen for system preference changes when in system mode
+  useEffect(() => {
+    if (themeMode !== 'system') return;
+    const mql = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = (e: MediaQueryListEvent) => {
+      const resolvedId = e.matches ? getPreferredThemeForMode('dark') : getPreferredThemeForMode('light');
+      setThemeId(resolvedId);
+      saveTheme(resolvedId);
+    };
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, [themeMode]);
 
   const updateThemeColors = (id: string, colors: Partial<Theme['colors']>) => {
     try {
@@ -83,6 +151,13 @@ export function ThemeProvider({ children, userId }: { children: ReactNode; userI
           // Loaded theme from database
           setThemeId(dbTheme);
           saveTheme(dbTheme); // Also save to localStorage
+          // Track the preferred theme for current mode
+          const currentThemeObj = getTheme(dbTheme);
+          if (currentThemeObj.isDark) {
+            savePreferredThemeForMode('dark', dbTheme);
+          } else {
+            savePreferredThemeForMode('light', dbTheme);
+          }
         } else {
           // No theme found in database, using localStorage or default
           const localTheme = loadTheme();
@@ -191,6 +266,14 @@ export function ThemeProvider({ children, userId }: { children: ReactNode; userI
     // Setting theme
     setThemeId(newThemeId);
     saveTheme(newThemeId); // Save to localStorage immediately
+
+    // Also save as preferred theme for this mode category
+    const newThemeObj = getTheme(newThemeId);
+    if (newThemeObj.isDark) {
+      savePreferredThemeForMode('dark', newThemeId);
+    } else {
+      savePreferredThemeForMode('light', newThemeId);
+    }
     
     if (userId) {
       // Saving theme to database for user
@@ -199,7 +282,7 @@ export function ThemeProvider({ children, userId }: { children: ReactNode; userI
   };
 
   return (
-    <ThemeContext.Provider value={{ theme, themeId, setTheme: handleSetTheme, updateThemeColors, userId }}>
+    <ThemeContext.Provider value={{ theme, themeId, setTheme: handleSetTheme, updateThemeColors, userId, themeMode, setThemeMode: handleSetThemeMode }}>
       {children}
     </ThemeContext.Provider>
   );
@@ -217,4 +300,44 @@ export function useTheme() {
     return fallbackContext;
   }
   return context;
+}
+
+// Helper to get the stored preferred theme for a given mode
+function getPreferredThemeForMode(mode: 'light' | 'dark'): string {
+  try {
+    return localStorage.getItem(`prospace-preferred-${mode}-theme`) || (mode === 'light' ? 'vibrant' : 'dark');
+  } catch {
+    return mode === 'light' ? 'vibrant' : 'dark';
+  }
+}
+
+function savePreferredThemeForMode(mode: 'light' | 'dark', themeId: string): void {
+  try {
+    localStorage.setItem(`prospace-preferred-${mode}-theme`, themeId);
+  } catch {
+    // Ignored
+  }
+}
+
+function loadThemeMode(): ThemeMode {
+  try {
+    const stored = localStorage.getItem('prospace-theme-mode');
+    if (stored === 'light' || stored === 'dark' || stored === 'system') return stored;
+  } catch {
+    // Ignored
+  }
+  return 'system';
+}
+
+function saveThemeModeToStorage(mode: ThemeMode): void {
+  try {
+    localStorage.setItem('prospace-theme-mode', mode);
+  } catch {
+    // Ignored
+  }
+}
+
+function getSystemPrefersDark(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches;
 }

@@ -2875,6 +2875,14 @@
     border-color: #2e2e2e;
   }
 
+  .border-\[var\(--color-border\)\] {
+    border-color: var(--color-border);
+  }
+
+  .border-\[var\(--color-primary\)\] {
+    border-color: var(--color-primary);
+  }
+
   .border-amber-100 {
     border-color: var(--color-amber-100);
   }
@@ -5044,6 +5052,10 @@
     white-space: pre-wrap;
   }
 
+  .text-\[var\(--color-primary-text\)\] {
+    color: var(--color-primary-text);
+  }
+
   .text-accent-foreground {
     color: oklch(.205 0 0);
   }
@@ -6242,6 +6254,12 @@
   @media (hover: hover) {
     .hover\:scale-\[1\.01\]:hover {
       scale: 1.01;
+    }
+  }
+
+  @media (hover: hover) {
+    .hover\:border-\[var\(--color-border-light\)\]:hover {
+      border-color: var(--color-border-light);
     }
   }
 
