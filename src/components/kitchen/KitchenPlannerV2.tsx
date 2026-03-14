@@ -692,8 +692,8 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
             )}
 
             {/* Right Side Content (Canvas & Summary) */}
-            <div className="flex-1 flex flex-col gap-6 min-w-0 h-full">
-              <div className="flex-1 flex flex-col bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div className="flex-1 flex flex-col gap-6 min-w-0 h-full overflow-y-auto pb-4 pr-1">
+              <div className="flex-none flex flex-col min-h-[600px] bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                 <div className="flex flex-wrap items-center justify-between gap-4 p-4 border-b border-gray-200 bg-gray-50/50">
                   <div className="flex items-center gap-4">
                     <button
@@ -734,27 +734,29 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
                   </div>
                 </div>
                 <div className="flex-1 min-h-[600px] border border-gray-200 rounded-lg overflow-hidden relative">
-                  {config.viewMode === '2D' ? (
-                    <KitchenCanvas
-                      config={config}
-                      selectedCabinet={selectedCabinet}
-                      onSelectCabinet={setSelectedCabinet}
-                      onUpdateCabinet={handleUpdateCabinet}
-                      onUpdateAppliance={handleUpdateAppliance}
-                      onDeleteCabinet={handleDeleteCabinet}
-                      onAddCabinet={handleAddCabinet}
-                      onAddAppliance={handleAddAppliance}
-                      onUpdateConfig={handleUpdateConfig}
-                    />
-                  ) : (
-                    <div className="h-full">
-                      <Kitchen3DRenderer ref={kitchen3DRendererRef} config={config} />
-                    </div>
-                  )}
+                  <div className="absolute inset-0">
+                    {config.viewMode === '2D' ? (
+                      <KitchenCanvas
+                        config={config}
+                        selectedCabinet={selectedCabinet}
+                        onSelectCabinet={setSelectedCabinet}
+                        onUpdateCabinet={handleUpdateCabinet}
+                        onUpdateAppliance={handleUpdateAppliance}
+                        onDeleteCabinet={handleDeleteCabinet}
+                        onAddCabinet={handleAddCabinet}
+                        onAddAppliance={handleAddAppliance}
+                        onUpdateConfig={handleUpdateConfig}
+                      />
+                    ) : (
+                      <div className="h-full">
+                        <Kitchen3DRenderer ref={kitchen3DRendererRef} config={config} />
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="flex-none bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <h2 className="text-lg font-semibold mb-4">Materials Summary</h2>
                 <div className="overflow-x-auto">
                   <table className="w-full">

@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { KitchenConfig, PlacedCabinet, CabinetItem } from '../../types/kitchen';
 import { Button } from '../ui/button';
-import { ZoomIn, ZoomOut, Grid3x3, Eye, EyeOff, Trash2, Move, RotateCw, RotateCcw, Box } from 'lucide-react';
+import { ZoomIn, ZoomOut, Grid3x3, Eye, EyeOff, Trash2, Move, RotateCw, RotateCcw, Box, GripHorizontal } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 
 interface KitchenCanvasProps {
@@ -41,6 +41,11 @@ export function KitchenCanvas({
   const [rotationStartAngle, setRotationStartAngle] = useState<number>(0);
   const [initialRotation, setInitialRotation] = useState<number>(0);
 
+  // Floating Toolbar State
+  const [toolbarPos, setToolbarPos] = useState({ x: 16, y: 16 });
+  const [isDraggingToolbar, setIsDraggingToolbar] = useState(false);
+  const toolbarDragStartRef = useRef({ x: 0, y: 0, startX: 0, startY: 0 });
+
   const PIXELS_PER_INCH = 4; // Scale factor
 
   // Snap to grid helper function with boundary awareness
@@ -70,6 +75,59 @@ export function KitchenCanvas({
       if (frameId) cancelAnimationFrame(frameId);
     };
   }, [config, zoom, selectedCabinet, hoveredCabinet, selectedAppliance]);
+
+  useEffect(() => {
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      if (!isDraggingToolbar) return;
+      
+      const dx = e.clientX - toolbarDragStartRef.current.x;
+      const dy = e.clientY - toolbarDragStartRef.current.y;
+      
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        // Keep within bounds somewhat roughly
+        const maxX = rect.width - 100;
+        const maxY = rect.height - 40;
+        
+        setToolbarPos({
+          x: Math.max(0, Math.min(toolbarDragStartRef.current.startX + dx, maxX)),
+          y: Math.max(0, Math.min(toolbarDragStartRef.current.startY + dy, maxY))
+        });
+      } else {
+        setToolbarPos({
+          x: Math.max(0, toolbarDragStartRef.current.startX + dx),
+          y: Math.max(0, toolbarDragStartRef.current.startY + dy)
+        });
+      }
+    };
+
+    const handleGlobalMouseUp = () => {
+      setIsDraggingToolbar(false);
+    };
+
+    if (isDraggingToolbar) {
+      window.addEventListener('mousemove', handleGlobalMouseMove);
+      window.addEventListener('mouseup', handleGlobalMouseUp);
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleGlobalMouseMove);
+      window.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
+  }, [isDraggingToolbar]);
+
+  const handleToolbarDragStart = (e: React.MouseEvent) => {
+    // Only drag if clicking on the background or drag handle, not interactive elements
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('input') || target.closest('label')) return;
+    
+    setIsDraggingToolbar(true);
+    toolbarDragStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      startX: toolbarPos.x,
+      startY: toolbarPos.y
+    };
+  };
 
   const drawCanvas = () => {
     try {
@@ -124,13 +182,13 @@ export function KitchenCanvas({
 
       ctx.restore();
     } catch (e) {
-      // Silently catch errors to prevent main-thread blocking or crashing the component
+      toast.error(`Canvas Rendering Error: ${(e as Error).message}`);
     }
   };
 
   const drawRoom = (ctx: CanvasRenderingContext2D) => {
-    const roomWidth = config.roomWidth * 12 * PIXELS_PER_INCH; // Convert feet to pixels
-    const roomLength = config.roomLength * 12 * PIXELS_PER_INCH;
+    const roomWidth = (config.roomWidth || 12) * 12 * PIXELS_PER_INCH; // Convert feet to pixels
+    const roomLength = (config.roomLength || 12) * 12 * PIXELS_PER_INCH;
     const padding = 20;
 
     // Room floor
@@ -166,10 +224,10 @@ export function KitchenCanvas({
   };
 
   const drawGridLines = (ctx: CanvasRenderingContext2D) => {
-    const roomWidth = config.roomWidth * 12 * PIXELS_PER_INCH;
-    const roomLength = config.roomLength * 12 * PIXELS_PER_INCH;
+    const roomWidth = (config.roomWidth || 12) * 12 * PIXELS_PER_INCH;
+    const roomLength = (config.roomLength || 12) * 12 * PIXELS_PER_INCH;
     const padding = 20;
-    const gridSize = Math.max((config.gridSize || 6) * PIXELS_PER_INCH, 1); // Prevent infinite loop if gridSize is 0
+    const gridSize = Math.max((config.gridSize || 6) * PIXELS_PER_INCH, 4); // Prevent infinite loop, minimum 1 inch
 
     ctx.strokeStyle = '#e5e7eb';
     ctx.lineWidth = 1;
@@ -908,67 +966,85 @@ export function KitchenCanvas({
   return (
     <div className="flex flex-col h-full relative bg-gray-50">
       {/* Floating Toolbar */}
-      <div className="absolute top-4 left-0 right-0 flex items-start justify-between pointer-events-none z-10 px-4">
-        {/* Left Side: General Tools */}
-        <div className="pointer-events-auto bg-white/90 backdrop-blur rounded-lg shadow-sm border border-gray-200 flex items-center p-1 gap-1">
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-600" onClick={handleZoomIn}>
-            <ZoomIn className="h-4 w-4" />
-          </Button>
-          <span className="text-xs font-medium w-12 text-center text-gray-600">{Math.round(zoom * 100)}%</span>
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-600" onClick={handleZoomOut}>
-            <ZoomOut className="h-4 w-4" />
-          </Button>
+      <div 
+        className="absolute z-20 flex flex-col gap-2 pointer-events-auto shadow-md rounded-lg"
+        style={{ 
+          top: toolbarPos.y, 
+          left: toolbarPos.x,
+          cursor: isDraggingToolbar ? 'grabbing' : 'auto'
+        }}
+        onMouseDown={handleToolbarDragStart}
+      >
+        <div className="bg-white/90 backdrop-blur rounded-lg border border-gray-200 flex flex-col overflow-hidden">
+          {/* Drag Handle */}
+          <div className="bg-gray-100/50 hover:bg-gray-200/50 w-full flex items-center justify-center py-1 cursor-grab active:cursor-grabbing border-b border-gray-100">
+            <GripHorizontal className="w-4 h-4 text-gray-400" />
+          </div>
           
-          <div className="w-px h-4 bg-gray-300 mx-1" />
-          
-          <Button
-            variant={config.showGrid ? 'secondary' : 'ghost'}
-            size="sm"
-            className={`h-8 px-2 text-xs ${config.showGrid ? 'bg-gray-200 text-gray-900' : 'text-gray-600'}`}
-            onClick={() => onUpdateConfig?.({ showGrid: !config.showGrid })}
-          >
-            <Grid3x3 className="h-4 w-4 mr-1.5" />
-            Grid
-          </Button>
-          
-          <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer px-2 h-8 hover:bg-gray-100 rounded-md">
-            <input
-              type="checkbox"
-              checked={config.snapToGrid || false}
-              onChange={(e) => onUpdateConfig?.({ snapToGrid: e.target.checked })}
-              className="w-3.5 h-3.5 text-blue-600 rounded focus:ring-blue-500"
-            />
-            Snap
-          </label>
-        </div>
-
-        {/* Right Side: Item Tools */}
-        <div className="flex gap-2">
-          {(selectedCabinet || selectedAppliance) && (
-            <div className="pointer-events-auto bg-white/90 backdrop-blur rounded-lg shadow-sm border border-gray-200 flex items-center p-1 gap-1">
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-600" onClick={handleRotateCounterClockwise} title="Rotate 90° counter-clockwise">
-                <RotateCcw className="h-4 w-4" />
+          <div className="flex items-center p-1 gap-1">
+            {/* General Tools */}
+            <div className="flex items-center">
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-600" onClick={handleZoomIn}>
+                <ZoomIn className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-600" onClick={handleRotateClockwise} title="Rotate 90° clockwise">
-                <RotateCw className="h-4 w-4" />
+              <span className="text-xs font-medium w-12 text-center text-gray-600">{Math.round(zoom * 100)}%</span>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-600" onClick={handleZoomOut}>
+                <ZoomOut className="h-4 w-4" />
               </Button>
-            </div>
-          )}
-
-          {selectedCabinet && (
-            <div className="pointer-events-auto bg-white/90 backdrop-blur rounded-lg shadow-sm border border-gray-200 flex items-center p-1 gap-1">
-              <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-gray-600" onClick={() => onUpdateCabinet(selectedCabinet.id, { x: 0, y: 0 })} title="Move cabinet to corner">
-                <Move className="h-4 w-4 mr-1.5" />
-                To Corner
-              </Button>
+              
               <div className="w-px h-4 bg-gray-300 mx-1" />
-              <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => onDeleteCabinet(selectedCabinet.id)}>
-                <Trash2 className="h-4 w-4 mr-1.5" />
-                Delete
+              
+              <Button
+                variant={config.showGrid ? 'secondary' : 'ghost'}
+                size="sm"
+                className={`h-8 px-2 text-xs ${config.showGrid ? 'bg-gray-200 text-gray-900' : 'text-gray-600'}`}
+                onClick={() => onUpdateConfig?.({ showGrid: !config.showGrid })}
+              >
+                <Grid3x3 className="h-4 w-4 mr-1.5" />
+                Grid
               </Button>
+              
+              <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer px-2 h-8 hover:bg-gray-100 rounded-md">
+                <input
+                  type="checkbox"
+                  checked={config.snapToGrid || false}
+                  onChange={(e) => onUpdateConfig?.({ snapToGrid: e.target.checked })}
+                  className="w-3.5 h-3.5 text-blue-600 rounded focus:ring-blue-500"
+                />
+                Snap
+              </label>
             </div>
-          )}
+          </div>
         </div>
+
+        {/* Item Tools (only show if something is selected) */}
+        {(selectedCabinet || selectedAppliance) && (
+          <div className="bg-white/90 backdrop-blur rounded-lg border border-gray-200 flex flex-col overflow-hidden shadow-sm">
+            <div className="bg-blue-50/50 w-full flex flex-col p-1 gap-1">
+              <div className="flex items-center gap-1 justify-center border-b border-gray-100 pb-1">
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-600 bg-white shadow-sm" onClick={handleRotateCounterClockwise} title="Rotate 90° counter-clockwise">
+                  <RotateCcw className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-600 bg-white shadow-sm" onClick={handleRotateClockwise} title="Rotate 90° clockwise">
+                  <RotateCw className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {selectedCabinet && (
+                <div className="flex items-center justify-center gap-1 pt-1">
+                  <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-gray-600 bg-white shadow-sm" onClick={() => onUpdateCabinet(selectedCabinet.id, { x: 0, y: 0 })} title="Move cabinet to corner">
+                    <Move className="h-4 w-4 mr-1.5" />
+                    To Corner
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-8 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 bg-white shadow-sm" onClick={() => onDeleteCabinet(selectedCabinet.id)}>
+                    <Trash2 className="h-4 w-4 mr-1.5" />
+                    Delete
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Canvas Container */}
