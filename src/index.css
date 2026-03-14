@@ -794,6 +794,10 @@
     top: 60%;
   }
 
+  .top-\[84px\] {
+    top: 84px;
+  }
+
   .-right-0\.5 {
     right: calc(var(--spacing) * -.5);
   }
@@ -2090,6 +2094,10 @@
 
   .max-w-\[300px\] {
     max-width: 300px;
+  }
+
+  .max-w-\[380px\] {
+    max-width: 380px;
   }
 
   .max-w-\[1400px\] {

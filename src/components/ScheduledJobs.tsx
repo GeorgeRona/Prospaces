@@ -59,7 +59,7 @@ export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
     // Refresh jobs every 30 seconds
     const interval = setInterval(loadJobs, 30000);
     return () => clearInterval(interval);
-  }, [user]);
+  }, [user?.id, user?.organizationId]);
 
   // Check for and process due jobs every 60 seconds
   useEffect(() => {
@@ -71,7 +71,7 @@ export function ScheduledJobs({ user, onNavigate }: ScheduledJobsProps) {
     checkAndProcessDueJobs();
 
     return () => clearInterval(processInterval);
-  }, [user]);
+  }, [user?.id, user?.organizationId]);
 
   const checkAndProcessDueJobs = async () => {
     try {

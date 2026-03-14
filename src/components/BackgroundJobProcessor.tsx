@@ -1,6 +1,6 @@
 /**
  * BackgroundJobProcessor — headless component mounted at the App level.
- * It polls for pending scheduled_jobs every 15 seconds and auto-processes
+ * It polls for pending scheduled_jobs every 45 seconds and auto-processes
  * any that are due, so users don't have to stay on the Background Imports
  * or Scheduled Jobs page for jobs to run.
  *
@@ -9,9 +9,10 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { inventoryAPI, contactsAPI, bidsAPI } from '../utils/api';
-import { getPriceTierLabel } from '../lib/global-settings';
 import { toast } from 'sonner@2.0.3';
 import type { User } from '../App';
+
+const supabase = createClient();
 
 interface BackgroundJobProcessorProps {
   user: User;
@@ -43,8 +44,6 @@ export function BackgroundJobProcessor({ user, onNavigate }: BackgroundJobProces
   const processingRef = useRef(false);
 
   const processImportJob = useCallback(async (job: JobRow) => {
-    const supabase = createClient();
-
     try {
       // Mark as processing
       await supabase
@@ -244,7 +243,6 @@ export function BackgroundJobProcessor({ user, onNavigate }: BackgroundJobProces
     processingRef.current = true;
 
     try {
-      const supabase = createClient();
       const now = new Date().toISOString();
 
       // Find pending import/export jobs that are due
@@ -287,8 +285,8 @@ export function BackgroundJobProcessor({ user, onNavigate }: BackgroundJobProces
     // Check immediately on mount
     checkAndProcessDueJobs();
 
-    // Then poll every 15 seconds
-    const interval = setInterval(checkAndProcessDueJobs, 15_000);
+    // Then poll every 45 seconds (reduced frequency to lower background DB load)
+    const interval = setInterval(checkAndProcessDueJobs, 45_000);
 
     return () => clearInterval(interval);
   }, [checkAndProcessDueJobs]);

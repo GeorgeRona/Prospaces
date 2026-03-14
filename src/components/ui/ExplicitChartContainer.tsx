@@ -1,4 +1,4 @@
-import React, { useRef, useState, useLayoutEffect, ReactElement } from 'react';
+import React, { useRef, useState, useEffect, ReactElement } from 'react';
 
 interface ExplicitChartContainerProps {
   children: ReactElement;
@@ -19,7 +19,7 @@ export function ExplicitChartContainer({
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     const updateDimensions = () => {
       if (containerRef.current) {
         const { clientWidth, clientHeight } = containerRef.current;

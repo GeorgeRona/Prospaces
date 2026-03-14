@@ -114,36 +114,64 @@ function expandSemanticQuery(query: string): string[] {
   return synonyms;
 }
 
+const fuzzyMemo = new Map<string, number>();
+
 function advancedFuzzyMatch(str1: string, str2: string): number {
-  const levenshteinScore = 1 - (levenshteinDistance(str1, str2) / Math.max(str1.length, str2.length));
+  if (str1 === str2) return 1;
+  
+  const maxLen = Math.max(str1.length, str2.length);
+  const minLen = Math.min(str1.length, str2.length);
+  if (maxLen === 0) return 0;
+  
+  // Quick rejection if length difference is too large to possibly match
+  if (minLen / maxLen < 0.5) return 0;
+
+  const memoKey = `${str1}|${str2}`;
+  if (fuzzyMemo.has(memoKey)) {
+    return fuzzyMemo.get(memoKey)!;
+  }
+
   const jaroScore = jaroWinkler(str1, str2);
+  
+  // If Jaro is very low, don't compute Levenshtein/n-gram to save CPU
+  if (jaroScore < 0.5) {
+    const score = jaroScore * 0.4;
+    fuzzyMemo.set(memoKey, score);
+    return score;
+  }
+  
+  const levenshteinScore = 1 - (levenshteinDistance(str1, str2) / maxLen);
   const ngramScore = ngramSimilarity(str1, str2, 2);
-  return (levenshteinScore * 0.4) + (jaroScore * 0.4) + (ngramScore * 0.2);
+  
+  const finalScore = (levenshteinScore * 0.4) + (jaroScore * 0.4) + (ngramScore * 0.2);
+  fuzzyMemo.set(memoKey, finalScore);
+  return finalScore;
 }
 
 function levenshteinDistance(str1: string, str2: string): number {
-  const m = str1.length;
-  const n = str2.length;
-  const dp: number[][] = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0));
-  
-  for (let i = 0; i <= m; i++) dp[i][0] = i;
-  for (let j = 0; j <= n; j++) dp[0][j] = j;
-  
-  for (let i = 1; i <= m; i++) {
-    for (let j = 1; j <= n; j++) {
-      if (str1[i - 1] === str2[j - 1]) {
-        dp[i][j] = dp[i - 1][j - 1];
-      } else {
-        dp[i][j] = Math.min(
-          dp[i - 1][j] + 1,
-          dp[i][j - 1] + 1,
-          dp[i - 1][j - 1] + 1
-        );
-      }
+  if (str1 === str2) return 0;
+  if (str1.length === 0) return str2.length;
+  if (str2.length === 0) return str1.length;
+
+  let v0 = new Array(str2.length + 1);
+  let v1 = new Array(str2.length + 1);
+
+  for (let i = 0; i <= str2.length; i++) {
+    v0[i] = i;
+  }
+
+  for (let i = 0; i < str1.length; i++) {
+    v1[0] = i + 1;
+    for (let j = 0; j < str2.length; j++) {
+      const cost = (str1[i] === str2[j]) ? 0 : 1;
+      v1[j + 1] = Math.min(v1[j] + 1, v0[j + 1] + 1, v0[j] + cost);
+    }
+    for (let j = 0; j <= str2.length; j++) {
+      v0[j] = v1[j];
     }
   }
-  
-  return dp[m][n];
+
+  return v0[str2.length];
 }
 
 function jaroWinkler(str1: string, str2: string): number {
@@ -188,8 +216,8 @@ function jaroSimilarity(str1: string, str2: string): number {
   let k = 0;
   for (let i = 0; i < str1.length; i++) {
     if (!str1Matches[i]) continue;
-    while (!str2Matches[k]) k++;
-    if (str1[i] !== str2[k]) transpositions++;
+    while (k < str2Matches.length && !str2Matches[k]) k++;
+    if (k < str2.length && str1[i] !== str2[k]) transpositions++;
     k++;
   }
   
@@ -268,6 +296,10 @@ export function advancedSearch<T extends SearchableItem>(
   query: string,
   options: SearchOptions = {}
 ): SearchResult<T>[] {
+  // Prevent memory leak by capping or clearing the cache periodically
+  if (fuzzyMemo.size > 10000) {
+    fuzzyMemo.clear();
+  }
   const {
     fuzzyThreshold = 0.7,
     includeInactive = true,

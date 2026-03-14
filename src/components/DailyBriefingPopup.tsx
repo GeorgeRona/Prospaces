@@ -171,7 +171,7 @@ export function DailyBriefingPopup({ user, onNavigate, organization }: DailyBrie
     if (hour < 17) return { text: `Good afternoon, ${firstName}!`, icon: Sun, emoji: '' };
     if (hour < 21) return { text: `Good evening, ${firstName}!`, icon: Coffee, emoji: '' };
     return { text: `Working late, ${firstName}?`, icon: Moon, emoji: '' };
-  }, [user]);
+  }, [user?.full_name, user?.email]);
 
   // Daily tip
   const dailyTip = useMemo(() => {
@@ -278,7 +278,7 @@ export function DailyBriefingPopup({ user, onNavigate, organization }: DailyBrie
             animate={{ opacity: isClosing ? 0 : 1, x: isClosing ? 80 : 0, scale: isClosing ? 0.95 : 1 }}
             exit={{ opacity: 0, x: 80, scale: 0.95 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="fixed top-4 right-4 bottom-4 w-full max-w-md z-50 flex flex-col"
+            className="fixed top-[84px] right-4 bottom-4 w-full max-w-[380px] z-50 flex flex-col"
           >
             <div className="flex flex-col h-full bg-white rounded-2xl shadow-2xl overflow-hidden border border-gray-200">
               {/* Header */}

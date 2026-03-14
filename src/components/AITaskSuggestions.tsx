@@ -213,7 +213,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
     if (hour < 17) return { text: `Good afternoon, ${firstName}!`, icon: Sun, period: 'afternoon' };
     if (hour < 21) return { text: `Good evening, ${firstName}!`, icon: Coffee, period: 'evening' };
     return { text: `Working late, ${firstName}?`, icon: Moon, period: 'night' };
-  }, [user]);
+  }, [user?.full_name, user?.email]);
 
   // ─── Daily tip (changes daily) ───
   const dailyTip = useMemo(() => {

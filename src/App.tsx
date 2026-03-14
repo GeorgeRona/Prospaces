@@ -1,67 +1,73 @@
-import React, { useState, useEffect, Suspense } from 'react';
-import { projectId } from './utils/supabase/info';
+import React, { useState, useEffect, Suspense, useCallback, lazy } from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router';
 import { Navigation } from './components/Navigation';
 import { LandingPage } from './components/LandingPage';
 import { Login } from './components/Login';
 import { MemberLogin } from './components/MemberLogin';
-import { Dashboard } from './components/Dashboard';
-import { Contacts } from './components/Contacts';
-import { Tasks } from './components/Tasks';
-import { Appointments } from './components/Appointments';
-import { Notes } from './components/Notes';
-import { Email } from './components/Email';
-import { Marketing } from './components/Marketing';
-import { Inventory } from './components/Inventory';
-import { Documents } from './components/Documents';
-import { Users } from './components/Users';
-import { Tenants } from './components/Tenants';
-import { Settings } from './components/Settings';
-import { Reports } from './components/Reports';
-import { Bids } from './components/Bids';
-import { ManagerDashboard } from './components/ManagerDashboard';
-import { Security } from './components/Security';
-import { AuditLog } from './components/AuditLog';
-import { ImportExport } from './components/ImportExport';
-import { SubscriptionAgreement } from './components/SubscriptionAgreement';
-import { ScheduledJobs } from './components/ScheduledJobs';
-import { BackgroundImportManager } from './components/BackgroundImportManager';
+// ── Eagerly loaded (always needed on auth'd shell) ──
 import { BackgroundJobProcessor } from './components/BackgroundJobProcessor';
-import { AITaskSuggestions } from './components/AITaskSuggestions';
 import { ChangePasswordDialog } from './components/ChangePasswordDialog';
-import { AdminFixUsers } from './components/AdminFixUsers';
 import { preloadEmailAccounts, resetEmailPreloader } from './utils/email-preloader';
-// Planners
-import { KitchenPlanner } from './components/planners/KitchenPlanner';
-import { DeckPlanner } from './components/planners/DeckPlanner';
-import { GaragePlanner } from './components/planners/GaragePlanner';
-import { ShedPlanner } from './components/planners/ShedPlanner';
-import { RoofPlanner } from './components/planners/RoofPlanner';
-import { InteriorFinishingPlanner } from './components/planners/InteriorFinishingPlanner';
 import { ThemeProvider } from './components/ThemeProvider';
-
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { PWAInstallPrompt } from './components/PWAInstallPrompt';
-import { FaviconGenerator } from './components/FaviconGenerator';
-import { TrackingRedirect } from './components/TrackingRedirect';
-import { PublicQuoteView } from './components/PublicQuoteView';
-import { PublicLandingPage } from './components/marketing/PublicLandingPage';
-import { PromoSlideshow } from './components/PromoSlideshow';
-import { LandingPageDebug } from './components/LandingPageDebug';
-import { LandingPageDiagnostic } from './components/marketing/LandingPageDiagnostic';
-import { LandingPageDiagnosticTest } from './components/marketing/LandingPageDiagnosticTest';
 import { OAuthCallback } from './components/OAuthCallback';
 import { PrivacyPolicy } from './components/PrivacyPolicy';
 import { TermsOfService } from './components/TermsOfService';
 import { CustomerPortal } from './components/portal/CustomerPortal';
-import { PortalMessagesAdmin } from './components/portal/PortalMessagesAdmin';
-import { SubscriptionBilling } from './components/subscription/SubscriptionBilling';
+import { PublicLandingPage } from './components/marketing/PublicLandingPage';
+import { TrackingRedirect } from './components/TrackingRedirect';
+import { PublicQuoteView } from './components/PublicQuoteView';
+import { PromoSlideshow } from './components/PromoSlideshow';
+import { FaviconGenerator } from './components/FaviconGenerator';
+import { LandingPageDebug } from './components/LandingPageDebug';
+import { LandingPageDiagnostic } from './components/marketing/LandingPageDiagnostic';
+import { LandingPageDiagnosticTest } from './components/marketing/LandingPageDiagnosticTest';
 import { Toaster } from './components/ui/sonner';
 import ErrorBoundary from './components/ErrorBoundary';
 import { createClient } from './utils/supabase/client';
 import { initializePermissions } from './utils/permissions';
 import type { Session, User as SupabaseUser } from '@supabase/supabase-js';
-import { About } from './components/About';
+
+// ── Code-split: lazy-loaded page modules (only fetched when navigated to) ──
+const lazyNamed = <T extends Record<string, any>>(
+  factory: () => Promise<T>,
+  name: keyof T
+) => lazy(() => factory().then((m) => ({ default: m[name] as React.ComponentType<any> })));
+
+const Dashboard = lazyNamed(() => import('./components/Dashboard'), 'Dashboard');
+const Contacts = lazyNamed(() => import('./components/Contacts'), 'Contacts');
+const Tasks = lazyNamed(() => import('./components/Tasks'), 'Tasks');
+const Appointments = lazyNamed(() => import('./components/Appointments'), 'Appointments');
+const Notes = lazyNamed(() => import('./components/Notes'), 'Notes');
+const Email = lazyNamed(() => import('./components/Email'), 'Email');
+const Marketing = lazyNamed(() => import('./components/Marketing'), 'Marketing');
+const Inventory = lazyNamed(() => import('./components/Inventory'), 'Inventory');
+const Documents = lazyNamed(() => import('./components/Documents'), 'Documents');
+const Users = lazyNamed(() => import('./components/Users'), 'Users');
+const Tenants = lazyNamed(() => import('./components/Tenants'), 'Tenants');
+const Settings = lazyNamed(() => import('./components/Settings'), 'Settings');
+const Reports = lazyNamed(() => import('./components/Reports'), 'Reports');
+const Bids = lazyNamed(() => import('./components/Bids'), 'Bids');
+const ManagerDashboard = lazyNamed(() => import('./components/ManagerDashboard'), 'ManagerDashboard');
+const Security = lazyNamed(() => import('./components/Security'), 'Security');
+const AuditLog = lazyNamed(() => import('./components/AuditLog'), 'AuditLog');
+const ImportExport = lazyNamed(() => import('./components/ImportExport'), 'ImportExport');
+const SubscriptionAgreement = lazyNamed(() => import('./components/SubscriptionAgreement'), 'SubscriptionAgreement');
+const ScheduledJobs = lazyNamed(() => import('./components/ScheduledJobs'), 'ScheduledJobs');
+const BackgroundImportManager = lazyNamed(() => import('./components/BackgroundImportManager'), 'BackgroundImportManager');
+const AITaskSuggestions = lazyNamed(() => import('./components/AITaskSuggestions'), 'AITaskSuggestions');
+const AdminFixUsers = lazyNamed(() => import('./components/AdminFixUsers'), 'AdminFixUsers');
+const About = lazyNamed(() => import('./components/About'), 'About');
+const PortalMessagesAdmin = lazyNamed(() => import('./components/portal/PortalMessagesAdmin'), 'PortalMessagesAdmin');
+const SubscriptionBilling = lazyNamed(() => import('./components/subscription/SubscriptionBilling'), 'SubscriptionBilling');
+// Planners
+const KitchenPlanner = lazyNamed(() => import('./components/planners/KitchenPlanner'), 'KitchenPlanner');
+const DeckPlanner = lazyNamed(() => import('./components/planners/DeckPlanner'), 'DeckPlanner');
+const GaragePlanner = lazyNamed(() => import('./components/planners/GaragePlanner'), 'GaragePlanner');
+const ShedPlanner = lazyNamed(() => import('./components/planners/ShedPlanner'), 'ShedPlanner');
+const RoofPlanner = lazyNamed(() => import('./components/planners/RoofPlanner'), 'RoofPlanner');
+const InteriorFinishingPlanner = lazyNamed(() => import('./components/planners/InteriorFinishingPlanner'), 'InteriorFinishingPlanner');
 
 export type UserRole = 'standard_user' | 'manager' | 'director' | 'admin' | 'super_admin' | 'marketing' | 'designer';
 
@@ -232,6 +238,11 @@ export function AppContent() {
   });
   const [showChangePassword, setShowChangePassword] = useState(false);
 
+  // Stable callback references to prevent unnecessary child re-renders
+  const handleToggleSidebar = useCallback(() => {
+    setIsSidebarCollapsed(prev => !prev);
+  }, []);
+
   // Persist currentView to sessionStorage whenever it changes
   useEffect(() => {
     if (currentView && currentView !== 'landing' && currentView !== 'login' && currentView !== 'member-login') {
@@ -329,11 +340,11 @@ export function AppContent() {
     // Check immediately
     checkPasswordChangeRequired();
 
-    // Then check every 30 seconds
-    const interval = setInterval(checkPasswordChangeRequired, 30000);
+    // Then check every 5 minutes (reduced from 30s to minimize background DB queries)
+    const interval = setInterval(checkPasswordChangeRequired, 300000);
 
     return () => clearInterval(interval);
-  }, [user, session, showChangePassword]);
+  }, [user?.id, !!session]);
 
   const loadUserData = async (supabaseUser: SupabaseUser, isInitialLoad = true) => {
     try {
@@ -500,7 +511,7 @@ export function AppContent() {
             onNavigate={setCurrentView}
             onLogout={handleLogout}
             isSidebarCollapsed={isSidebarCollapsed}
-            onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            onToggleSidebar={handleToggleSidebar}
           />
 
           <main 
@@ -511,6 +522,7 @@ export function AppContent() {
             <PWAInstallPrompt />
 
             <div className="pt-14 sm:pt-16 lg:pt-0">
+              <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
               {currentView === 'dashboard' && <Dashboard user={user} organization={organization} onNavigate={setCurrentView} />}
               {currentView === 'ai-suggestions' && <AITaskSuggestions user={user} onNavigate={setCurrentView} />}
               {currentView === 'contacts' && <Contacts user={user} />}
@@ -543,6 +555,7 @@ export function AppContent() {
               {currentView === 'subscription-agreement' && <SubscriptionAgreement organization={organization} />}
               {currentView === 'about' && <About />}
               {currentView === 'admin-fix-users' && <AdminFixUsers user={user} />}
+              </Suspense>
             </div>
           </main>
 

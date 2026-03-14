@@ -72,8 +72,10 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
   const [appointments, setAppointments] = useState<any[]>([]);
 
   const [isLoading, setIsLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     loadDashboardData();
   }, [user.id]); // Only reload when user changes, not on permission updates
 
@@ -318,8 +320,8 @@ export function Dashboard({ user, organization, onNavigate }: DashboardProps) {
     <PermissionGate user={user} module="dashboard" action="view">
     <div className="p-4 sm:p-6 space-y-6 min-h-screen bg-background text-foreground">
       
-      {/* Daily AI Briefing Popup */}
-      <DailyBriefingPopup user={user} onNavigate={onNavigate} organization={organization} />
+      {/* Daily AI Briefing Popup - Deferred render to prevent blocking main thread during initial load */}
+      {mounted && <DailyBriefingPopup user={user} onNavigate={onNavigate} organization={organization} />}
 
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>

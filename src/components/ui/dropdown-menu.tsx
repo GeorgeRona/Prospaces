@@ -8,12 +8,10 @@ import { cn } from "./utils";
 
 // Filter out Figma Make inspector props that shouldn't reach the DOM
 function filterFigmaProps(props: Record<string, any>): Record<string, any> {
-  const filtered: Record<string, any> = {};
-  const keys = Object.keys(props);
-  for (let i = 0; i < keys.length; i++) {
-    const key = keys[i];
-    if (!key.startsWith('_fg')) {
-      filtered[key] = props[key];
+  const filtered = { ...props };
+  for (const key in filtered) {
+    if (typeof key === 'string' && key.startsWith('_fg')) {
+      delete filtered[key];
     }
   }
   return filtered;

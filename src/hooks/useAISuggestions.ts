@@ -40,7 +40,8 @@ async function safeQuery(supabase: any, table: string, orgId: string, filterCol:
       .from(table)
       .select('*')
       .eq('organization_id', orgId)
-      .eq(filterCol, userId);
+      .eq(filterCol, userId)
+      .limit(100);
     if (error) {
       return [];
     }
@@ -66,7 +67,7 @@ export function useAISuggestions(user: User) {
       setIsLoading(false);
       setSuggestions([]);
     }
-  }, [user]);
+  }, [user?.id, user?.role, user?.organizationId]);
 
   const loadAISuggestions = async () => {
     try {

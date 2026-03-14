@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useTransition, useDeferredValue, useRef } from 'react';
+import { useState, useEffect, useDeferredValue } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -50,6 +50,9 @@ import { loadInventoryPage } from '../utils/inventory-loader';
 import { showOptimizationInstructions } from '../utils/show-optimization-instructions';
 import { getPriceTierLabel, isTierActive, getActiveTierNumbers } from '../lib/global-settings';
 import { InventoryDiagnostic } from './InventoryDiagnostic';
+
+// Module-level singleton — avoids re-creation per render
+const supabase = createClient();
 
 
 interface InventoryProps {
@@ -113,13 +116,10 @@ export function Inventory({ user }: InventoryProps) {
   
   // ⚡ Performance optimization: Track if search is computing
   const [isSearching, setIsSearching] = useState(false);
-  const [, startTransition] = useTransition();
   
   // ⚡ Performance tracking
   const [loadTimeMs, setLoadTimeMs] = useState(0);
   
-  // ⚡ Track if background loading is in progress to prevent duplicates
-  const loadingRef = useRef(false);
   
   // ⚡ Track total count for pagination
   const [totalCount, setTotalCount] = useState(0);
@@ -176,17 +176,19 @@ export function Inventory({ user }: InventoryProps) {
   // ✅ Use deferred value to prevent search input from blocking during large renders
   const deferredSearchQuery = useDeferredValue(searchQuery);
 
+  // Get access token once on mount (not on every filter/page change)
   useEffect(() => {
-    // Get access token for image uploads
     const getAccessToken = async () => {
-      const supabase = createClient();
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.access_token) {
         setAccessToken(session.access_token);
       }
     };
     getAccessToken();
-    
+  }, []);
+
+  // Load inventory when pagination/filters change
+  useEffect(() => {
     loadInventory();
   }, [currentPage, itemsPerPage, debouncedSearchQuery, categoryFilter, statusFilter]);
 
@@ -204,7 +206,7 @@ export function Inventory({ user }: InventoryProps) {
     }
   }, [debouncedSearchQuery, items]);
 
-  const supabase = createClient();
+  // supabase is now a module-level singleton (see top of file)
 
   // Helper to map database items
   const mapInventoryItem = (dbItem: any): InventoryItem => {
@@ -264,77 +266,11 @@ export function Inventory({ user }: InventoryProps) {
     };
   };
 
-  // ⚡ Load remaining items in background without blocking UI
-  const loadRemainingItems = async (userOrgId: string, totalCount: number) => {
-    // Prevent duplicate loading
-    if (loadingRef.current) {
-      return;
-    }
-    
-    loadingRef.current = true;
-    
-    try {
-      let offset = 200; // Start after first batch
-      const batchSize = 1000;
-      
-      while (offset < totalCount) {
-        const batchQuery = supabase
-          .from('inventory')
-          .select('*')
-          .eq('organization_id', userOrgId)
-          .order('name', { ascending: true })
-          .range(offset, offset + batchSize - 1);
-        
-        const { data: batchData, error: batchError } = await batchQuery;
-        
-        if (batchError) {
-          break;
-        }
-        
-        if (batchData && batchData.length > 0) {
-          
-          // Update items progressively (non-blocking) with deduplication
-          setItems(prevItems => {
-            const newItems = batchData.map(mapInventoryItem);
-            
-            // Create a Map to deduplicate by ID
-            const itemMap = new Map<string, any>();
-            
-            // Add existing items first
-            prevItems.forEach(item => {
-              itemMap.set(item.id, item);
-            });
-            
-            // Add/update with new items
-            newItems.forEach(item => {
-              itemMap.set(item.id, item);
-            });
-            
-            // Convert back to array
-            const uniqueItems = Array.from(itemMap.values());
-            return uniqueItems;
-          });
-          
-          offset += batchData.length;
-          
-          // Add small delay to prevent blocking (allows UI to remain responsive)
-          await new Promise(resolve => setTimeout(resolve, 50));
-        } else {
-          break;
-        }
-      }
-      
-    } catch (error) {
-    } finally {
-      loadingRef.current = false;
-    }
-  };
+
 
   const loadInventory = async () => {
     const startTime = performance.now();
     
-    // Reset background loading flag on fresh load
-    loadingRef.current = false;
     
     try {
       setIsLoading(true);
