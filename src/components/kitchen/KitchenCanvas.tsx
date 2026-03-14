@@ -61,56 +61,71 @@ export function KitchenCanvas({
   };
 
   useEffect(() => {
-    drawCanvas();
+    let frameId: number;
+    const render = () => {
+      drawCanvas();
+    };
+    frameId = requestAnimationFrame(render);
+    return () => {
+      if (frameId) cancelAnimationFrame(frameId);
+    };
   }, [config, zoom, selectedCabinet, hoveredCabinet, selectedAppliance]);
 
   const drawCanvas = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    try {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
 
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
 
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.save();
+      // Clear canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.save();
 
-    // Apply zoom
-    ctx.scale(zoom, zoom);
+      // Apply zoom
+      ctx.scale(zoom, zoom);
 
-    // Draw room outline
-    drawRoom(ctx);
+      // Draw room outline
+      drawRoom(ctx);
 
-    // Draw grid if enabled
-    if (config.showGrid) {
-      drawGridLines(ctx);
+      // Draw grid if enabled
+      if (config.showGrid) {
+        drawGridLines(ctx);
+      }
+
+      // Draw cabinets
+      if (config.cabinets && Array.isArray(config.cabinets)) {
+        config.cabinets.forEach(cabinet => {
+          const isSelected = selectedCabinet?.id === cabinet.id;
+          const isHovered = hoveredCabinet?.id === cabinet.id;
+          drawCabinet(ctx, cabinet, isSelected, isHovered);
+          
+          // Draw rotation and delete handles if selected
+          if (isSelected) {
+            drawRotationHandle(ctx, cabinet);
+            drawDeleteHandle(ctx, cabinet);
+          }
+        });
+      }
+
+      // Draw appliances
+      if (config.appliances && Array.isArray(config.appliances)) {
+        config.appliances.forEach(appliance => {
+          const isSelected = selectedAppliance?.id === appliance.id;
+          drawAppliance(ctx, appliance, isSelected);
+          
+          // Draw rotation handle if selected
+          if (isSelected) {
+            drawApplianceRotationHandle(ctx, appliance);
+          }
+        });
+      }
+
+      ctx.restore();
+    } catch (e) {
+      // Silently catch errors to prevent main-thread blocking or crashing the component
     }
-
-    // Draw cabinets
-    config.cabinets.forEach(cabinet => {
-      const isSelected = selectedCabinet?.id === cabinet.id;
-      const isHovered = hoveredCabinet?.id === cabinet.id;
-      drawCabinet(ctx, cabinet, isSelected, isHovered);
-      
-      // Draw rotation and delete handles if selected
-      if (isSelected) {
-        drawRotationHandle(ctx, cabinet);
-        drawDeleteHandle(ctx, cabinet);
-      }
-    });
-
-    // Draw appliances
-    config.appliances.forEach(appliance => {
-      const isSelected = selectedAppliance?.id === appliance.id;
-      drawAppliance(ctx, appliance, isSelected);
-      
-      // Draw rotation handle if selected
-      if (isSelected) {
-        drawApplianceRotationHandle(ctx, appliance);
-      }
-    });
-
-    ctx.restore();
   };
 
   const drawRoom = (ctx: CanvasRenderingContext2D) => {
@@ -154,7 +169,7 @@ export function KitchenCanvas({
     const roomWidth = config.roomWidth * 12 * PIXELS_PER_INCH;
     const roomLength = config.roomLength * 12 * PIXELS_PER_INCH;
     const padding = 20;
-    const gridSize = config.gridSize * PIXELS_PER_INCH; // Grid in inches
+    const gridSize = Math.max((config.gridSize || 6) * PIXELS_PER_INCH, 1); // Prevent infinite loop if gridSize is 0
 
     ctx.strokeStyle = '#e5e7eb';
     ctx.lineWidth = 1;
@@ -504,7 +519,7 @@ export function KitchenCanvas({
     // Handle rotation
     if (isRotating && rotatingItem) {
       if (rotatingItem.type === 'cabinet') {
-        const cabinet = config.cabinets.find(c => c.id === rotatingItem.id);
+        const cabinet = (config.cabinets || []).find(c => c.id === rotatingItem.id);
         if (cabinet) {
           const padding = 20;
           const centerX = padding + cabinet.x * PIXELS_PER_INCH + (cabinet.width * PIXELS_PER_INCH) / 2;
@@ -523,7 +538,7 @@ export function KitchenCanvas({
           onUpdateCabinet(rotatingItem.id, { rotation: snappedAngle });
         }
       } else if (rotatingItem.type === 'appliance') {
-        const appliance = config.appliances.find(a => a.id === rotatingItem.id);
+        const appliance = (config.appliances || []).find(a => a.id === rotatingItem.id);
         if (appliance && onUpdateAppliance) {
           const padding = 20;
           const centerX = padding + appliance.x * PIXELS_PER_INCH + (appliance.width * PIXELS_PER_INCH) / 2;
@@ -551,7 +566,7 @@ export function KitchenCanvas({
       const dy = y - dragStart.y;
       
       if (draggedItem.type === 'cabinet') {
-        const cabinet = config.cabinets.find(c => c.id === draggedItem.id);
+        const cabinet = (config.cabinets || []).find(c => c.id === draggedItem.id);
         if (cabinet) {
           // Calculate new position
           let newX = cabinet.x + dx / PIXELS_PER_INCH;
@@ -568,7 +583,7 @@ export function KitchenCanvas({
           setDragStart({ x, y });
         }
       } else if (draggedItem.type === 'appliance') {
-        const appliance = config.appliances.find(a => a.id === draggedItem.id);
+        const appliance = (config.appliances || []).find(a => a.id === draggedItem.id);
         if (appliance && onUpdateAppliance) {
           // Calculate new position
           let newX = appliance.x + dx / PIXELS_PER_INCH;
@@ -711,14 +726,14 @@ export function KitchenCanvas({
     // Apply snap to grid when releasing after dragging
     if (isDragging && draggedItem) {
       if (draggedItem.type === 'cabinet') {
-        const cabinet = config.cabinets.find(c => c.id === draggedItem.id);
+        const cabinet = (config.cabinets || []).find(c => c.id === draggedItem.id);
         if (cabinet) {
           const snappedX = snapToGrid(cabinet.x, true, cabinet.width, cabinet.depth);
           const snappedY = snapToGrid(cabinet.y, false, cabinet.width, cabinet.depth);
           onUpdateCabinet(draggedItem.id, { x: snappedX, y: snappedY });
         }
       } else if (draggedItem.type === 'appliance') {
-        const appliance = config.appliances.find(a => a.id === draggedItem.id);
+        const appliance = (config.appliances || []).find(a => a.id === draggedItem.id);
         if (appliance && onUpdateAppliance) {
           const snappedX = snapToGrid(appliance.x, true, appliance.width, appliance.depth);
           const snappedY = snapToGrid(appliance.y, false, appliance.width, appliance.depth);
@@ -736,9 +751,10 @@ export function KitchenCanvas({
 
   const findCabinetAtPoint = (x: number, y: number): PlacedCabinet | null => {
     const padding = 20;
+    const cabinets = config.cabinets || [];
     
-    for (let i = config.cabinets.length - 1; i >= 0; i--) {
-      const cabinet = config.cabinets[i];
+    for (let i = cabinets.length - 1; i >= 0; i--) {
+      const cabinet = cabinets[i];
       const cabX = padding + cabinet.x * PIXELS_PER_INCH;
       const cabY = padding + cabinet.y * PIXELS_PER_INCH;
       const cabWidth = cabinet.width * PIXELS_PER_INCH;
@@ -768,9 +784,10 @@ export function KitchenCanvas({
 
   const findApplianceAtPoint = (x: number, y: number): any | null => {
     const padding = 20;
+    const appliances = config.appliances || [];
     
-    for (let i = config.appliances.length - 1; i >= 0; i--) {
-      const appliance = config.appliances[i];
+    for (let i = appliances.length - 1; i >= 0; i--) {
+      const appliance = appliances[i];
       const appX = padding + appliance.x * PIXELS_PER_INCH;
       const appY = padding + appliance.y * PIXELS_PER_INCH;
       const appWidth = appliance.width * PIXELS_PER_INCH;

@@ -872,6 +872,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
                 currentConfig={config}
                 onLoadTemplate={(loadedConfig) => {
                   setConfig(loadedConfig);
+                  setSelectedCabinet(null);
                   setActiveTab('design');
                   toast.success('Template loaded successfully!');
                 }}
