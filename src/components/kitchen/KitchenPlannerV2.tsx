@@ -514,31 +514,7 @@ export function KitchenPlannerV2({ user }: KitchenPlannerV2Props) {
           </Button>
         </div>
       </div>
-
-      {/* Coming Soon Banner */}
-      <div className="bg-gradient-to-r from-orange-50 to-amber-50 border-b border-orange-200 flex-shrink-0">
-        <div className="px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="bg-orange-100 p-2 rounded-lg">
-              <ChefHat className="w-5 h-5 text-orange-600" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-orange-900">Kitchen Planner - Now in Development</h3>
-              <p className="text-sm text-orange-700">We're actively building this feature. Try out the preview and share your feedback!</p>
-            </div>
-          </div>
-          <Button 
-            variant="outline" 
-            className="border-orange-300 text-orange-700 hover:bg-orange-100 hover:border-orange-400"
-            onClick={() => {
-              toast.info('Kitchen Planner is under active development. Your feedback helps us build better tools!');
-            }}
-          >
-            Give Feedback
-          </Button>
-        </div>
-      </div>
-
+      
       {/* Main Content Area */}
       <div className="w-full px-4 sm:px-6 lg:px-8 py-4">
         {activeTab === 'design' && (

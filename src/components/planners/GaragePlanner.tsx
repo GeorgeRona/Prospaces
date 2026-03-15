@@ -210,30 +210,6 @@ export function GaragePlanner({ user }: GaragePlannerProps) {
   return (
     <PermissionGate user={user} module="project-wizards" action="view">
     <div>
-      {/* Now in Development Banner */}
-      <div className="bg-gradient-to-r from-blue-50 to-cyan-50 border-b border-blue-200 print:hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="bg-blue-100 p-2 rounded-lg">
-              <Warehouse className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-blue-900">Garage Planner - Now in Development</h3>
-              <p className="text-sm text-blue-700">We're actively building this feature. Try out the preview and share your feedback!</p>
-            </div>
-          </div>
-          <Button 
-            variant="outline" 
-            className="hidden sm:flex border-blue-300 text-blue-700 hover:bg-blue-100 hover:border-blue-400"
-            onClick={() => {
-              toast.info('Garage Planner is under active development. Your feedback helps us build better tools!');
-            }}
-          >
-            Give Feedback
-          </Button>
-        </div>
-      </div>
-
       {/* Sub-navigation */}
       <div className="bg-slate-50 border-b border-slate-200 print:hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

@@ -150,30 +150,6 @@ export function RoofPlanner({ user }: RoofPlannerProps) {
   return (
     <PermissionGate user={user} module="project-wizards" action="view">
     <div>
-      {/* Now in Development Banner */}
-      <div className="bg-gradient-to-r from-red-50 to-orange-50 border-b border-red-200 print:hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="bg-red-100 p-2 rounded-lg">
-              <Triangle className="w-5 h-5 text-red-600" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-red-900">Roof Planner - Now in Development</h3>
-              <p className="text-sm text-red-700">We're actively building this feature. Try out the preview and share your feedback!</p>
-            </div>
-          </div>
-          <Button 
-            variant="outline" 
-            className="hidden sm:flex border-red-300 text-red-700 hover:bg-red-100 hover:border-red-400"
-            onClick={() => {
-              toast.info('Roof Planner is under active development. Your feedback helps us build better tools!');
-            }}
-          >
-            Give Feedback
-          </Button>
-        </div>
-      </div>
-
       {/* Sub-navigation */}
       <div className="bg-slate-50 border-b border-slate-200 print:hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
