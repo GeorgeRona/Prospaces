@@ -40,6 +40,7 @@ import {
 import type { User } from '../App';
 import { useAISuggestions, type Suggestion } from '../hooks/useAISuggestions';
 import { motion, AnimatePresence } from 'motion/react';
+import { getAIPrefsClient } from '../utils/ai-prefs-client';
 
 // ─── Daily Tips Pool ───
 const DAILY_TIPS = [
@@ -123,8 +124,11 @@ export function DailyBriefingPopup({ user, onNavigate, organization }: DailyBrie
     }
   }, [isLoading, aiEnabled, user.id]);
 
-  // Load streak data
+  // Load streak data and fetch dismissed
+  const [remoteDismissedIds, setRemoteDismissedIds] = useState<string[] | null>(null);
+  
   useEffect(() => {
+    let isMounted = true;
     try {
       const storageKeyStreak = `${STORAGE_KEY_STREAK}_${user.id}`;
       const streak = localStorage.getItem(storageKeyStreak);
@@ -150,6 +154,16 @@ export function DailyBriefingPopup({ user, onNavigate, organization }: DailyBrie
     } catch (e) {
       // Failed to load streak data – non-critical
     }
+    
+    // Sync with remote
+    getAIPrefsClient().then(prefs => {
+      if (isMounted && prefs) {
+        if (prefs.streakData) setStreakData(prefs.streakData);
+        if (prefs.dismissedIds) setRemoteDismissedIds(prefs.dismissedIds);
+      }
+    });
+    
+    return () => { isMounted = false; };
   }, [user.id]);
 
   // Filter out dismissed suggestions
@@ -157,12 +171,14 @@ export function DailyBriefingPopup({ user, onNavigate, organization }: DailyBrie
     try {
       const storageKeyDismissed = `${STORAGE_KEY_DISMISSED}_${user.id}`;
       const dismissed = localStorage.getItem(storageKeyDismissed);
-      const dismissedIds: string[] = dismissed ? JSON.parse(dismissed) : [];
-      return suggestions.filter(s => !dismissedIds.includes(s.id));
+      const localDismissedIds: string[] = dismissed ? JSON.parse(dismissed) : [];
+      // Combine local and remote dismissed IDs
+      const allDismissedIds = [...new Set([...localDismissedIds, ...(remoteDismissedIds || [])])];
+      return suggestions.filter(s => !allDismissedIds.includes(s.id));
     } catch {
       return suggestions;
     }
-  }, [suggestions, user.id]);
+  }, [suggestions, user.id, remoteDismissedIds]);
 
   // Time-based greeting
   const greeting = useMemo(() => {

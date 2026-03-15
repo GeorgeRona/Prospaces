@@ -754,6 +754,34 @@ app.put(`${PREFIX}/settings/user-preferences`, async (c) => {
   }
 });
 
+app.get(`${PREFIX}/ai-preferences`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+    const userId = auth.user.id;
+    const prefs = await kv.get(`ai_prefs:${userId}`);
+    return c.json({ preferences: prefs || {}, source: 'server-kv' });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+app.put(`${PREFIX}/ai-preferences`, async (c) => {
+  try {
+    const auth = await authenticateUser(c);
+    if (auth.error) return c.json({ error: auth.error }, auth.status);
+    const body = await c.req.json();
+    const userId = auth.user.id;
+    // merge existing
+    const existing = await kv.get(`ai_prefs:${userId}`) || {};
+    const merged = { ...existing, ...body, updated_at: new Date().toISOString() };
+    await kv.set(`ai_prefs:${userId}`, merged);
+    return c.json({ preferences: merged, source: 'server-kv' });
+  } catch (err: any) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
 app.patch(`${PREFIX}/settings/profile`, async (c) => {
   try {
     const auth = await authenticateUser(c);

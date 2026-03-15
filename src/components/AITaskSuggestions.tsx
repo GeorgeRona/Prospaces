@@ -57,6 +57,7 @@ import { PermissionGate } from './PermissionGate';
 import { createClient } from '../utils/supabase/client';
 import { toast } from 'sonner@2.0.3';
 import { useAISuggestions, type Suggestion } from '../hooks/useAISuggestions';
+import { getAIPrefsClient, upsertAIPrefsClient } from '../utils/ai-prefs-client';
 
 // ─── Daily Tips Pool ───
 const DAILY_TIPS = [
@@ -160,6 +161,9 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
 
   // ─── Load persisted state ───
   useEffect(() => {
+    let isMounted = true;
+    
+    // Fast initial load from localStorage
     try {
       const storageKeys = getStorageKeys(user.id);
       const dismissed = localStorage.getItem(storageKeys.dismissed);
@@ -168,7 +172,6 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
       const snoozed = localStorage.getItem(storageKeys.snoozed);
       if (snoozed) {
         const items: SnoozedItem[] = JSON.parse(snoozed);
-        // Filter out expired snoozes
         const active = items.filter(s => new Date(s.snoozeUntil) > new Date());
         setSnoozedItems(active);
         localStorage.setItem(storageKeys.snoozed, JSON.stringify(active));
@@ -180,7 +183,6 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
       const streak = localStorage.getItem(storageKeys.streak);
       if (streak) {
         const data: StreakData = JSON.parse(streak);
-        // Check if streak is still active (last active was yesterday or today)
         const lastActive = new Date(data.lastActiveDate);
         const today = new Date();
         const yesterday = new Date(today);
@@ -190,7 +192,6 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
         const isYesterday = lastActive.toDateString() === yesterday.toDateString();
         
         if (!isToday && !isYesterday) {
-          // Streak broken
           data.currentStreak = 0;
           data.todayActionsCompleted = 0;
         } else if (!isToday) {
@@ -200,8 +201,56 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
         setStreakData(data);
       }
     } catch (e) {
-      // Failed to load AI suggestions state
+      // Failed to load local AI suggestions state
     }
+    
+    // Sync with remote server state (survives logouts/device switches)
+    const syncRemote = async () => {
+      try {
+        const prefs = await getAIPrefsClient();
+        if (!prefs || !isMounted) return;
+        
+        const storageKeys = getStorageKeys(user.id);
+        
+        if (prefs.dismissedIds) {
+          setDismissedIds(prefs.dismissedIds);
+          localStorage.setItem(storageKeys.dismissed, JSON.stringify(prefs.dismissedIds));
+        }
+        if (prefs.snoozedItems) {
+          const items: SnoozedItem[] = prefs.snoozedItems;
+          const active = items.filter(s => new Date(s.snoozeUntil) > new Date());
+          setSnoozedItems(active);
+          localStorage.setItem(storageKeys.snoozed, JSON.stringify(active));
+        }
+        if (prefs.completedActions) {
+          setCompletedActions(prefs.completedActions);
+          localStorage.setItem(storageKeys.completed, JSON.stringify(prefs.completedActions));
+        }
+        if (prefs.streakData) {
+          const data: StreakData = prefs.streakData;
+          const lastActive = new Date(data.lastActiveDate);
+          const today = new Date();
+          const yesterday = new Date(today);
+          yesterday.setDate(yesterday.getDate() - 1);
+          
+          const isToday = lastActive.toDateString() === today.toDateString();
+          const isYesterday = lastActive.toDateString() === yesterday.toDateString();
+          
+          if (!isToday && !isYesterday) {
+            data.currentStreak = 0;
+            data.todayActionsCompleted = 0;
+          } else if (!isToday) {
+            data.todayActionsCompleted = 0;
+          }
+          setStreakData(data);
+          localStorage.setItem(storageKeys.streak, JSON.stringify(data));
+        }
+      } catch (e) {}
+    };
+    
+    syncRemote();
+    
+    return () => { isMounted = false; };
   }, [user.id]);
 
   // ─── Time-based greeting ───
@@ -280,6 +329,8 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
   // ─── Streak management ───
   const updateStreak = useCallback((actionTitle: string, actionType: string) => {
     const storageKeys = getStorageKeys(user.id);
+    let updatedStreak: StreakData | null = null;
+    
     setStreakData(prev => {
       const today = new Date().toDateString();
       const lastActive = prev.lastActiveDate ? new Date(prev.lastActiveDate).toDateString() : '';
@@ -307,6 +358,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
       };
 
       localStorage.setItem(storageKeys.streak, JSON.stringify(updated));
+      updatedStreak = updated;
       return updated;
     });
 
@@ -318,9 +370,16 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
       actionTaken: actionType,
       completedAt: new Date().toISOString(),
     };
+    
     setCompletedActions(prev => {
       const updated = [newCompleted, ...prev].slice(0, 50); // Keep last 50
       localStorage.setItem(storageKeys.completed, JSON.stringify(updated));
+      
+      // Fire and forget remote sync
+      if (updatedStreak) {
+        upsertAIPrefsClient({ streakData: updatedStreak, completedActions: updated });
+      }
+      
       return updated;
     });
   }, [user.id]);
@@ -478,6 +537,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
     setDismissedIds(prev => {
       const updated = [...prev, suggestionId];
       localStorage.setItem(storageKeys.dismissed, JSON.stringify(updated));
+      upsertAIPrefsClient({ dismissedIds: updated });
       return updated;
     });
     toast.success('Suggestion dismissed');
@@ -504,6 +564,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
     setSnoozedItems(prev => {
       const updated = [...prev, newSnoozed];
       localStorage.setItem(storageKeys.snoozed, JSON.stringify(updated));
+      upsertAIPrefsClient({ snoozedItems: updated });
       return updated;
     });
 
@@ -532,6 +593,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
     const storageKeys = getStorageKeys(user.id);
     setCompletedActions([]);
     localStorage.setItem(storageKeys.completed, JSON.stringify([]));
+    upsertAIPrefsClient({ completedActions: [] });
     toast.success('Action history cleared');
   };
 
@@ -1001,6 +1063,7 @@ export function AITaskSuggestions({ user, onNavigate }: AITaskSuggestionsProps) 
                           const storageKeys = getStorageKeys(user.id);
                           setDismissedIds([]);
                           localStorage.setItem(storageKeys.dismissed, JSON.stringify([]));
+                          upsertAIPrefsClient({ dismissedIds: [] });
                           toast.success('All dismissed suggestions restored');
                         }}
                       >
