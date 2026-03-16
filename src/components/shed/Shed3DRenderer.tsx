@@ -136,10 +136,25 @@ export function Shed3DRenderer({ config }: Shed3DRendererProps) {
     ground.receiveShadow = true;
     scene.add(ground);
 
-    // Ground grid
+    // Ground grid (Diagonal Checkerboard style matching 2D)
     const gridHelper = new GridHelper(30, 30, 0x6d9a5d, 0x8aad7a);
     gridHelper.position.y = 0.01;
+    gridHelper.rotation.y = Math.PI / 4; // Rotate 45 degrees
     scene.add(gridHelper);
+
+    // Driveway
+    const drivewayWidth = shedWidth;
+    const drivewayLength = 15;
+    const drivewayGeometry = new BoxGeometry(drivewayWidth, 0.02, drivewayLength);
+    const drivewayMaterial = new MeshStandardMaterial({
+        map: concreteTexture,
+        roughness: 0.8,
+        metalness: 0.1
+    });
+    const driveway = new Mesh(drivewayGeometry, drivewayMaterial);
+    driveway.position.set(0, 0.01, shedLength / 2 + drivewayLength / 2);
+    driveway.receiveShadow = true;
+    scene.add(driveway);
 
     // Foundation
     if (config.foundationType === 'concrete-slab') {
@@ -643,9 +658,9 @@ export function Shed3DRenderer({ config }: Shed3DRendererProps) {
     const door = new Mesh(doorGeometry, doorMaterial);
     
     if (config.doorPosition === 'front') {
-      door.position.set(0, doorHeight / 2 + 0.2, shedLength / 2 + 0.08);
+      door.position.set(0, doorHeight / 2 + 0.2, shedLength / 2 + 0.05);
     } else {
-      door.position.set(0, doorHeight / 2 + 0.2, -shedLength / 2 - 0.08);
+      door.position.set(0, doorHeight / 2 + 0.2, -shedLength / 2 - 0.05);
     }
     door.castShadow = true;
     scene.add(door);
@@ -689,10 +704,11 @@ export function Shed3DRenderer({ config }: Shed3DRendererProps) {
     const handleGeom = new BoxGeometry(0.03, 0.12, 0.04);
     const handleMaterial = new MeshStandardMaterial({ color: 0x2d2d2d, metalness: 0.8, roughness: 0.2 });
     const handle = new Mesh(handleGeom, handleMaterial);
+    const handleZOffset = config.doorPosition === 'front' ? 0.04 : -0.04;
     handle.position.set(
       door.position.x + doorWidth * 0.15,
       doorHeight * 0.45 + 0.2,
-      door.position.z + 0.04
+      door.position.z + handleZOffset
     );
     scene.add(handle);
 
@@ -700,14 +716,14 @@ export function Shed3DRenderer({ config }: Shed3DRendererProps) {
     if (config.doorType === 'double') {
       const centerLineGeom = new BoxGeometry(0.02, doorHeight, trimDepth);
       const centerLine = new Mesh(centerLineGeom, trimMaterial);
-      centerLine.position.set(door.position.x, doorHeight / 2 + 0.2, door.position.z + 0.01);
+      centerLine.position.set(door.position.x, doorHeight / 2 + 0.2, door.position.z);
       scene.add(centerLine);
 
       const handle2 = new Mesh(handleGeom, handleMaterial);
       handle2.position.set(
         door.position.x - doorWidth * 0.15,
         doorHeight * 0.45 + 0.2,
-        door.position.z + 0.04
+        door.position.z + handleZOffset
       );
       scene.add(handle2);
     }
@@ -728,22 +744,26 @@ export function Shed3DRenderer({ config }: Shed3DRendererProps) {
 
       let x = 0, z = 0;
       const offsetY = (window.offsetFromFloor || 4) * scale;
+      let rotationY = 0;
       
       if (window.position === 'front') {
         x = -shedWidth/2 + windowWidth/2 + (window.offsetFromLeft || 0) * scale;
-        z = shedLength/2 + 0.06;
+        z = shedLength/2 + 0.05;
       } else if (window.position === 'back') {
         x = -shedWidth/2 + windowWidth/2 + (window.offsetFromLeft || 0) * scale;
-        z = -shedLength/2 - 0.06;
+        z = -shedLength/2 - 0.05;
       } else if (window.position === 'left') {
-        x = -shedWidth/2 - 0.06;
-        z = -shedLength/2 + windowWidth/2 + (window.offsetFromLeft || 0) * scale;
+        x = -shedWidth/2 - 0.05;
+        z = shedLength/2 - windowWidth/2 - (window.offsetFromLeft || 0) * scale;
+        rotationY = Math.PI / 2;
       } else {
-        x = shedWidth/2 + 0.06;
-        z = -shedLength/2 + windowWidth/2 + (window.offsetFromLeft || 0) * scale;
+        x = shedWidth/2 + 0.05;
+        z = shedLength/2 - windowWidth/2 - (window.offsetFromLeft || 0) * scale;
+        rotationY = Math.PI / 2;
       }
 
       windowMesh.position.set(x, windowHeight/2 + offsetY, z);
+      windowMesh.rotation.y = rotationY;
       scene.add(windowMesh);
 
       // Window trim
@@ -752,41 +772,83 @@ export function Shed3DRenderer({ config }: Shed3DRendererProps) {
         const shutterMaterial = new MeshStandardMaterial({ color: 0x2c3e50 });
         
         const leftShutter = new Mesh(shutterGeometry, shutterMaterial);
-        leftShutter.position.set(x - windowWidth * 0.7, windowHeight/2 + offsetY, z);
-        scene.add(leftShutter);
-        
         const rightShutter = new Mesh(shutterGeometry, shutterMaterial);
-        rightShutter.position.set(x + windowWidth * 0.7, windowHeight/2 + offsetY, z);
+        
+        if (rotationY === 0) {
+          leftShutter.position.set(x - windowWidth * 0.7, windowHeight/2 + offsetY, z);
+          rightShutter.position.set(x + windowWidth * 0.7, windowHeight/2 + offsetY, z);
+        } else {
+          leftShutter.position.set(x, windowHeight/2 + offsetY, z - windowWidth * 0.7);
+          rightShutter.position.set(x, windowHeight/2 + offsetY, z + windowWidth * 0.7);
+        }
+        
+        leftShutter.rotation.y = rotationY;
+        rightShutter.rotation.y = rotationY;
+
+        scene.add(leftShutter);
         scene.add(rightShutter);
       }
     });
 
-    // Mouse controls
+    // Pointer & Touch controls
     let isDragging = false;
-    let previousMousePosition = { x: 0, y: 0 };
+    let previousPointerPosition = { x: 0, y: 0 };
     let cameraRotation = { theta: Math.PI / 4, phi: Math.PI / 5 };
     let cameraDistance = 10;
+    
+    // For touch pinch-to-zoom
+    let initialPinchDistance: number | null = null;
 
-    const onMouseDown = (e: MouseEvent) => {
+    const onPointerDown = (e: PointerEvent) => {
       isDragging = true;
-      previousMousePosition = { x: e.clientX, y: e.clientY };
+      previousPointerPosition = { x: e.clientX, y: e.clientY };
+      renderer.domElement.setPointerCapture(e.pointerId);
     };
 
-    const onMouseMove = (e: MouseEvent) => {
+    const onPointerMove = (e: PointerEvent) => {
       if (!isDragging) return;
 
-      const deltaX = e.clientX - previousMousePosition.x;
-      const deltaY = e.clientY - previousMousePosition.y;
+      const deltaX = e.clientX - previousPointerPosition.x;
+      const deltaY = e.clientY - previousPointerPosition.y;
 
       cameraRotation.theta -= deltaX * 0.01;
       cameraRotation.phi -= deltaY * 0.01;
       cameraRotation.phi = Math.max(0.1, Math.min(Math.PI / 2 - 0.1, cameraRotation.phi));
 
-      previousMousePosition = { x: e.clientX, y: e.clientY };
+      previousPointerPosition = { x: e.clientX, y: e.clientY };
     };
 
-    const onMouseUp = () => {
+    const onPointerUp = (e: PointerEvent) => {
       isDragging = false;
+      renderer.domElement.releasePointerCapture(e.pointerId);
+    };
+
+    const onTouchStart = (e: TouchEvent) => {
+      e.preventDefault();
+      if (e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        initialPinchDistance = Math.sqrt(dx * dx + dy * dy);
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      if (e.touches.length === 2 && initialPinchDistance !== null) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        const delta = initialPinchDistance - dist;
+        cameraDistance += delta * 0.05;
+        cameraDistance = Math.max(4, Math.min(25, cameraDistance));
+        
+        initialPinchDistance = dist;
+      }
+    };
+
+    const onTouchEnd = () => {
+      initialPinchDistance = null;
     };
 
     const onWheel = (e: WheelEvent) => {
@@ -795,14 +857,29 @@ export function Shed3DRenderer({ config }: Shed3DRendererProps) {
       cameraDistance = Math.max(4, Math.min(25, cameraDistance));
     };
 
-    renderer.domElement.addEventListener('mousedown', onMouseDown);
-    renderer.domElement.addEventListener('mousemove', onMouseMove);
-    renderer.domElement.addEventListener('mouseup', onMouseUp);
-    renderer.domElement.addEventListener('wheel', onWheel);
+    // Add CSS to prevent browser scrolling on the canvas
+    renderer.domElement.style.touchAction = 'none';
+
+    renderer.domElement.addEventListener('pointerdown', onPointerDown);
+    renderer.domElement.addEventListener('pointermove', onPointerMove);
+    renderer.domElement.addEventListener('pointerup', onPointerUp);
+    renderer.domElement.addEventListener('pointercancel', onPointerUp);
+
+    renderer.domElement.addEventListener('touchstart', onTouchStart, { passive: false });
+    renderer.domElement.addEventListener('touchmove', onTouchMove, { passive: false });
+    renderer.domElement.addEventListener('touchend', onTouchEnd);
+    
+    renderer.domElement.addEventListener('wheel', onWheel, { passive: false });
 
     // Animation loop
+    let animationId: number;
     const animate = () => {
-      requestAnimationFrame(animate);
+      animationId = requestAnimationFrame(animate);
+
+      // Auto-rotate slowly if not dragging
+      if (!isDragging) {
+        cameraRotation.theta -= 0.002;
+      }
 
       camera.position.x = cameraDistance * Math.sin(cameraRotation.phi) * Math.cos(cameraRotation.theta);
       camera.position.y = cameraDistance * Math.cos(cameraRotation.phi);
@@ -835,10 +912,15 @@ export function Shed3DRenderer({ config }: Shed3DRendererProps) {
 
     // Cleanup
     return () => {
+      cancelAnimationFrame(animationId);
       resizeObserver.disconnect();
-      renderer.domElement.removeEventListener('mousedown', onMouseDown);
-      renderer.domElement.removeEventListener('mousemove', onMouseMove);
-      renderer.domElement.removeEventListener('mouseup', onMouseUp);
+      renderer.domElement.removeEventListener('pointerdown', onPointerDown);
+      renderer.domElement.removeEventListener('pointermove', onPointerMove);
+      renderer.domElement.removeEventListener('pointerup', onPointerUp);
+      renderer.domElement.removeEventListener('pointercancel', onPointerUp);
+      renderer.domElement.removeEventListener('touchstart', onTouchStart);
+      renderer.domElement.removeEventListener('touchmove', onTouchMove);
+      renderer.domElement.removeEventListener('touchend', onTouchEnd);
       renderer.domElement.removeEventListener('wheel', onWheel);
       if (containerRef.current && renderer.domElement.parentElement) {
         containerRef.current.removeChild(renderer.domElement);
@@ -853,8 +935,8 @@ export function Shed3DRenderer({ config }: Shed3DRendererProps) {
       <div className="absolute top-4 left-4 z-10 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-3 text-sm">
         <div className="font-semibold text-slate-900 mb-1">🎮 3D Controls:</div>
         <div className="space-y-0.5 text-slate-700">
-          <div>🖱️ <strong>Rotate:</strong> Click + drag</div>
-          <div>🔍 <strong>Zoom:</strong> Scroll wheel</div>
+          <div>🖱️ <strong>Rotate:</strong> Click + drag / Swipe</div>
+          <div>🔍 <strong>Zoom:</strong> Scroll / Pinch</div>
         </div>
       </div>
 

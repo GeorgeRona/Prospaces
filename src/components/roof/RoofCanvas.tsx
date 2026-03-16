@@ -14,31 +14,201 @@ function dormerPositionToPercent(pos: string): number {
 
 interface RoofCanvasProps {
   config: RoofConfig;
+  onChange?: (config: RoofConfig) => void;
 }
 
-export function RoofCanvas({ config }: RoofCanvasProps) {
+export function RoofCanvas({ config, onChange }: RoofCanvasProps) {
   const topViewRef = useRef<HTMLCanvasElement>(null);
   const frontViewRef = useRef<HTMLCanvasElement>(null);
   const sideViewRef = useRef<HTMLCanvasElement>(null);
   const [view3D, setView3D] = useState(true);
+  const [hoveredType, setHoveredType] = useState<string | null>(null);
+  const hitBoxesRef = useRef<{type: string, x: number, y: number, w: number, h: number}[]>([]);
 
   useEffect(() => {
     drawTopView();
     drawFrontElevation();
     drawSideElevation();
-  }, [config, view3D]);
+  }, [config, view3D, hoveredType]);
 
   const drawTopView = () => {
     const canvas = topViewRef.current;
     if (!canvas) return;
 
+    hitBoxesRef.current = [];
+
+    const scaleFactor = window.devicePixelRatio || 2;
+    const baseWidth = 500;
+    const baseHeight = 350;
+
+    // High resolution setup for crispness
+    canvas.width = baseWidth * scaleFactor;
+    canvas.height = baseHeight * scaleFactor;
+
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.scale(scaleFactor, scaleFactor);
 
-    const width = canvas.width;
-    const height = canvas.height;
+    // 1. Draw Diagonal Checkerboard Grass Background
+    ctx.save();
+    ctx.fillStyle = '#425c27'; // Darker grass
+    ctx.fillRect(0, 0, baseWidth, baseHeight);
+    
+    ctx.translate(baseWidth / 2, baseHeight / 2);
+    ctx.rotate(Math.PI / 4);
+    ctx.fillStyle = '#49652b'; // Lighter grass
+    const bgSize = 30;
+    for (let i = -30; i < 30; i++) {
+      for (let j = -30; j < 30; j++) {
+        if ((i + j) % 2 === 0) {
+          ctx.fillRect(i * bgSize, j * bgSize, bgSize, bgSize);
+        }
+      }
+    }
+    ctx.restore();
+
+    // Helper to format dimensions
+    const formatDim = (val: number) => {
+      const ft = Math.floor(val);
+      const inches = Math.round((val - ft) * 12);
+      return `${ft}' ${inches.toString().padStart(2, '0')}"`;
+    };
+
+    // Helper for pill badge
+    const drawPillBadge = (x: number, y: number, text: string, iconType: 'pencil' | 'height', rotate: boolean = false, type?: string) => {
+      ctx.save();
+      ctx.translate(x, y);
+      if (rotate) ctx.rotate(-Math.PI / 2);
+
+      ctx.font = '600 10px system-ui, sans-serif';
+      const textWidth = ctx.measureText(text).width;
+      const height = 24;
+      const width = textWidth + 30; // padding and icon space
+      const iconX = -width / 2 + 10;
+      
+      // Add to hitboxes if type is provided
+      if (type) {
+        let hitX = x;
+        let hitY = y;
+        let hitW = width;
+        let hitH = height;
+        
+        if (rotate) {
+          hitW = height;
+          hitH = width;
+        }
+        
+        hitBoxesRef.current.push({
+          type,
+          x: hitX - hitW / 2,
+          y: hitY - hitH / 2,
+          w: hitW,
+          h: hitH
+        });
+      }
+
+      // Shadow
+      ctx.shadowColor = 'rgba(0,0,0,0.2)';
+      ctx.shadowBlur = 6;
+      ctx.shadowOffsetY = 2;
+
+      // Background
+      ctx.fillStyle = type && hoveredType === type ? '#f8fafc' : '#ffffff';
+      if (type && hoveredType === type) {
+        ctx.strokeStyle = '#3b82f6';
+        ctx.lineWidth = 2;
+      } else {
+        ctx.strokeStyle = 'transparent';
+        ctx.lineWidth = 0;
+      }
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(-width / 2, -height / 2, width, height, height / 2);
+      } else {
+        ctx.rect(-width / 2, -height / 2, width, height);
+      }
+      ctx.fill();
+      if (type && hoveredType === type) {
+        ctx.stroke();
+      }
+
+      // Reset shadow
+      ctx.shadowColor = 'transparent';
+
+      if (iconType === 'pencil') {
+        // Icon (pencil)
+        ctx.fillStyle = '#64748b';
+        ctx.strokeStyle = '#64748b';
+        ctx.beginPath();
+        ctx.moveTo(iconX - 2, 4);
+        ctx.lineTo(iconX + 4, -2);
+        ctx.lineTo(iconX + 6, 0);
+        ctx.lineTo(iconX, 6);
+        ctx.closePath();
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(iconX - 2, 4);
+        ctx.lineTo(iconX - 4, 6);
+        ctx.lineTo(iconX, 6);
+        ctx.fill();
+      } else {
+        // Height I-beam
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#64748b';
+        ctx.beginPath();
+        ctx.moveTo(iconX - 3, -4); ctx.lineTo(iconX + 3, -4);
+        ctx.moveTo(iconX - 3, 4); ctx.lineTo(iconX + 3, 4);
+        ctx.moveTo(iconX, -4); ctx.lineTo(iconX, 4);
+        ctx.stroke();
+      }
+
+      // Text
+      ctx.fillStyle = '#334155';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, iconX + 12, 1);
+
+      ctx.restore();
+    };
+
+    // Helper for styled dimension lines
+    const drawStyledDimLine = (x1: number, y1: number, x2: number, y2: number, text: string, rotate: boolean, type?: string) => {
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+
+      // Arrows
+      const drawArrow = (ax: number, ay: number, dirX: number, dirY: number) => {
+        ctx.save();
+        ctx.translate(ax, ay);
+        ctx.rotate(Math.atan2(dirY, dirX));
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(-6, -3);
+        ctx.lineTo(-6, 3);
+        ctx.fill();
+        ctx.restore();
+      };
+
+      if (!rotate) { // Horizontal
+        drawArrow(x1, y1, -1, 0);
+        drawArrow(x2, y2, 1, 0);
+      } else { // Vertical
+        drawArrow(x1, y1, 0, -1);
+        drawArrow(x2, y2, 0, 1);
+      }
+
+      drawPillBadge((x1 + x2) / 2, (y1 + y2) / 2, text, 'pencil', rotate, type);
+    };
+
+    const width = baseWidth;
+    const height = baseHeight;
     const padding = 50;
 
     const roofLength = config.length + (2 * config.rakeOverhang);
@@ -79,7 +249,7 @@ export function RoofCanvas({ config }: RoofCanvasProps) {
       }
     }
     
-    const maxDimension = Math.max(boundingLength, boundingWidth);
+    const maxDimension = Math.max(boundingLength, boundingWidth, 1);
     const scale = Math.min((width - 2 * padding) / maxDimension, (height - 2 * padding) / maxDimension);
 
     const centerX = width / 2;
@@ -273,15 +443,25 @@ export function RoofCanvas({ config }: RoofCanvasProps) {
             ctx.stroke();
           }
 
-          // Wing dimension labels
-          ctx.fillStyle = '#059669';
-          ctx.font = '10px sans-serif';
-          ctx.textAlign = 'center';
-          ctx.fillText(
-            `${wing.wingLength.toFixed(0)}' x ${wing.wingWidth.toFixed(0)}'`,
-            wingX + wingScaledLength / 2,
-            wingCenterY + 4
-          );
+          // Wing dimension labels (using styled lines)
+          const isLeft = pos === 'back-left' || pos === 'front-left';
+          const isTop = pos === 'front-left' || pos === 'front-right';
+          
+          if (isTop) {
+            drawStyledDimLine(wingX, wingY - 30, wingX + wingScaledLength, wingY - 30, formatDim(wing.wingLength), false, 'lShapeWingLength');
+            if (isLeft) {
+              drawStyledDimLine(wingX - 30, wingY, wingX - 30, wingY + wingScaledWidth, formatDim(wing.wingWidth), true, 'lShapeWingWidth');
+            } else {
+              drawStyledDimLine(wingX + wingScaledLength + 30, wingY, wingX + wingScaledLength + 30, wingY + wingScaledWidth, formatDim(wing.wingWidth), true, 'lShapeWingWidth');
+            }
+          } else {
+            drawStyledDimLine(wingX, wingY + wingScaledWidth + 30, wingX + wingScaledLength, wingY + wingScaledWidth + 30, formatDim(wing.wingLength), false, 'lShapeWingLength');
+            if (isLeft) {
+              drawStyledDimLine(wingX - 30, wingY, wingX - 30, wingY + wingScaledWidth, formatDim(wing.wingWidth), true, 'lShapeWingWidth');
+            } else {
+              drawStyledDimLine(wingX + wingScaledLength + 30, wingY, wingX + wingScaledLength + 30, wingY + wingScaledWidth, formatDim(wing.wingWidth), true, 'lShapeWingWidth');
+            }
+          }
 
           // Section labels
           ctx.fillStyle = '#475569';
@@ -368,9 +548,20 @@ export function RoofCanvas({ config }: RoofCanvasProps) {
           ctx.font = 'bold 10px sans-serif';
           ctx.textAlign = 'center';
           ctx.fillText('Main', (x1 + x2) / 2, centerY - 8);
-          ctx.fillStyle = '#059669';
-          ctx.font = '10px sans-serif';
-          ctx.fillText(`Wing ${wing.wingLength.toFixed(0)}' x ${wing.wingWidth.toFixed(0)}'`, wingCX, wingCY + 4);
+          
+          if (side === 'front') {
+            drawStyledDimLine(wingX, wingY - 30, wingX + wingScaledLength, wingY - 30, formatDim(wing.wingLength), false, 'tShapeWingLength');
+            drawStyledDimLine(wingX - 30, wingY, wingX - 30, wingY + wingScaledWidth, formatDim(wing.wingWidth), true, 'tShapeWingWidth');
+          } else if (side === 'back') {
+            drawStyledDimLine(wingX, wingY + wingScaledWidth + 30, wingX + wingScaledLength, wingY + wingScaledWidth + 30, formatDim(wing.wingLength), false, 'tShapeWingLength');
+            drawStyledDimLine(wingX - 30, wingY, wingX - 30, wingY + wingScaledWidth, formatDim(wing.wingWidth), true, 'tShapeWingWidth');
+          } else if (side === 'left') {
+            drawStyledDimLine(wingX, wingY - 30, wingX + wingScaledLength, wingY - 30, formatDim(wing.wingLength), false, 'tShapeWingLength');
+            drawStyledDimLine(wingX - 30, wingY, wingX - 30, wingY + wingScaledWidth, formatDim(wing.wingWidth), true, 'tShapeWingWidth');
+          } else if (side === 'right') {
+            drawStyledDimLine(wingX, wingY - 30, wingX + wingScaledLength, wingY - 30, formatDim(wing.wingLength), false, 'tShapeWingLength');
+            drawStyledDimLine(wingX + wingScaledLength + 30, wingY, wingX + wingScaledLength + 30, wingY + wingScaledWidth, formatDim(wing.wingWidth), true, 'tShapeWingWidth');
+          }
         }
         break;
       }
@@ -433,10 +624,22 @@ export function RoofCanvas({ config }: RoofCanvasProps) {
           ctx.font = 'bold 10px sans-serif';
           ctx.textAlign = 'center';
           ctx.fillText('Main', (x1 + x2) / 2, centerY - 8);
-          ctx.fillStyle = '#059669';
-          ctx.font = '9px sans-serif';
-          for (const { wx, wy } of wingsArr) {
-            ctx.fillText('Wing', wx + wingScaledLength / 2, wy + wingScaledWidth / 2 - 4);
+
+          // Add dimensions for wings
+          if (isLR) {
+            // Left wing
+            drawStyledDimLine(wingsArr[0].wx, wingsArr[0].wy - 30, wingsArr[0].wx + wingScaledLength, wingsArr[0].wy - 30, formatDim(wing.wingLength), false, 'uShapeWingLength');
+            drawStyledDimLine(wingsArr[0].wx - 30, wingsArr[0].wy, wingsArr[0].wx - 30, wingsArr[0].wy + wingScaledWidth, formatDim(wing.wingWidth), true, 'uShapeWingWidth');
+            // Right wing
+            drawStyledDimLine(wingsArr[1].wx, wingsArr[1].wy - 30, wingsArr[1].wx + wingScaledLength, wingsArr[1].wy - 30, formatDim(wing.wingLength), false, 'uShapeWingLength');
+            drawStyledDimLine(wingsArr[1].wx + wingScaledLength + 30, wingsArr[1].wy, wingsArr[1].wx + wingScaledLength + 30, wingsArr[1].wy + wingScaledWidth, formatDim(wing.wingWidth), true, 'uShapeWingWidth');
+          } else {
+            // Top wing
+            drawStyledDimLine(wingsArr[0].wx - 30, wingsArr[0].wy, wingsArr[0].wx - 30, wingsArr[0].wy + wingScaledWidth, formatDim(wing.wingWidth), true, 'uShapeWingWidth');
+            drawStyledDimLine(wingsArr[0].wx, wingsArr[0].wy - 30, wingsArr[0].wx + wingScaledLength, wingsArr[0].wy - 30, formatDim(wing.wingLength), false, 'uShapeWingLength');
+            // Bottom wing
+            drawStyledDimLine(wingsArr[1].wx - 30, wingsArr[1].wy, wingsArr[1].wx - 30, wingsArr[1].wy + wingScaledWidth, formatDim(wing.wingWidth), true, 'uShapeWingWidth');
+            drawStyledDimLine(wingsArr[1].wx, wingsArr[1].wy + wingScaledWidth + 30, wingsArr[1].wx + wingScaledLength, wingsArr[1].wy + wingScaledWidth + 30, formatDim(wing.wingLength), false, 'uShapeWingLength');
           }
         }
         break;
@@ -556,17 +759,11 @@ export function RoofCanvas({ config }: RoofCanvasProps) {
     }
 
     // Draw dimensions
-    ctx.strokeStyle = '#64748b';
-    ctx.fillStyle = '#64748b';
-    ctx.lineWidth = 1;
-    ctx.font = '12px sans-serif';
-    ctx.textAlign = 'center';
-
     // Length dimension
-    drawDimensionLine(ctx, x1, y2 + 30, x2, y2 + 30, `${roofLength.toFixed(1)}'`, 'horizontal');
+    drawStyledDimLine(x1, y2 + 30, x2, y2 + 30, formatDim(roofLength), false, 'length');
     
     // Width dimension
-    drawDimensionLine(ctx, x1 - 30, y1, x1 - 30, y2, `${roofWidth.toFixed(1)}'`, 'vertical');
+    drawStyledDimLine(x1 - 30, y1, x1 - 30, y2, formatDim(roofWidth), true, 'width');
 
     // Overhang annotations
     ctx.font = '10px sans-serif';
@@ -607,18 +804,40 @@ export function RoofCanvas({ config }: RoofCanvasProps) {
     const canvas = frontViewRef.current;
     if (!canvas) return;
 
+    const scaleFactor = window.devicePixelRatio || 2;
+    const baseWidth = 350;
+    const baseHeight = 250;
+
+    canvas.width = baseWidth * scaleFactor;
+    canvas.height = baseHeight * scaleFactor;
+
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.scale(scaleFactor, scaleFactor);
 
-    const width = canvas.width;
-    const height = canvas.height;
+    // Grid Background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, baseWidth, baseHeight);
+    
+    ctx.strokeStyle = '#f1f5f9';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < baseWidth; i += 25) {
+      ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, baseHeight); ctx.stroke();
+    }
+    for (let i = 0; i < baseHeight; i += 25) {
+      ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(baseWidth, i); ctx.stroke();
+    }
+
+    const width = baseWidth;
+    const height = baseHeight;
     const padding = 40;
 
     const roofLength = config.length + (2 * config.rakeOverhang);
     const roofWidth = config.width + (2 * config.eaveOverhang);
-    const [rise, run] = config.pitch.split('/').map(Number);
+    const pitchStr = config.pitch || '6/12';
+    const [rise, run] = pitchStr.split('/').map(Number);
     
     // For multi-section roofs, account for the wing in the front elevation scale
     let totalFrontWidth = roofLength;
@@ -634,7 +853,7 @@ export function RoofCanvas({ config }: RoofCanvasProps) {
         totalFrontWidth = roofLength + (config.uShapeConfig.wingLength + (2 * config.rakeOverhang)) * 2;
       }
     }
-    const scale = Math.min((width - 2 * padding) / totalFrontWidth, (height - 2 * padding) / 20);
+    const scale = Math.min((width - 2 * padding) / Math.max(totalFrontWidth, 1), (height - 2 * padding) / 20);
 
     const centerX = width / 2;
     const baseY = height - padding - 20;
@@ -1065,18 +1284,40 @@ export function RoofCanvas({ config }: RoofCanvasProps) {
     const canvas = sideViewRef.current;
     if (!canvas) return;
 
+    const scaleFactor = window.devicePixelRatio || 2;
+    const baseWidth = 350;
+    const baseHeight = 250;
+
+    canvas.width = baseWidth * scaleFactor;
+    canvas.height = baseHeight * scaleFactor;
+
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.scale(scaleFactor, scaleFactor);
 
-    const width = canvas.width;
-    const height = canvas.height;
+    // Grid Background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, baseWidth, baseHeight);
+    
+    ctx.strokeStyle = '#f1f5f9';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < baseWidth; i += 25) {
+      ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, baseHeight); ctx.stroke();
+    }
+    for (let i = 0; i < baseHeight; i += 25) {
+      ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(baseWidth, i); ctx.stroke();
+    }
+
+    const width = baseWidth;
+    const height = baseHeight;
     const padding = 40;
 
     const roofWidth = config.width + (2 * config.eaveOverhang);
-    const [rise, run] = config.pitch.split('/').map(Number);
-    const scale = Math.min((width - 2 * padding) / roofWidth, (height - 2 * padding) / 20);
+    const pitchStr = config.pitch || '6/12';
+    const [rise, run] = pitchStr.split('/').map(Number);
+    const scale = Math.min((width - 2 * padding) / Math.max(roofWidth, 1), (height - 2 * padding) / 20);
 
     const centerX = width / 2;
     const baseY = height - padding - 20;
@@ -1478,39 +1719,182 @@ export function RoofCanvas({ config }: RoofCanvasProps) {
     ctx.fillText('W', x - size - 10, y);
   };
 
+  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>, viewId: string) => {
+    if (!onChange || viewId !== 'top') return;
+    const canvas = e.currentTarget;
+    if (!canvas) return;
+
+    // Optional: capture pointer to continue receiving events even if pointer leaves canvas bounds
+    e.currentTarget.setPointerCapture(e.pointerId);
+
+    const rect = canvas.getBoundingClientRect();
+    const scaleFactor = window.devicePixelRatio || 2;
+    const scaleX = (canvas.width / scaleFactor) / rect.width;
+    const scaleY = (canvas.height / scaleFactor) / rect.height;
+
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
+
+    for (const box of hitBoxesRef.current) {
+      if (x >= box.x && x <= box.x + box.w && y >= box.y && y <= box.y + box.h) {
+        // We will handle the prompt in handleCanvasClick (onClick) to match DeckCanvas behavior,
+        // but we keep pointer capture here if needed for touch.
+        break;
+      }
+    }
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    // Release pointer capture
+    e.currentTarget.releasePointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>, viewId: string) => {
+    if (viewId !== 'top') return;
+    const canvas = e.currentTarget;
+    const rect = canvas.getBoundingClientRect();
+    const scaleFactor = window.devicePixelRatio || 2;
+    const scaleX = (canvas.width / scaleFactor) / rect.width;
+    const scaleY = (canvas.height / scaleFactor) / rect.height;
+
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
+
+    let hovering: string | null = null;
+    for (const box of hitBoxesRef.current) {
+      if (x >= box.x && x <= box.x + box.w && y >= box.y && y <= box.y + box.h) {
+        hovering = box.type;
+        break;
+      }
+    }
+
+    if (hovering !== hoveredType) {
+      setHoveredType(hovering);
+    }
+
+    canvas.style.cursor = hovering ? 'pointer' : 'default';
+  };
+
+  const handlePointerLeave = () => {
+    setHoveredType(null);
+  };
+
+  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>, viewId: string) => {
+    if (!onChange || viewId !== 'top') return;
+    const canvas = e.currentTarget;
+    const rect = canvas.getBoundingClientRect();
+    const scaleFactor = window.devicePixelRatio || 2;
+    const scaleX = (canvas.width / scaleFactor) / rect.width;
+    const scaleY = (canvas.height / scaleFactor) / rect.height;
+
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
+
+    for (const box of hitBoxesRef.current) {
+      if (x >= box.x && x <= box.x + box.w && y >= box.y && y <= box.y + box.h) {
+        let currentVal = config.width;
+        if (box.type === 'length') currentVal = config.length;
+        else if (box.type === 'lShapeWingLength') currentVal = config.lShapeConfig?.wingLength || 10;
+        else if (box.type === 'lShapeWingWidth') currentVal = config.lShapeConfig?.wingWidth || 10;
+        else if (box.type === 'tShapeWingLength') currentVal = config.tShapeConfig?.wingLength || 10;
+        else if (box.type === 'tShapeWingWidth') currentVal = config.tShapeConfig?.wingWidth || 10;
+        else if (box.type === 'uShapeWingLength') currentVal = config.uShapeConfig?.wingLength || 10;
+        else if (box.type === 'uShapeWingWidth') currentVal = config.uShapeConfig?.wingWidth || 10;
+
+        const labelMap: Record<string, string> = {
+          width: 'Main Width',
+          length: 'Main Length',
+          lShapeWingLength: 'Wing Length',
+          lShapeWingWidth: 'Wing Width',
+          tShapeWingLength: 'Wing Length',
+          tShapeWingWidth: 'Wing Width',
+          uShapeWingLength: 'Wing Length',
+          uShapeWingWidth: 'Wing Width',
+        };
+
+        const input = window.prompt(`Enter new ${labelMap[box.type] || box.type} in feet:`, currentVal.toString());
+        
+        if (input !== null) {
+          const num = parseFloat(input);
+          if (!isNaN(num) && num > 0) {
+            if (box.type === 'width' || box.type === 'length') {
+              onChange({
+                ...config,
+                [box.type]: num
+              });
+            } else if (box.type.startsWith('lShape')) {
+              onChange({
+                ...config,
+                lShapeConfig: {
+                  ...config.lShapeConfig!,
+                  [box.type === 'lShapeWingLength' ? 'wingLength' : 'wingWidth']: num
+                }
+              });
+            } else if (box.type.startsWith('tShape')) {
+              onChange({
+                ...config,
+                tShapeConfig: {
+                  ...config.tShapeConfig!,
+                  [box.type === 'tShapeWingLength' ? 'wingLength' : 'wingWidth']: num
+                }
+              });
+            } else if (box.type.startsWith('uShape')) {
+              onChange({
+                ...config,
+                uShapeConfig: {
+                  ...config.uShapeConfig!,
+                  [box.type === 'uShapeWingLength' ? 'wingLength' : 'wingWidth']: num
+                }
+              });
+            }
+          }
+        }
+        break;
+      }
+    }
+  };
+
   return (
     <div className="space-y-6 print:space-y-2 print:break-before-page">
       {/* Main Top View */}
-      <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-6 border-2 border-purple-300 print:bg-white print:border-black print:p-2 print:rounded-none print:break-inside-avoid">
+      <div className="bg-slate-50 rounded-lg p-6 border border-slate-200 print:bg-white print:border-black print:p-2 print:rounded-none print:break-inside-avoid">
         <div className="mb-4 print:mb-1">
           <h3 className="font-semibold text-slate-900 print:text-base">Top View (Plan)</h3>
         </div>
         <canvas
           ref={topViewRef}
-          width={500}
-          height={350}
-          className="w-full bg-white rounded border border-slate-300 shadow-inner print:border-black print:shadow-none print:rounded-none print:scale-[0.65] print:origin-top"
+          onPointerDown={(e) => handlePointerDown(e, 'top')}
+          onPointerUp={handlePointerUp}
+          onPointerMove={(e) => handlePointerMove(e, 'top')}
+          onPointerLeave={(e) => {
+            handlePointerLeave();
+            handlePointerUp(e);
+          }}
+          onClick={(e) => handleCanvasClick(e, 'top')}
+          className="w-full bg-white rounded border border-slate-200 print:border-black print:shadow-none print:rounded-none print:scale-[0.65] print:origin-top aspect-[1.4] touch-none select-none"
         />
       </div>
 
       {/* Elevation Views */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:gap-2 print:grid-cols-2 print:break-inside-avoid">
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border-2 border-blue-300 print:bg-white print:border-black print:p-2 print:rounded-none print:break-inside-avoid">
+        <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 print:bg-white print:border-black print:p-2 print:rounded-none print:break-inside-avoid">
           <h3 className="font-semibold text-slate-900 mb-3 print:mb-1 print:text-base">Front Elevation</h3>
           <canvas
             ref={frontViewRef}
-            width={350}
-            height={250}
-            className="w-full bg-white rounded border border-blue-300 shadow-inner print:border-black print:shadow-none print:rounded-none print:scale-[0.65] print:origin-top"
+            onPointerMove={(e) => handlePointerMove(e, 'front')}
+            onPointerLeave={handlePointerLeave}
+            onClick={(e) => handleCanvasClick(e, 'front')}
+            className="w-full bg-white rounded border border-slate-200 print:border-black print:shadow-none print:rounded-none print:scale-[0.65] print:origin-top aspect-[1.4] touch-none select-none"
           />
         </div>
-        <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4 border-2 border-green-300 print:bg-white print:border-black print:p-2 print:rounded-none print:break-inside-avoid">
+        <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 print:bg-white print:border-black print:p-2 print:rounded-none print:break-inside-avoid">
           <h3 className="font-semibold text-slate-900 mb-3 print:mb-1 print:text-base">Side Elevation</h3>
           <canvas
             ref={sideViewRef}
-            width={350}
-            height={250}
-            className="w-full bg-white rounded border border-green-300 shadow-inner print:border-black print:shadow-none print:rounded-none print:scale-[0.65] print:origin-top"
+            onPointerMove={(e) => handlePointerMove(e, 'side')}
+            onPointerLeave={handlePointerLeave}
+            onClick={(e) => handleCanvasClick(e, 'side')}
+            className="w-full bg-white rounded border border-slate-200 print:border-black print:shadow-none print:rounded-none print:scale-[0.65] print:origin-top aspect-[1.4] touch-none select-none"
           />
         </div>
       </div>
@@ -1523,7 +1907,7 @@ export function RoofCanvas({ config }: RoofCanvasProps) {
         </div>
         <div className="p-3 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg border border-purple-200">
           <div className="text-xs text-purple-700 font-medium">Roof Pitch</div>
-          <div className="text-sm font-bold text-purple-900 mt-1">{getPitchDescription(config.pitch)}</div>
+          <div className="text-sm font-bold text-purple-900 mt-1">{getPitchDescription(config.pitch || '6/12')}</div>
         </div>
         <div className="p-3 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-200">
           <div className="text-xs text-blue-700 font-medium">Roof Style</div>

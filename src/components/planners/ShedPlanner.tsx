@@ -13,7 +13,7 @@ import { calculateMaterials } from '../../utils/shedCalculations';
 import { enrichMaterialsWithT1Pricing } from '../../utils/enrichMaterialsWithPricing';
 import { getUserDefaults, extractConversionFactors, getOrgConversionFactors, extractOrgConversionFactors } from '../../utils/project-wizard-defaults-client';
 import { ShedConfig } from '../../types/shed';
-import { Ruler, Package, Printer, FileText, Box, Layers, Home, Settings } from 'lucide-react';
+import { Ruler, Package, Printer, FileText, Box, Layers, Home, Settings, LayoutTemplate, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { Button } from '../ui/button';
 import { toast } from 'sonner@2.0.3';
 import type { User } from '../../App';
@@ -64,8 +64,9 @@ export function ShedPlanner({ user }: ShedPlannerProps) {
     unit: 'feet',
   });
 
-  const [activeTab, setActiveTab] = useState<'design' | 'materials' | 'saved' | 'defaults'>('design');
+  const [activeTab, setActiveTab] = useState<'design' | 'materials' | 'templates' | 'saved' | 'defaults'>('design');
   const [viewMode, setViewMode] = useState<'2d' | '3d'>('2d');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [enrichedMaterials, setEnrichedMaterials] = useState<any[]>([]);
   const [totalT1Price, setTotalT1Price] = useState<number>(0);
   const [loadedDesignInfo, setLoadedDesignInfo] = useState<{
@@ -193,6 +194,17 @@ export function ShedPlanner({ user }: ShedPlannerProps) {
                 Design
               </button>
               <button
+                onClick={() => setActiveTab('templates')}
+                className={`flex items-center gap-2 py-3 sm:py-4 border-b-2 transition-colors text-sm sm:text-base ${
+                  activeTab === 'templates'
+                    ? 'border-green-600 text-green-600'
+                    : 'border-transparent text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <LayoutTemplate className="w-4 h-4" />
+                Templates
+              </button>
+              <button
                 onClick={() => setActiveTab('materials')}
                 className={`flex items-center gap-2 py-3 sm:py-4 border-b-2 transition-colors text-sm sm:text-base ${
                   activeTab === 'materials'
@@ -238,18 +250,34 @@ export function ShedPlanner({ user }: ShedPlannerProps) {
       </div>
 
       {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {activeTab === 'design' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-1 space-y-6 print:hidden">
-              <ShedTemplates onLoadTemplate={handleLoadTemplate} currentConfig={config} />
-              <ShedConfigurator config={config} onChange={setConfig} />
-            </div>
+      <div className={`mx-auto px-4 sm:px-6 lg:px-8 py-8 ${isSidebarOpen ? 'max-w-7xl' : 'max-w-[1600px] transition-all duration-300'}`}>
+        {activeTab === 'templates' && (
+          <div className="max-w-4xl mx-auto space-y-6">
+            <ShedTemplates onLoadTemplate={handleLoadTemplate} currentConfig={config} />
+          </div>
+        )}
 
-            <div className="lg:col-span-2 space-y-6 print:hidden">
+        {activeTab === 'design' && (
+          <div className="flex flex-col lg:flex-row gap-6 lg:items-start">
+            {isSidebarOpen && (
+              <div className="w-full lg:w-1/3 shrink-0 space-y-6 print:hidden lg:h-[calc(100vh-200px)] lg:overflow-y-auto lg:pr-4">
+                <ShedConfigurator config={config} onChange={setConfig} />
+              </div>
+            )}
+
+            <div className="flex-1 min-w-0 space-y-6 print:hidden lg:sticky lg:top-24">
               <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 print:shadow-none print:border-2 print:border-black">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-slate-900 print:hidden">Shed Plan & Elevation</h2>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                      className="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition-colors print:hidden"
+                      title={isSidebarOpen ? "Collapse configurator" : "Expand configurator"}
+                    >
+                      {isSidebarOpen ? <PanelLeftClose className="w-5 h-5" /> : <PanelLeftOpen className="w-5 h-5" />}
+                    </button>
+                    <h2 className="text-slate-900 print:hidden m-0">Shed Plan & Elevation</h2>
+                  </div>
                   <div className="flex gap-2">
                     <button
                       onClick={() => setViewMode('2d')}
@@ -277,7 +305,7 @@ export function ShedPlanner({ user }: ShedPlannerProps) {
                 </div>
                 <div>
                   {viewMode === '2d' ? (
-                    <ShedCanvas config={config} />
+                    <ShedCanvas config={config} onChange={setConfig} />
                   ) : (
                     <div className="h-[500px]">
                       <Shed3DRenderer config={config} />

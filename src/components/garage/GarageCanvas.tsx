@@ -882,7 +882,7 @@ export function GarageCanvas({ config, onChange }: GarageCanvasProps) {
     setHoveredType(null);
   };
 
-  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>, viewId: string) => {
+  const handleCanvasClick = (e: React.PointerEvent<HTMLCanvasElement>, viewId: string) => {
     if (!onChange) return;
     const canvas = e.currentTarget;
 
@@ -930,7 +930,7 @@ export function GarageCanvas({ config, onChange }: GarageCanvasProps) {
           ref={topViewRef}
           onPointerMove={(e) => handlePointerMove(e, 'top')}
           onPointerLeave={handlePointerLeave}
-          onClick={(e) => handleCanvasClick(e, 'top')}
+          onPointerUp={(e) => handleCanvasClick(e, 'top')}
           className="w-full bg-white rounded border border-slate-200 print:border-black print:shadow-none print:rounded-none print:scale-[0.65] print:origin-top aspect-[1.4] touch-none select-none"
         />
       </div>
@@ -943,7 +943,7 @@ export function GarageCanvas({ config, onChange }: GarageCanvasProps) {
             ref={frontViewRef}
             onPointerMove={(e) => handlePointerMove(e, 'front')}
             onPointerLeave={handlePointerLeave}
-            onClick={(e) => handleCanvasClick(e, 'front')}
+            onPointerUp={(e) => handleCanvasClick(e, 'front')}
             className="w-full bg-white rounded border border-slate-200 print:border-black print:shadow-none print:rounded-none print:scale-[0.65] print:origin-top aspect-[1.4] touch-none select-none"
           />
         </div>
@@ -953,7 +953,7 @@ export function GarageCanvas({ config, onChange }: GarageCanvasProps) {
             ref={sideViewRef}
             onPointerMove={(e) => handlePointerMove(e, 'side')}
             onPointerLeave={handlePointerLeave}
-            onClick={(e) => handleCanvasClick(e, 'side')}
+            onPointerUp={(e) => handleCanvasClick(e, 'side')}
             className="w-full bg-white rounded border border-slate-200 print:border-black print:shadow-none print:rounded-none print:scale-[0.65] print:origin-top aspect-[1.4] touch-none select-none"
           />
         </div>

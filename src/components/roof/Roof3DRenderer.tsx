@@ -1285,7 +1285,8 @@ export function Roof3DRenderer({ config }: Roof3DRendererProps) {
       for (const dormer of config.dormers) {
         const dW = dormer.width * scale;
         const dH = dormer.height * scale;
-        const dD = dormer.depth * scale;
+        // User configured depth - but we will dynamically adjust it to hit the roof
+        const configuredDepth = dormer.depth * scale;
 
         // Z position along building length
         const zPos = -buildingLength / 2 + (buildingLength * dormerPositionToPercent(dormer.horizontalPosition) / 100);
@@ -1294,20 +1295,30 @@ export function Roof3DRenderer({ config }: Roof3DRendererProps) {
         const slopeSign = dormer.side === 'front' ? -1 : 1;
 
         // X position on slope: partway from eave toward ridge
-        // slopeProgress 0 = eave, 1 = ridge
         const slopeProgress = 0.35;
         const xEave = slopeSign * buildingWidth / 2;
-        // xFront is the X at center of dormer front face
         const xFront = xEave * (1 - slopeProgress);
-        // Roof surface Y at the front of the dormer
         const surfaceYFront = wH + roofRise * slopeProgress;
+        const floorY = surfaceYFront;
+
+        // Calculate required depth so the dormer roof intersects the main roof
+        let yMax = floorY + dH;
+        if (dormer.style === 'gable') yMax += dH * 0.4;
+        else if (dormer.style === 'shed') yMax += dH * 0.3;
+        else if (dormer.style === 'hip') yMax += dH * 0.35;
+        else if (dormer.style === 'flat') yMax += 0.08;
+        else if (dormer.style === 'eyebrow') yMax += dH * 0.3;
+
+        let reqAbsX = (buildingWidth / 2) * (1 - (yMax - wH) / roofRise);
+        reqAbsX = Math.max(0.1, reqAbsX); // Prevent extending past the ridge
+
+        // Dynamically override depth to hit the roof perfectly (add slight buffer to avoid gaps)
+        const dD = Math.abs(Math.abs(xFront) - reqAbsX) + 0.1;
+
         // Depth direction toward ridge: -slopeSign
         const depthDir = -slopeSign;
         // X at center of dormer depth
         const xCenter = xFront + depthDir * dD / 2;
-
-        // Dormer floor is horizontal at the front surface Y
-        const floorY = surfaceYFront;
 
         // Front wall: faces outward along X, spans Z (width) and Y (height)
         const frontWallGeom = new BoxGeometry(0.08, dH, dW);
@@ -1329,6 +1340,15 @@ export function Roof3DRenderer({ config }: Roof3DRendererProps) {
         rightSideWall.castShadow = true;
         scene.add(rightSideWall);
 
+        // Back wall: faces outward along X, spans Z (width) and Y (height)
+        const xBack = xFront + depthDir * dD;
+        const backWallGeom = new BoxGeometry(0.08, dH, dW);
+        const backWall = new Mesh(backWallGeom, dormerWallMat);
+        backWall.position.set(xBack, floorY + dH / 2, zPos);
+        backWall.castShadow = true;
+        backWall.receiveShadow = true;
+        scene.add(backWall);
+
         // Dormer roof based on style
         if (dormer.style === 'gable') {
           const dormerRoofRise = dH * 0.4;
@@ -1349,6 +1369,46 @@ export function Roof3DRenderer({ config }: Roof3DRendererProps) {
           rightDRoof.castShadow = true;
           scene.add(rightDRoof);
 
+          // Front Gable Wall (Triangle)
+          const gableGeom = new BufferGeometry();
+          // Place slightly outward to align with the outer face of the front wall
+          const gX = xFront + (slopeSign * 0.04);
+          const gY1 = floorY + dH;
+          const gY2 = floorY + dH + dormerRoofRise;
+          const gZ1 = zPos - dW / 2;
+          const gZ2 = zPos + dW / 2;
+          const gZ3 = zPos;
+
+          // Define triangle vertices
+          const vertices = new Float32Array([
+            gX, gY1, gZ1,
+            gX, gY1, gZ2,
+            gX, gY2, gZ3
+          ]);
+          
+          gableGeom.setAttribute('position', new BufferAttribute(vertices, 3));
+          gableGeom.computeVertexNormals();
+          
+          const frontGable = new Mesh(gableGeom, dormerWallMat);
+          frontGable.castShadow = true;
+          frontGable.receiveShadow = true;
+          scene.add(frontGable);
+
+          // Back Gable Wall (Triangle)
+          const backGableGeom = new BufferGeometry();
+          const bgX = xBack - (slopeSign * 0.04);
+          const backVertices = new Float32Array([
+            bgX, gY1, gZ1,
+            bgX, gY1, gZ2,
+            bgX, gY2, gZ3
+          ]);
+          backGableGeom.setAttribute('position', new BufferAttribute(backVertices, 3));
+          backGableGeom.computeVertexNormals();
+          const backGable = new Mesh(backGableGeom, dormerWallMat);
+          backGable.castShadow = true;
+          backGable.receiveShadow = true;
+          scene.add(backGable);
+
         } else if (dormer.style === 'shed') {
           const shedRise = dH * 0.3;
           const shedLen = Math.sqrt(dD * dD + shedRise * shedRise);
@@ -1361,6 +1421,46 @@ export function Roof3DRenderer({ config }: Roof3DRendererProps) {
           shedRoof.rotation.z = depthDir * shedAngle;
           shedRoof.castShadow = true;
           scene.add(shedRoof);
+
+          // Back Shed Wall Extension (Rectangle)
+          const backShedExtGeom = new BoxGeometry(0.08, shedRise, dW);
+          const backShedExt = new Mesh(backShedExtGeom, dormerWallMat);
+          backShedExt.position.set(xBack, floorY + dH + shedRise / 2, zPos);
+          backShedExt.castShadow = true;
+          backShedExt.receiveShadow = true;
+          scene.add(backShedExt);
+
+          // Side Shed Wall Extensions (Triangles)
+          const sY1 = floorY + dH;
+          const sY2 = floorY + dH + shedRise;
+          
+          // Left side
+          const leftShedVerts = new Float32Array([
+            xFront, sY1, zPos - dW/2,
+            xBack, sY1, zPos - dW/2,
+            xBack, sY2, zPos - dW/2
+          ]);
+          const leftShedExtGeom = new BufferGeometry();
+          leftShedExtGeom.setAttribute('position', new BufferAttribute(leftShedVerts, 3));
+          leftShedExtGeom.computeVertexNormals();
+          const leftShedExt = new Mesh(leftShedExtGeom, dormerWallMat);
+          leftShedExt.castShadow = true;
+          leftShedExt.receiveShadow = true;
+          scene.add(leftShedExt);
+
+          // Right side
+          const rightShedVerts = new Float32Array([
+            xFront, sY1, zPos + dW/2,
+            xBack, sY1, zPos + dW/2,
+            xBack, sY2, zPos + dW/2
+          ]);
+          const rightShedExtGeom = new BufferGeometry();
+          rightShedExtGeom.setAttribute('position', new BufferAttribute(rightShedVerts, 3));
+          rightShedExtGeom.computeVertexNormals();
+          const rightShedExt = new Mesh(rightShedExtGeom, dormerWallMat);
+          rightShedExt.castShadow = true;
+          rightShedExt.receiveShadow = true;
+          scene.add(rightShedExt);
 
         } else if (dormer.style === 'hip') {
           const hipH = dH * 0.35;
@@ -1431,32 +1531,65 @@ export function Roof3DRenderer({ config }: Roof3DRendererProps) {
       }
     }
 
-    // Mouse controls
+    // Pointer & Touch controls
     let isDragging = false;
-    let previousMousePosition = { x: 0, y: 0 };
+    let previousPointerPosition = { x: 0, y: 0 };
     let cameraRotation = { theta: Math.PI / 4, phi: Math.PI / 5 };
     let cameraDistance = 15;
 
-    const onMouseDown = (e: MouseEvent) => {
+    // For touch pinch-to-zoom
+    let initialPinchDistance: number | null = null;
+
+    const onPointerDown = (e: PointerEvent) => {
       isDragging = true;
-      previousMousePosition = { x: e.clientX, y: e.clientY };
+      previousPointerPosition = { x: e.clientX, y: e.clientY };
+      renderer.domElement.setPointerCapture(e.pointerId);
     };
 
-    const onMouseMove = (e: MouseEvent) => {
+    const onPointerMove = (e: PointerEvent) => {
       if (!isDragging) return;
 
-      const deltaX = e.clientX - previousMousePosition.x;
-      const deltaY = e.clientY - previousMousePosition.y;
+      const deltaX = e.clientX - previousPointerPosition.x;
+      const deltaY = e.clientY - previousPointerPosition.y;
 
       cameraRotation.theta -= deltaX * 0.01;
       cameraRotation.phi -= deltaY * 0.01;
       cameraRotation.phi = Math.max(0.1, Math.min(Math.PI / 2 - 0.1, cameraRotation.phi));
 
-      previousMousePosition = { x: e.clientX, y: e.clientY };
+      previousPointerPosition = { x: e.clientX, y: e.clientY };
     };
 
-    const onMouseUp = () => {
+    const onPointerUp = (e: PointerEvent) => {
       isDragging = false;
+      renderer.domElement.releasePointerCapture(e.pointerId);
+    };
+
+    const onTouchStart = (e: TouchEvent) => {
+      e.preventDefault();
+      if (e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        initialPinchDistance = Math.sqrt(dx * dx + dy * dy);
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      if (e.touches.length === 2 && initialPinchDistance !== null) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        const delta = initialPinchDistance - dist;
+        cameraDistance += delta * 0.05;
+        cameraDistance = Math.max(6, Math.min(35, cameraDistance));
+        
+        initialPinchDistance = dist;
+      }
+    };
+
+    const onTouchEnd = () => {
+      initialPinchDistance = null;
     };
 
     const onWheel = (e: WheelEvent) => {
@@ -1465,14 +1598,29 @@ export function Roof3DRenderer({ config }: Roof3DRendererProps) {
       cameraDistance = Math.max(6, Math.min(35, cameraDistance));
     };
 
-    renderer.domElement.addEventListener('mousedown', onMouseDown);
-    renderer.domElement.addEventListener('mousemove', onMouseMove);
-    renderer.domElement.addEventListener('mouseup', onMouseUp);
-    renderer.domElement.addEventListener('wheel', onWheel);
+    // Add CSS to prevent browser scrolling on the canvas
+    renderer.domElement.style.touchAction = 'none';
+
+    renderer.domElement.addEventListener('pointerdown', onPointerDown);
+    renderer.domElement.addEventListener('pointermove', onPointerMove);
+    renderer.domElement.addEventListener('pointerup', onPointerUp);
+    renderer.domElement.addEventListener('pointercancel', onPointerUp);
+
+    renderer.domElement.addEventListener('touchstart', onTouchStart, { passive: false });
+    renderer.domElement.addEventListener('touchmove', onTouchMove, { passive: false });
+    renderer.domElement.addEventListener('touchend', onTouchEnd);
+    
+    renderer.domElement.addEventListener('wheel', onWheel, { passive: false });
 
     // Animation loop
+    let animationId: number;
     const animate = () => {
-      requestAnimationFrame(animate);
+      animationId = requestAnimationFrame(animate);
+
+      // Auto-rotate disabled per user request
+      // if (!isDragging) {
+      //   cameraRotation.theta -= 0.002;
+      // }
 
       camera.position.x = cameraDistance * Math.sin(cameraRotation.phi) * Math.cos(cameraRotation.theta);
       camera.position.y = cameraDistance * Math.cos(cameraRotation.phi);
@@ -1505,10 +1653,15 @@ export function Roof3DRenderer({ config }: Roof3DRendererProps) {
 
     // Cleanup
     return () => {
+      cancelAnimationFrame(animationId);
       resizeObserver.disconnect();
-      renderer.domElement.removeEventListener('mousedown', onMouseDown);
-      renderer.domElement.removeEventListener('mousemove', onMouseMove);
-      renderer.domElement.removeEventListener('mouseup', onMouseUp);
+      renderer.domElement.removeEventListener('pointerdown', onPointerDown);
+      renderer.domElement.removeEventListener('pointermove', onPointerMove);
+      renderer.domElement.removeEventListener('pointerup', onPointerUp);
+      renderer.domElement.removeEventListener('pointercancel', onPointerUp);
+      renderer.domElement.removeEventListener('touchstart', onTouchStart);
+      renderer.domElement.removeEventListener('touchmove', onTouchMove);
+      renderer.domElement.removeEventListener('touchend', onTouchEnd);
       renderer.domElement.removeEventListener('wheel', onWheel);
       if (containerRef.current && renderer.domElement.parentElement) {
         containerRef.current.removeChild(renderer.domElement);
@@ -1523,8 +1676,8 @@ export function Roof3DRenderer({ config }: Roof3DRendererProps) {
       <div className="absolute top-4 left-4 z-10 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-3 text-sm">
         <div className="font-semibold text-slate-900 mb-1">🎮 3D Controls:</div>
         <div className="space-y-0.5 text-slate-700">
-          <div>🖱️ <strong>Rotate:</strong> Click + drag</div>
-          <div>🔍 <strong>Zoom:</strong> Scroll wheel</div>
+          <div>🖱️ <strong>Rotate:</strong> Click + drag / Swipe</div>
+          <div>🔍 <strong>Zoom:</strong> Scroll / Pinch</div>
         </div>
       </div>
 

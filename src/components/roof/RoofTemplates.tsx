@@ -1,14 +1,91 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { RoofConfig } from '../../types/roof';
-import { Home, Warehouse, Building2, Church, Factory, LayoutDashboard, Columns3 } from 'lucide-react';
+import { Home, Warehouse, Building2, Church, Factory, LayoutDashboard, Columns3, LayoutTemplate } from 'lucide-react';
 
 interface RoofTemplatesProps {
   onLoadTemplate: (config: RoofConfig) => void;
-  currentConfig: RoofConfig;
+  currentConfig?: RoofConfig;
+}
+
+function TemplateMiniMap({ config }: { config: RoofConfig }) {
+  const scale = 5;
+  const w = config.width * scale;
+  const l = config.length * scale;
+  
+  const padding = 20;
+
+  const renderRoofPaths = () => {
+    if (config.style === 'hip') {
+      return (
+        <g>
+          <rect x={0} y={0} width={l} height={w} fill="#e2e8f0" stroke="#64748b" strokeWidth="2" />
+          <path d={`M 0 0 L ${l/4} ${w/2} L ${l*3/4} ${w/2} L ${l} 0`} fill="none" stroke="#64748b" strokeWidth="2" />
+          <path d={`M 0 ${w} L ${l/4} ${w/2} L ${l*3/4} ${w/2} L ${l} ${w}`} fill="none" stroke="#64748b" strokeWidth="2" />
+        </g>
+      );
+    }
+    if (config.style === 'gambrel') {
+      return (
+         <g>
+          <rect x={0} y={0} width={l} height={w} fill="#e2e8f0" stroke="#64748b" strokeWidth="2" />
+          <line x1={0} y1={w/2} x2={l} y2={w/2} stroke="#64748b" strokeWidth="2" />
+          <line x1={0} y1={w/4} x2={l} y2={w/4} stroke="#64748b" strokeWidth="1" strokeDasharray="4 4" />
+          <line x1={0} y1={w*3/4} x2={l} y2={w*3/4} stroke="#64748b" strokeWidth="1" strokeDasharray="4 4" />
+        </g>
+      )
+    }
+    if (config.style === 'shed') {
+       return (
+        <g>
+          <rect x={0} y={0} width={l} height={w} fill="#e2e8f0" stroke="#64748b" strokeWidth="2" />
+          <line x1={0} y1={w/4} x2={l} y2={w/4} stroke="#64748b" strokeWidth="1" strokeDasharray="2 2" />
+        </g>
+       )
+    }
+    // Gable and default
+    return (
+      <g>
+        <rect x={0} y={0} width={l} height={w} fill="#e2e8f0" stroke="#64748b" strokeWidth="2" />
+        <line x1={0} y1={w/2} x2={l} y2={w/2} stroke="#64748b" strokeWidth="2" />
+      </g>
+    );
+  };
+
+  return (
+    <div className="h-40 w-full bg-slate-100 flex items-center justify-center p-4 border-b border-slate-200">
+      <svg 
+        viewBox={`-${padding} -${padding} ${l + padding * 2} ${w + padding * 2}`} 
+        className="w-full h-full max-w-full max-h-full drop-shadow-sm" 
+        style={{ overflow: 'visible' }}
+      >
+        <g>
+          {renderRoofPaths()}
+        </g>
+      </svg>
+    </div>
+  );
 }
 
 export function RoofTemplates({ onLoadTemplate, currentConfig }: RoofTemplatesProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  // Check if a template matches the current config
+  const isTemplateSelected = (template: typeof templates[0]) => {
+    if (!currentConfig) return false;
+    
+    const t = template.config;
+    const c = currentConfig;
+    
+    // Check key properties that define a template
+    return (
+      t.width === c.width &&
+      t.length === c.length &&
+      t.style === c.style &&
+      t.pitch === c.pitch &&
+      t.shingleType === c.shingleType &&
+      t.hasValleys === c.hasValleys &&
+      t.hasSkylight === c.hasSkylight &&
+      t.hasChimney === c.hasChimney
+    );
+  };
 
   const templates: Array<{
     name: string;
@@ -291,48 +368,54 @@ export function RoofTemplates({ onLoadTemplate, currentConfig }: RoofTemplatesPr
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-slate-900">Quick Start Templates</h2>
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="text-sm text-orange-600 hover:text-orange-700"
-        >
-          {isExpanded ? 'Show Less' : 'Show All'}
-        </button>
+      <div className="flex items-center gap-3 mb-6">
+        <div className="p-2 bg-orange-50 text-orange-600 rounded-lg">
+          <LayoutTemplate className="w-5 h-5" />
+        </div>
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">Sample Designs</h2>
+          <p className="text-sm text-slate-500">Start with a pre-configured layout</p>
+        </div>
       </div>
 
-      <div className={`grid grid-cols-1 gap-3 ${isExpanded ? '' : 'max-h-96 overflow-y-auto'}`}>
-        {templates.map((template, index) => {
-          const Icon = template.icon;
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {templates.map((template, idx) => {
+          const isSelected = isTemplateSelected(template);
+          
           return (
-            <button
-              key={index}
+            <div
+              key={idx}
               onClick={() => onLoadTemplate(template.config)}
-              className="flex items-start gap-3 p-3 text-left border-2 border-slate-200 rounded-lg hover:border-orange-400 hover:bg-orange-50 transition-colors group"
+              className={`
+                relative group rounded-xl border-2 transition-all duration-200 overflow-hidden cursor-pointer flex flex-col
+                ${isSelected
+                  ? 'border-orange-600 bg-orange-50 shadow-md'
+                  : 'border-slate-200 bg-white hover:border-orange-300 hover:bg-slate-50'
+                }
+              `}
             >
-              <div className="mt-0.5">
-                <Icon className="w-5 h-5 text-orange-600" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold text-slate-900 group-hover:text-orange-900">
+              <TemplateMiniMap config={template.config} />
+              
+              <div className="p-4 flex-1 flex flex-col">
+                <h3 className={`font-medium mb-1 ${isSelected ? 'text-orange-900' : 'text-slate-900'}`}>
                   {template.name}
-                </div>
-                <div className="text-xs text-slate-600 mt-0.5">
+                </h3>
+                <p className={`text-sm flex-1 ${isSelected ? 'text-orange-700' : 'text-slate-500'}`}>
                   {template.description}
-                </div>
-                <div className="text-xs text-slate-500 mt-1">
-                  {template.config.length}' × {template.config.width}' • {template.config.pitch} pitch • {template.config.style}
-                </div>
+                </p>
+                
+                {isSelected && (
+                  <div className="absolute top-3 right-3">
+                    <span className="flex h-3 w-3 relative">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-orange-600"></span>
+                    </span>
+                  </div>
+                )}
               </div>
-            </button>
+            </div>
           );
         })}
-      </div>
-
-      <div className="mt-4 p-3 bg-slate-50 rounded-lg border border-slate-200">
-        <p className="text-xs text-slate-600">
-          💡 <strong>Tip:</strong> Select a template as a starting point, then customize dimensions and materials to match your project.
-        </p>
       </div>
     </div>
   );

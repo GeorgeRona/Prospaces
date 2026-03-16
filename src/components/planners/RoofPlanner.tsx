@@ -14,7 +14,7 @@ import { calculateMaterials } from '../../utils/roofCalculations';
 import { enrichMaterialsWithT1Pricing } from '../../utils/enrichMaterialsWithPricing';
 import { getUserDefaults, extractConversionFactors, getOrgConversionFactors, extractOrgConversionFactors } from '../../utils/project-wizard-defaults-client';
 import { RoofConfig } from '../../types/roof';
-import { Ruler, Package, Printer, FileText, Box, Layers, Triangle, Settings } from 'lucide-react';
+import { Ruler, Package, Printer, FileText, Box, Layers, Triangle, Settings, PanelLeftOpen, PanelLeftClose, LayoutTemplate } from 'lucide-react';
 import { Button } from '../ui/button';
 import { toast } from 'sonner@2.0.3';
 import type { User } from '../../App';
@@ -46,8 +46,9 @@ export function RoofPlanner({ user }: RoofPlannerProps) {
     unit: 'feet',
   });
 
-  const [activeTab, setActiveTab] = useState<'design' | 'materials' | 'saved' | 'defaults'>('design');
+  const [activeTab, setActiveTab] = useState<'design' | 'materials' | 'templates' | 'saved' | 'defaults'>('design');
   const [viewMode, setViewMode] = useState<'2d' | '3d'>('2d');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [enrichedMaterials, setEnrichedMaterials] = useState<any[]>([]);
   const [totalT1Price, setTotalT1Price] = useState<number>(0);
   const [loadedDesignInfo, setLoadedDesignInfo] = useState<{
@@ -178,6 +179,17 @@ export function RoofPlanner({ user }: RoofPlannerProps) {
                 Materials
               </button>
               <button
+                onClick={() => setActiveTab('templates')}
+                className={`flex items-center gap-2 py-3 sm:py-4 border-b-2 transition-colors text-sm sm:text-base ${
+                  activeTab === 'templates'
+                    ? 'border-red-600 text-red-600'
+                    : 'border-transparent text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <LayoutTemplate className="w-4 h-4" />
+                Templates
+              </button>
+              <button
                 onClick={() => setActiveTab('saved')}
                 className={`flex items-center gap-2 py-3 sm:py-4 border-b-2 transition-colors text-sm sm:text-base ${
                   activeTab === 'saved'
@@ -212,18 +224,28 @@ export function RoofPlanner({ user }: RoofPlannerProps) {
       </div>
 
       {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className={`mx-auto px-4 sm:px-6 lg:px-8 py-8 ${isSidebarOpen ? 'max-w-7xl' : 'max-w-[1600px] transition-all duration-300'}`}>
         {activeTab === 'design' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-1 space-y-6 print:hidden">
-              <RoofTemplates onLoadTemplate={handleLoadTemplate} currentConfig={config} />
-              <RoofConfigurator config={config} onChange={setConfig} />
-            </div>
+          <div className="flex flex-col lg:flex-row gap-6">
+            {isSidebarOpen && (
+              <div className="w-full lg:w-1/3 shrink-0 space-y-6 print:hidden lg:h-[calc(100vh-200px)] flex flex-col lg:pr-4">
+                <RoofConfigurator config={config} onChange={setConfig} />
+              </div>
+            )}
 
-            <div className="lg:col-span-2 space-y-6 print:hidden">
-              <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 print:shadow-none print:border-2 print:border-black">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-slate-900 print:hidden">Roof Plan & Elevation</h2>
+            <div className={`w-full ${isSidebarOpen ? 'lg:w-2/3' : ''} space-y-6 print:hidden`}>
+              <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 sm:p-6 print:p-0 print:border-none print:shadow-none">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4 print:hidden">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                      className="p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded-lg transition-colors print:hidden"
+                      title={isSidebarOpen ? "Collapse configurator" : "Expand configurator"}
+                    >
+                      {isSidebarOpen ? <PanelLeftClose className="w-5 h-5" /> : <PanelLeftOpen className="w-5 h-5" />}
+                    </button>
+                    <h2 className="text-lg font-semibold text-slate-900">Roof Plan & Elevation</h2>
+                  </div>
                   <div className="flex gap-2">
                     <button
                       onClick={() => setViewMode('2d')}
@@ -251,9 +273,9 @@ export function RoofPlanner({ user }: RoofPlannerProps) {
                 </div>
                 <div>
                   {viewMode === '2d' ? (
-                    <RoofCanvas config={config} />
+                    <RoofCanvas config={config} onChange={setConfig} />
                   ) : (
-                    <div className="h-[500px]">
+                    <div className="h-[600px] w-full">
                       <Roof3DRenderer config={config} />
                     </div>
                   )}
@@ -315,6 +337,12 @@ export function RoofPlanner({ user }: RoofPlannerProps) {
               plannerType="roof"
               materialType={config.shingleType}
             />
+          </div>
+        )}
+
+        {activeTab === 'templates' && (
+          <div className="max-w-4xl mx-auto space-y-6">
+            <RoofTemplates onLoadTemplate={handleLoadTemplate} currentConfig={config} />
           </div>
         )}
 

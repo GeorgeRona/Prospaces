@@ -644,8 +644,8 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
       <div className="absolute top-4 left-4 z-10 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-3 text-sm">
         <div className="font-semibold text-slate-900 mb-1">🎮 3D Controls:</div>
         <div className="space-y-0.5 text-slate-700">
-          <div>🖱️ <strong>Rotate:</strong> Click + drag</div>
-          <div>🔍 <strong>Zoom:</strong> Scroll wheel</div>
+          <div>🖱️ <strong>Rotate:</strong> Click + drag / Swipe</div>
+          <div>🔍 <strong>Zoom:</strong> Scroll / Pinch</div>
         </div>
       </div>
 
