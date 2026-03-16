@@ -918,10 +918,13 @@ export function DeckCanvas({ config, onChange }: DeckCanvasProps) {
     ctx.fillText('W', x - size - 6, y);
   };
 
-  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!onChange || !config.hasStairs) return;
     const canvas = topViewRef.current;
     if (!canvas) return;
+
+    // Optional: capture pointer to continue receiving events even if pointer leaves canvas bounds
+    e.currentTarget.setPointerCapture(e.pointerId);
 
     const rect = canvas.getBoundingClientRect();
     const scaleX = 500 / rect.width;
@@ -949,7 +952,10 @@ export function DeckCanvas({ config, onChange }: DeckCanvasProps) {
     }
   };
 
-  const handleMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    // Release pointer capture
+    e.currentTarget.releasePointerCapture(e.pointerId);
+    
     if (isDraggingStairs && dragStairState && onChange) {
       setIsDraggingStairs(false);
       onChange({
@@ -962,7 +968,7 @@ export function DeckCanvas({ config, onChange }: DeckCanvasProps) {
     }
   };
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!onChange) return;
     const canvas = topViewRef.current;
     if (!canvas) return;
@@ -1093,15 +1099,15 @@ export function DeckCanvas({ config, onChange }: DeckCanvasProps) {
       <div className="bg-slate-50 rounded-lg p-6 border border-slate-200 print:bg-white print:border-black print:p-2 print:rounded-none print:break-inside-avoid">
         <canvas
           ref={topViewRef}
-          onMouseDown={handleMouseDown}
-          onMouseUp={handleMouseUp}
-          onMouseMove={handleMouseMove}
-          onMouseLeave={(e) => {
+          onPointerDown={handlePointerDown}
+          onPointerUp={handlePointerUp}
+          onPointerMove={handlePointerMove}
+          onPointerLeave={(e) => {
             setHoveredType(null);
-            handleMouseUp(e);
+            handlePointerUp(e);
           }}
           onClick={handleCanvasClick}
-          className="w-full bg-white rounded border border-slate-200 print:border-black print:shadow-none print:rounded-none print:scale-[0.65] print:origin-top aspect-[1.4]"
+          className="w-full bg-white rounded border border-slate-200 print:border-black print:shadow-none print:rounded-none print:scale-[0.65] print:origin-top aspect-[1.4] touch-none select-none"
         />
       </div>
 

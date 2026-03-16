@@ -3,42 +3,113 @@ import { GarageConfig } from '../../types/garage';
 
 interface GarageCanvasProps {
   config: GarageConfig;
+  onChange?: (config: GarageConfig) => void;
 }
 
-export function GarageCanvas({ config }: GarageCanvasProps) {
+export function GarageCanvas({ config, onChange }: GarageCanvasProps) {
   const topViewRef = useRef<HTMLCanvasElement>(null);
   const frontViewRef = useRef<HTMLCanvasElement>(null);
   const sideViewRef = useRef<HTMLCanvasElement>(null);
-  const [view3D, setView3D] = useState(true);
+  const [view3D, setView3D] = useState(false); // Default to clean designer look
+  
+  const hitBoxesRef = useRef<{type: string, view: string, x: number, y: number, w: number, h: number}[]>([]);
+  const [hoveredType, setHoveredType] = useState<{type: string, view: string} | null>(null);
 
   useEffect(() => {
+    hitBoxesRef.current = [];
     drawTopView();
     drawFrontElevation();
     drawSideElevation();
-  }, [config, view3D]);
+  }, [config, view3D, hoveredType]);
+
+  const formatDim = (val: number) => {
+    const ft = Math.floor(val);
+    const inches = Math.round((val - ft) * 12);
+    return `${ft}' ${inches.toString().padStart(2, '0')}"`;
+  };
 
   const drawTopView = () => {
     const canvas = topViewRef.current;
     if (!canvas) return;
 
+    const scaleFactor = window.devicePixelRatio || 2;
+    const baseWidth = 500;
+    const baseHeight = 350;
+
+    canvas.width = baseWidth * scaleFactor;
+    canvas.height = baseHeight * scaleFactor;
+
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.scale(scaleFactor, scaleFactor);
+    ctx.clearRect(0, 0, baseWidth, baseHeight);
 
-    const width = canvas.width;
-    const height = canvas.height;
-    const padding = 50;
+    // Draw Diagonal Checkerboard Grass Background
+    ctx.save();
+    ctx.fillStyle = '#425c27'; // Darker grass
+    ctx.fillRect(0, 0, baseWidth, baseHeight);
+    
+    ctx.translate(baseWidth / 2, baseHeight / 2);
+    ctx.rotate(Math.PI / 4);
+    ctx.fillStyle = '#49652b'; // Lighter grass
+    const size = 30;
+    for (let i = -30; i < 30; i++) {
+      for (let j = -30; j < 30; j++) {
+        if ((i + j) % 2 === 0) {
+          ctx.fillRect(i * size, j * size, size, size);
+        }
+      }
+    }
+    ctx.restore();
 
-    const scale = Math.min((width - 2 * padding) / config.width, (height - 2 * padding) / config.length);
+    const padding = 60;
+    const scale = Math.min((baseWidth - 2 * padding) / config.width, (baseHeight - 2 * padding) / config.length);
 
-    const centerX = width / 2;
-    const centerY = height / 2;
+    const centerX = baseWidth / 2;
+    const centerY = baseHeight / 2;
     const scaledWidth = config.width * scale;
     const scaledLength = config.length * scale;
 
     const baseX = centerX - scaledWidth / 2;
     const baseY = centerY - scaledLength / 2;
+
+    // Draw driveway (front of garage)
+    const drivewayGradient = ctx.createLinearGradient(baseX, 0, baseX, baseY);
+    drivewayGradient.addColorStop(0, '#94a3b8');
+    drivewayGradient.addColorStop(1, '#cbd5e1');
+    
+    ctx.fillStyle = view3D ? drivewayGradient : '#e2e8f0';
+    ctx.fillRect(baseX, 0, scaledWidth, baseY);
+    
+    if (view3D) {
+      ctx.fillStyle = 'rgba(100, 116, 139, 0.05)';
+      for (let i = 0; i < 40; i++) {
+        const x = baseX + Math.random() * scaledWidth;
+        const y = Math.random() * baseY;
+        const speckSize = Math.random() * 3;
+        ctx.fillRect(x, y, speckSize, speckSize);
+      }
+    }
+    
+    // Driveway borders
+    ctx.strokeStyle = '#94a3b8';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(baseX, 0);
+    ctx.lineTo(baseX, baseY);
+    ctx.moveTo(baseX + scaledWidth, 0);
+    ctx.lineTo(baseX + scaledWidth, baseY);
+    ctx.stroke();
+
+    // Expansion joints
+    ctx.strokeStyle = 'rgba(148, 163, 184, 0.5)';
+    for(let y = baseY - 50; y > 0; y -= 50) {
+        ctx.beginPath();
+        ctx.moveTo(baseX, y);
+        ctx.lineTo(baseX + scaledWidth, y);
+        ctx.stroke();
+    }
 
     // Draw floor with concrete texture
     const floorGradient = ctx.createLinearGradient(baseX, baseY, baseX + scaledWidth, baseY + scaledLength);
@@ -55,8 +126,8 @@ export function GarageCanvas({ config }: GarageCanvasProps) {
       for (let i = 0; i < 50; i++) {
         const x = baseX + Math.random() * scaledWidth;
         const y = baseY + Math.random() * scaledLength;
-        const size = Math.random() * 3;
-        ctx.fillRect(x, y, size, size);
+        const speckSize = Math.random() * 3;
+        ctx.fillRect(x, y, speckSize, speckSize);
       }
     }
 
@@ -236,42 +307,44 @@ export function GarageCanvas({ config }: GarageCanvasProps) {
     ctx.font = 'bold 12px sans-serif';
 
     // Width dimension
-    drawDimensionLine(ctx, baseX, baseY + scaledLength + 30, baseX + scaledWidth, baseY + scaledLength + 30, `${config.width}'`, 'horizontal');
+    drawDimensionLine(ctx, baseX, baseY + scaledLength + 30, baseX + scaledWidth, baseY + scaledLength + 30, formatDim(config.width), 'horizontal', 'width', 'top');
     
     // Length dimension
-    drawDimensionLine(ctx, baseX + scaledWidth + 30, baseY, baseX + scaledWidth + 30, baseY + scaledLength, `${config.length}'`, 'vertical');
+    drawDimensionLine(ctx, baseX + scaledWidth + 30, baseY, baseX + scaledWidth + 30, baseY + scaledLength, formatDim(config.length), 'vertical', 'length', 'top');
 
     // Compass rose
-    drawCompassRose(ctx, baseX + scaledWidth + 60, baseY + 30);
+    drawCompassRose(ctx, baseWidth - 40, baseHeight - 40, true);
 
-    // Title
-    ctx.fillStyle = '#1e293b';
-    ctx.font = 'bold 16px system-ui';
-    ctx.textAlign = 'left';
-    ctx.fillText('Top View (Floor Plan)', padding, padding - 20);
-    
+    // Subtitle (Moved up)
     ctx.font = '12px system-ui';
-    ctx.fillStyle = '#64748b';
-    ctx.fillText(`${config.width}' × ${config.length}' - ${config.bays} Bay Garage`, padding, padding - 5);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+    ctx.textAlign = 'left';
+    ctx.fillText(`${config.width}' × ${config.length}' - ${config.bays} Bay Garage`, padding, padding - 35);
   };
 
   const drawFrontElevation = () => {
     const canvas = frontViewRef.current;
     if (!canvas) return;
 
+    const scaleFactor = window.devicePixelRatio || 2;
+    const baseWidth = 350;
+    const baseHeight = 250;
+
+    canvas.width = baseWidth * scaleFactor;
+    canvas.height = baseHeight * scaleFactor;
+
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.scale(scaleFactor, scaleFactor);
+    ctx.clearRect(0, 0, baseWidth, baseHeight);
 
-    const width = canvas.width;
-    const height = canvas.height;
     const padding = 40;
 
-    const scale = Math.min((width - 2 * padding) / config.width, (height - 2 * padding) / (config.height + 15));
+    const scale = Math.min((baseWidth - 2 * padding) / config.width, (baseHeight - 2 * padding) / (config.height + 15));
 
-    const centerX = width / 2;
-    const baseY = height - padding - 10;
+    const centerX = baseWidth / 2;
+    const baseY = baseHeight - padding - 10;
     const scaledWidth = config.width * scale;
     const wallHeight = config.height * scale;
     const rise = config.roofPitch; // e.g., 4, 6, 8
@@ -477,8 +550,8 @@ export function GarageCanvas({ config }: GarageCanvasProps) {
     }
 
     // Dimensions
-    drawDimensionLine(ctx, centerX - scaledWidth / 2, baseY + 30, centerX + scaledWidth / 2, baseY + 30, `${config.width}'`, 'horizontal');
-    drawDimensionLine(ctx, centerX + scaledWidth / 2 + 30, baseY, centerX + scaledWidth / 2 + 30, baseY - wallHeight, `${config.height}' Wall`, 'vertical');
+    drawDimensionLine(ctx, centerX - scaledWidth / 2, baseY + 30, centerX + scaledWidth / 2, baseY + 30, formatDim(config.width), 'horizontal', 'width', 'front');
+    drawDimensionLine(ctx, centerX + scaledWidth / 2 + 30, baseY, centerX + scaledWidth / 2 + 30, baseY - wallHeight, `Height ${formatDim(config.height)}`, 'vertical', 'height', 'front');
 
     // Pitch angle
     if (config.roofStyle !== 'flat') {
@@ -500,19 +573,25 @@ export function GarageCanvas({ config }: GarageCanvasProps) {
     const canvas = sideViewRef.current;
     if (!canvas) return;
 
+    const scaleFactor = window.devicePixelRatio || 2;
+    const baseWidth = 350;
+    const baseHeight = 250;
+
+    canvas.width = baseWidth * scaleFactor;
+    canvas.height = baseHeight * scaleFactor;
+
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.scale(scaleFactor, scaleFactor);
+    ctx.clearRect(0, 0, baseWidth, baseHeight);
 
-    const width = canvas.width;
-    const height = canvas.height;
     const padding = 40;
 
-    const scale = Math.min((width - 2 * padding) / config.length, (height - 2 * padding) / (config.height + 15));
+    const scale = Math.min((baseWidth - 2 * padding) / config.length, (baseHeight - 2 * padding) / (config.height + 15));
 
-    const centerX = width / 2;
-    const baseY = height - padding - 10;
+    const centerX = baseWidth / 2;
+    const baseY = baseHeight - padding - 10;
     const scaledLength = config.length * scale;
     const wallHeight = config.height * scale;
     const rise = config.roofPitch; // e.g., 4, 6, 8
@@ -568,7 +647,7 @@ export function GarageCanvas({ config }: GarageCanvasProps) {
     }
 
     // Dimensions
-    drawDimensionLine(ctx, centerX - scaledLength / 2, baseY + 30, centerX + scaledLength / 2, baseY + 30, `${config.length}'`, 'horizontal');
+    drawDimensionLine(ctx, centerX - scaledLength / 2, baseY + 30, centerX + scaledLength / 2, baseY + 30, formatDim(config.length), 'horizontal', 'length', 'side');
 
     // Title
     ctx.fillStyle = '#1e293b';
@@ -604,8 +683,9 @@ export function GarageCanvas({ config }: GarageCanvasProps) {
     }
   };
 
-  const drawDimensionLine = (ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number, text: string, orientation: 'horizontal' | 'vertical') => {
-    ctx.strokeStyle = '#64748b';
+  const drawDimensionLine = (ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number, text: string, orientation: 'horizontal' | 'vertical', type?: string, view?: string) => {
+    const isDarkBg = view === 'top';
+    ctx.strokeStyle = isDarkBg ? 'rgba(255, 255, 255, 0.6)' : '#64748b';
     ctx.lineWidth = 1;
     ctx.setLineDash([]);
     
@@ -614,46 +694,138 @@ export function GarageCanvas({ config }: GarageCanvasProps) {
     ctx.lineTo(x2, y2);
     ctx.stroke();
     
-    const capSize = 5;
+    // Arrows
+    const drawArrow = (ax: number, ay: number, dirX: number, dirY: number) => {
+      ctx.save();
+      ctx.translate(ax, ay);
+      ctx.rotate(Math.atan2(dirY, dirX));
+      ctx.fillStyle = isDarkBg ? 'rgba(255, 255, 255, 0.8)' : '#64748b';
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(-6, -3);
+      ctx.lineTo(-6, 3);
+      ctx.fill();
+      ctx.restore();
+    };
+
     if (orientation === 'horizontal') {
-      ctx.beginPath();
-      ctx.moveTo(x1, y1 - capSize);
-      ctx.lineTo(x1, y1 + capSize);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(x2, y2 - capSize);
-      ctx.lineTo(x2, y2 + capSize);
-      ctx.stroke();
+      drawArrow(x1, y1, -1, 0);
+      drawArrow(x2, y2, 1, 0);
     } else {
-      ctx.beginPath();
-      ctx.moveTo(x1 - capSize, y1);
-      ctx.lineTo(x1 + capSize, y1);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(x2 - capSize, y2);
-      ctx.lineTo(x2 + capSize, y2);
-      ctx.stroke();
+      drawArrow(x1, y1, 0, -1);
+      drawArrow(x2, y2, 0, 1);
     }
     
-    ctx.fillStyle = '#64748b';
-    ctx.font = 'bold 11px sans-serif';
-    ctx.textAlign = 'center';
+    const cx = (x1 + x2) / 2;
+    const cy = (y1 + y2) / 2;
+    const isHovered = type && view && hoveredType?.type === type && hoveredType?.view === view;
+    
+    ctx.save();
     if (orientation === 'horizontal') {
-      ctx.fillText(text, (x1 + x2) / 2, y1 - 8);
+      ctx.translate(cx, y1);
     } else {
-      ctx.save();
-      ctx.translate(x1 + 15, (y1 + y2) / 2);
+      ctx.translate(x1, cy);
       ctx.rotate(-Math.PI / 2);
-      ctx.fillText(text, 0, 0);
-      ctx.restore();
     }
+
+    if (type && view) {
+      ctx.font = '600 11px system-ui, sans-serif';
+      const textWidth = ctx.measureText(text).width;
+      const height = 24;
+      const width = textWidth + 30; // padding and icon space
+      const iconX = -width / 2 + 10;
+      
+      let hitX = orientation === 'horizontal' ? cx : x1;
+      let hitY = orientation === 'horizontal' ? y1 : cy;
+      let hitW = width;
+      let hitH = height;
+      
+      if (orientation === 'vertical') {
+        hitW = height;
+        hitH = width;
+      }
+      
+      hitBoxesRef.current.push({
+        type,
+        view,
+        x: hitX - hitW / 2,
+        y: hitY - hitH / 2,
+        w: hitW,
+        h: hitH
+      });
+
+      // Shadow
+      ctx.shadowColor = 'rgba(0,0,0,0.2)';
+      ctx.shadowBlur = 6;
+      ctx.shadowOffsetY = 2;
+
+      // Background
+      ctx.fillStyle = isHovered ? '#f8fafc' : '#ffffff';
+      if (isHovered) {
+        ctx.strokeStyle = '#3b82f6';
+        ctx.lineWidth = 2;
+      } else {
+        ctx.strokeStyle = 'transparent';
+        ctx.lineWidth = 0;
+      }
+      ctx.beginPath();
+      ctx.roundRect(-width / 2, -height / 2, width, height, height / 2);
+      ctx.fill();
+      if (isHovered) {
+        ctx.stroke();
+      }
+
+      // Reset shadow
+      ctx.shadowColor = 'transparent';
+
+      // Icon (pencil)
+      ctx.fillStyle = '#64748b';
+      ctx.strokeStyle = '#64748b';
+      if (type === 'height') {
+        // Height I-beam
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(iconX - 3, -4); ctx.lineTo(iconX + 3, -4);
+        ctx.moveTo(iconX - 3, 4); ctx.lineTo(iconX + 3, 4);
+        ctx.moveTo(iconX, -4); ctx.lineTo(iconX, 4);
+        ctx.stroke();
+      } else {
+        // Pencil
+        ctx.beginPath();
+        ctx.moveTo(iconX - 2, 4);
+        ctx.lineTo(iconX + 4, -2);
+        ctx.lineTo(iconX + 6, 0);
+        ctx.lineTo(iconX, 6);
+        ctx.closePath();
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(iconX - 2, 4);
+        ctx.lineTo(iconX - 4, 6);
+        ctx.lineTo(iconX, 6);
+        ctx.fill();
+      }
+
+      // Text
+      ctx.fillStyle = '#334155';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, iconX + 12, 1);
+    } else {
+      ctx.fillStyle = '#64748b';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, 0, 0);
+    }
+    
+    ctx.restore();
   };
 
-  const drawCompassRose = (ctx: CanvasRenderingContext2D, x: number, y: number) => {
+  const drawCompassRose = (ctx: CanvasRenderingContext2D, x: number, y: number, isDarkBg: boolean = false) => {
     const size = 20;
     
-    ctx.strokeStyle = '#64748b';
-    ctx.fillStyle = '#64748b';
+    ctx.strokeStyle = isDarkBg ? 'rgba(255, 255, 255, 0.6)' : '#64748b';
+    ctx.fillStyle = isDarkBg ? 'rgba(255, 255, 255, 0.6)' : '#64748b';
     ctx.lineWidth = 1.5;
     
     ctx.beginPath();
@@ -668,7 +840,7 @@ export function GarageCanvas({ config }: GarageCanvasProps) {
     ctx.closePath();
     ctx.fill();
     
-    ctx.fillStyle = '#64748b';
+    ctx.fillStyle = isDarkBg ? 'rgba(255, 255, 255, 0.8)' : '#64748b';
     ctx.font = 'bold 10px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -678,39 +850,111 @@ export function GarageCanvas({ config }: GarageCanvasProps) {
     ctx.fillText('W', x - size - 10, y);
   };
 
+  const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>, viewId: string) => {
+    const canvas = e.currentTarget;
+    const rect = canvas.getBoundingClientRect();
+    const scaleFactor = window.devicePixelRatio || 2;
+    
+    // Scale coordinates from screen pixels to canvas coordinates
+    // Width and height of canvas attributes vs CSS size
+    const scaleX = (canvas.width / scaleFactor) / rect.width;
+    const scaleY = (canvas.height / scaleFactor) / rect.height;
+
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
+
+    let hovering: {type: string, view: string} | null = null;
+    for (const box of hitBoxesRef.current) {
+      if (box.view === viewId && x >= box.x && x <= box.x + box.w && y >= box.y && y <= box.y + box.h) {
+        hovering = { type: box.type, view: box.view };
+        break;
+      }
+    }
+
+    if (hovering?.type !== hoveredType?.type || hovering?.view !== hoveredType?.view) {
+      setHoveredType(hovering);
+    }
+
+    canvas.style.cursor = hovering ? 'pointer' : 'default';
+  };
+
+  const handlePointerLeave = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    setHoveredType(null);
+  };
+
+  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>, viewId: string) => {
+    if (!onChange) return;
+    const canvas = e.currentTarget;
+
+    const rect = canvas.getBoundingClientRect();
+    const scaleFactor = window.devicePixelRatio || 2;
+    const scaleX = (canvas.width / scaleFactor) / rect.width;
+    const scaleY = (canvas.height / scaleFactor) / rect.height;
+
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
+
+    for (const box of hitBoxesRef.current) {
+      if (box.view === viewId && x >= box.x && x <= box.x + box.w && y >= box.y && y <= box.y + box.h) {
+        let currentVal = config.width;
+        if (box.type === 'length') currentVal = config.length;
+        if (box.type === 'height') currentVal = config.height;
+
+        const labelMap: Record<string, string> = {
+          width: 'Width',
+          length: 'Length',
+          height: 'Wall Height'
+        };
+
+        const input = window.prompt(`Enter new ${labelMap[box.type]} in feet:`, currentVal.toString());
+        
+        if (input !== null) {
+          const num = parseFloat(input);
+          if (!isNaN(num) && num > 0) {
+            onChange({
+              ...config,
+              [box.type]: num
+            });
+          }
+        }
+        break;
+      }
+    }
+  };
+
   return (
     <div className="space-y-6 print:space-y-2 print:break-before-page">
       {/* Main Top View */}
-      <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-6 border-2 border-blue-300 print:bg-white print:border-black print:p-2 print:rounded-none print:break-inside-avoid">
-        <div className="mb-4 print:mb-1">
-          <h3 className="font-semibold text-slate-900 print:text-base">Top View (Floor Plan)</h3>
-        </div>
+      <div className="bg-slate-50 rounded-lg p-6 border border-slate-200 print:bg-white print:border-black print:p-2 print:rounded-none print:break-inside-avoid">
         <canvas
           ref={topViewRef}
-          width={500}
-          height={350}
-          className="w-full bg-white rounded border border-blue-300 shadow-inner print:border-black print:shadow-none print:rounded-none print:scale-[0.65] print:origin-top"
+          onPointerMove={(e) => handlePointerMove(e, 'top')}
+          onPointerLeave={handlePointerLeave}
+          onClick={(e) => handleCanvasClick(e, 'top')}
+          className="w-full bg-white rounded border border-slate-200 print:border-black print:shadow-none print:rounded-none print:scale-[0.65] print:origin-top aspect-[1.4] touch-none select-none"
         />
       </div>
 
       {/* Elevation Views */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 print:gap-2 print:grid-cols-2 print:break-inside-avoid">
-        <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-4 border-2 border-orange-300 print:bg-white print:border-black print:p-2 print:rounded-none print:break-inside-avoid">
+        <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 print:bg-white print:border-black print:p-2 print:rounded-none print:break-inside-avoid">
           <h3 className="font-semibold text-slate-900 mb-3 print:mb-1 print:text-base">Front Elevation</h3>
           <canvas
             ref={frontViewRef}
-            width={350}
-            height={250}
-            className="w-full bg-white rounded border border-orange-300 shadow-inner print:border-black print:shadow-none print:rounded-none print:scale-[0.65] print:origin-top"
+            onPointerMove={(e) => handlePointerMove(e, 'front')}
+            onPointerLeave={handlePointerLeave}
+            onClick={(e) => handleCanvasClick(e, 'front')}
+            className="w-full bg-white rounded border border-slate-200 print:border-black print:shadow-none print:rounded-none print:scale-[0.65] print:origin-top aspect-[1.4] touch-none select-none"
           />
         </div>
-        <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4 border-2 border-green-300 print:bg-white print:border-black print:p-2 print:rounded-none print:break-inside-avoid">
+        <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 print:bg-white print:border-black print:p-2 print:rounded-none print:break-inside-avoid">
           <h3 className="font-semibold text-slate-900 mb-3 print:mb-1 print:text-base">Side Elevation</h3>
           <canvas
             ref={sideViewRef}
-            width={350}
-            height={250}
-            className="w-full bg-white rounded border border-green-300 shadow-inner print:border-black print:shadow-none print:rounded-none print:scale-[0.65] print:origin-top"
+            onPointerMove={(e) => handlePointerMove(e, 'side')}
+            onPointerLeave={handlePointerLeave}
+            onClick={(e) => handleCanvasClick(e, 'side')}
+            className="w-full bg-white rounded border border-slate-200 print:border-black print:shadow-none print:rounded-none print:scale-[0.65] print:origin-top aspect-[1.4] touch-none select-none"
           />
         </div>
       </div>

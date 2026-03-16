@@ -498,33 +498,66 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
       scene.add(bottomFrame);
     });
 
-    // Mouse controls
+    // Pointer controls (Mouse & Touch)
     let isDragging = false;
-    let previousMousePosition = { x: 0, y: 0 };
+    let previousPointerPosition = { x: 0, y: 0 };
     // Increased phi from Math.PI/5 to Math.PI/2.5 to see the walls/doors instead of mostly roof
     let cameraRotation = { theta: Math.PI / 4, phi: Math.PI / 2.5 };
     let cameraDistance = 15;
 
-    const onMouseDown = (e: MouseEvent) => {
+    // For touch pinch-to-zoom
+    let initialPinchDistance: number | null = null;
+
+    const onPointerDown = (e: PointerEvent) => {
       isDragging = true;
-      previousMousePosition = { x: e.clientX, y: e.clientY };
+      previousPointerPosition = { x: e.clientX, y: e.clientY };
+      renderer.domElement.setPointerCapture(e.pointerId);
     };
 
-    const onMouseMove = (e: MouseEvent) => {
+    const onPointerMove = (e: PointerEvent) => {
       if (!isDragging) return;
 
-      const deltaX = e.clientX - previousMousePosition.x;
-      const deltaY = e.clientY - previousMousePosition.y;
+      const deltaX = e.clientX - previousPointerPosition.x;
+      const deltaY = e.clientY - previousPointerPosition.y;
 
       cameraRotation.theta -= deltaX * 0.01;
       cameraRotation.phi -= deltaY * 0.01;
       cameraRotation.phi = Math.max(0.1, Math.min(Math.PI / 2 - 0.1, cameraRotation.phi));
 
-      previousMousePosition = { x: e.clientX, y: e.clientY };
+      previousPointerPosition = { x: e.clientX, y: e.clientY };
     };
 
-    const onMouseUp = () => {
+    const onPointerUp = (e: PointerEvent) => {
       isDragging = false;
+      renderer.domElement.releasePointerCapture(e.pointerId);
+    };
+
+    const onTouchStart = (e: TouchEvent) => {
+      e.preventDefault();
+      if (e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        initialPinchDistance = Math.sqrt(dx * dx + dy * dy);
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      if (e.touches.length === 2 && initialPinchDistance !== null) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        const delta = initialPinchDistance - dist;
+        cameraDistance += delta * 0.05;
+        cameraDistance = Math.max(6, Math.min(35, cameraDistance));
+        
+        initialPinchDistance = dist;
+      }
+    };
+
+    const onTouchEnd = () => {
+      initialPinchDistance = null;
     };
 
     const onWheel = (e: WheelEvent) => {
@@ -533,14 +566,24 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
       cameraDistance = Math.max(6, Math.min(35, cameraDistance));
     };
 
-    renderer.domElement.addEventListener('mousedown', onMouseDown);
-    renderer.domElement.addEventListener('mousemove', onMouseMove);
-    renderer.domElement.addEventListener('mouseup', onMouseUp);
-    renderer.domElement.addEventListener('wheel', onWheel);
+    // Add CSS to prevent browser scrolling on the canvas
+    renderer.domElement.style.touchAction = 'none';
+
+    renderer.domElement.addEventListener('pointerdown', onPointerDown);
+    renderer.domElement.addEventListener('pointermove', onPointerMove);
+    renderer.domElement.addEventListener('pointerup', onPointerUp);
+    renderer.domElement.addEventListener('pointercancel', onPointerUp);
+    
+    renderer.domElement.addEventListener('touchstart', onTouchStart, { passive: false });
+    renderer.domElement.addEventListener('touchmove', onTouchMove, { passive: false });
+    renderer.domElement.addEventListener('touchend', onTouchEnd);
+
+    renderer.domElement.addEventListener('wheel', onWheel, { passive: false });
 
     // Animation loop
+    let animationId: number;
     const animate = () => {
-      requestAnimationFrame(animate);
+      animationId = requestAnimationFrame(animate);
 
       // Auto-rotate slowly if not dragging
       if (!isDragging) {
@@ -578,10 +621,15 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
 
     // Cleanup
     return () => {
+      cancelAnimationFrame(animationId);
       resizeObserver.disconnect();
-      renderer.domElement.removeEventListener('mousedown', onMouseDown);
-      renderer.domElement.removeEventListener('mousemove', onMouseMove);
-      renderer.domElement.removeEventListener('mouseup', onMouseUp);
+      renderer.domElement.removeEventListener('pointerdown', onPointerDown);
+      renderer.domElement.removeEventListener('pointermove', onPointerMove);
+      renderer.domElement.removeEventListener('pointerup', onPointerUp);
+      renderer.domElement.removeEventListener('pointercancel', onPointerUp);
+      renderer.domElement.removeEventListener('touchstart', onTouchStart);
+      renderer.domElement.removeEventListener('touchmove', onTouchMove);
+      renderer.domElement.removeEventListener('touchend', onTouchEnd);
       renderer.domElement.removeEventListener('wheel', onWheel);
       if (containerRef.current && renderer.domElement.parentElement) {
         containerRef.current.removeChild(renderer.domElement);

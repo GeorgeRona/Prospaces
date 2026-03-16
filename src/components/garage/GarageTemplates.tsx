@@ -1,7 +1,5 @@
 import React from 'react';
 import { GarageConfig } from '../../types/garage';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { Button } from '../ui/button';
 import { Car, TrendingUp, Warehouse, Building2 } from 'lucide-react';
 
 interface GarageTemplatesProps {
@@ -255,38 +253,56 @@ export function GarageTemplates({ onLoadTemplate, currentConfig }: GarageTemplat
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Quick Start Templates</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2">
+    <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+          <Warehouse className="w-5 h-5" />
+        </div>
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">Quick Start Templates</h2>
+          <p className="text-sm text-slate-500">Start with a pre-configured garage layout</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {templates.map((template) => {
           const Icon = template.icon;
           const isSelected = isTemplateSelected(template);
           return (
-            <Button
+            <div
               key={template.name}
-              variant="outline"
-              className={`w-full justify-start h-auto py-3 ${
-                isSelected
-                  ? 'border-2 border-blue-600 bg-blue-50'
-                  : 'border-slate-200'
-              }`}
               onClick={() => onLoadTemplate(template.config)}
+              className={`relative p-5 rounded-xl border-2 transition-all duration-200 cursor-pointer flex items-start gap-4 ${
+                isSelected
+                  ? 'border-blue-600 bg-blue-50 shadow-md'
+                  : 'border-slate-200 bg-white hover:border-blue-300 hover:bg-slate-50'
+              }`}
             >
-              <div className="flex items-start gap-3 text-left">
-                <Icon className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                <div>
-                  <div className={`font-medium ${
-                    isSelected ? 'text-blue-900' : 'text-slate-900'
-                  }`}>{template.name}</div>
-                  <div className="text-xs text-slate-500 mt-0.5">{template.description}</div>
-                </div>
+              <div className={`p-3 rounded-lg flex-shrink-0 ${
+                isSelected ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-500'
+              }`}>
+                <Icon className="w-6 h-6" />
               </div>
-            </Button>
+              <div className="flex-1 min-w-0">
+                <div className={`font-medium mb-1 truncate ${
+                  isSelected ? 'text-blue-900' : 'text-slate-900'
+                }`}>{template.name}</div>
+                <div className={`text-sm ${
+                  isSelected ? 'text-blue-700' : 'text-slate-500'
+                }`}>{template.description}</div>
+              </div>
+              {isSelected && (
+                <div className="absolute top-3 right-3">
+                  <span className="flex h-3 w-3 relative">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-600"></span>
+                  </span>
+                </div>
+              )}
+            </div>
           );
         })}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

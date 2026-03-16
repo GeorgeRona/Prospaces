@@ -926,7 +926,7 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
     let stairBaseZ = 0;
     let stairRotation = 0;
 
-    if (config.hasStairs && config.stairSide) {
+    if (config.hasStairs) {
       const stairWidth = (config.stairWidth || 4) * scale;
       const numSteps = Math.ceil(deckHeight / 0.18);
       const stepHeight = deckHeight / numSteps;
@@ -1126,32 +1126,69 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
       }
     }
 
-    // Mouse controls
+    // Pointer controls (Mouse & Touch)
     let isDragging = false;
-    let previousMousePosition = { x: 0, y: 0 };
+    let previousPointerPosition = { x: 0, y: 0 };
     let cameraRotation = { azimuth: Math.PI / 4, elevation: Math.PI / 5 };
     let cameraDistance = 12;
 
-    const onMouseDown = (e: MouseEvent) => {
+    // For touch pinch-to-zoom
+    let initialPinchDistance: number | null = null;
+
+    const onPointerDown = (e: PointerEvent) => {
+      e.preventDefault();
+      // Ignore right clicks or other buttons if needed, but pointerId is what matters
       isDragging = true;
-      previousMousePosition = { x: e.clientX, y: e.clientY };
+      previousPointerPosition = { x: e.clientX, y: e.clientY };
+      renderer.domElement.setPointerCapture(e.pointerId);
     };
 
-    const onMouseMove = (e: MouseEvent) => {
+    const onPointerMove = (e: PointerEvent) => {
+      e.preventDefault();
       if (!isDragging) return;
 
-      const deltaX = e.clientX - previousMousePosition.x;
-      const deltaY = e.clientY - previousMousePosition.y;
+      const deltaX = e.clientX - previousPointerPosition.x;
+      const deltaY = e.clientY - previousPointerPosition.y;
 
       cameraRotation.azimuth -= deltaX * 0.01;
       cameraRotation.elevation -= deltaY * 0.01;
       cameraRotation.elevation = Math.max(0.1, Math.min(Math.PI / 2 - 0.1, cameraRotation.elevation));
 
-      previousMousePosition = { x: e.clientX, y: e.clientY };
+      previousPointerPosition = { x: e.clientX, y: e.clientY };
     };
 
-    const onMouseUp = () => {
+    const onPointerUp = (e: PointerEvent) => {
+      e.preventDefault();
       isDragging = false;
+      renderer.domElement.releasePointerCapture(e.pointerId);
+    };
+
+    const onTouchStart = (e: TouchEvent) => {
+      e.preventDefault();
+      if (e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        initialPinchDistance = Math.sqrt(dx * dx + dy * dy);
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      if (e.touches.length === 2 && initialPinchDistance !== null) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        const delta = initialPinchDistance - dist;
+        cameraDistance += delta * 0.05;
+        cameraDistance = Math.max(5, Math.min(30, cameraDistance));
+        
+        initialPinchDistance = dist;
+      }
+    };
+
+    const onTouchEnd = () => {
+      initialPinchDistance = null;
     };
 
     const onWheel = (e: WheelEvent) => {
@@ -1160,10 +1197,19 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
       cameraDistance = Math.max(5, Math.min(30, cameraDistance));
     };
 
-    renderer.domElement.addEventListener('mousedown', onMouseDown);
-    renderer.domElement.addEventListener('mousemove', onMouseMove);
-    renderer.domElement.addEventListener('mouseup', onMouseUp);
-    renderer.domElement.addEventListener('wheel', onWheel);
+    // Add CSS to prevent browser scrolling on the canvas
+    renderer.domElement.style.touchAction = 'none';
+
+    renderer.domElement.addEventListener('pointerdown', onPointerDown);
+    renderer.domElement.addEventListener('pointermove', onPointerMove);
+    renderer.domElement.addEventListener('pointerup', onPointerUp);
+    renderer.domElement.addEventListener('pointercancel', onPointerUp);
+    
+    renderer.domElement.addEventListener('touchstart', onTouchStart, { passive: false });
+    renderer.domElement.addEventListener('touchmove', onTouchMove, { passive: false });
+    renderer.domElement.addEventListener('touchend', onTouchEnd);
+
+    renderer.domElement.addEventListener('wheel', onWheel, { passive: false });
 
     // Animation loop
     const animate = () => {
@@ -1228,9 +1274,13 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
     return () => {
       cancelAnimationFrame(snapshotAnimationId);
       resizeObserver.disconnect();
-      renderer.domElement.removeEventListener('mousedown', onMouseDown);
-      renderer.domElement.removeEventListener('mousemove', onMouseMove);
-      renderer.domElement.removeEventListener('mouseup', onMouseUp);
+      renderer.domElement.removeEventListener('pointerdown', onPointerDown);
+      renderer.domElement.removeEventListener('pointermove', onPointerMove);
+      renderer.domElement.removeEventListener('pointerup', onPointerUp);
+      renderer.domElement.removeEventListener('pointercancel', onPointerUp);
+      renderer.domElement.removeEventListener('touchstart', onTouchStart);
+      renderer.domElement.removeEventListener('touchmove', onTouchMove);
+      renderer.domElement.removeEventListener('touchend', onTouchEnd);
       renderer.domElement.removeEventListener('wheel', onWheel);
       if (containerRef.current && renderer.domElement.parentElement) {
         containerRef.current.removeChild(renderer.domElement);
@@ -1256,13 +1306,13 @@ export const Deck3DRenderer = forwardRef<Deck3DRendererRef, Deck3DRendererProps>
   ]);
 
   return (
-    <div className="w-full h-full bg-gradient-to-br from-sky-100 to-blue-200 rounded-lg overflow-hidden relative print:h-[600px] print:bg-white print:border-2 print:border-black print:rounded-none">
+    <div className="w-full h-full bg-gradient-to-br from-sky-100 to-blue-200 rounded-lg overflow-hidden relative print:h-[600px] print:bg-white print:border-2 print:border-black print:rounded-none select-none touch-none">
       {/* Instructions overlay */}
       <div className="absolute top-4 left-4 z-10 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-3 text-sm print:hidden">
         <div className="font-semibold text-slate-900 mb-1">🎮 3D Controls:</div>
         <div className="space-y-0.5 text-slate-700">
-          <div>🖱️ <strong>Rotate:</strong> Click + drag</div>
-          <div>🔍 <strong>Zoom:</strong> Scroll wheel</div>
+          <div>🖱️/👆 <strong>Rotate:</strong> Click + drag / 1-finger swipe</div>
+          <div>🔍/✌️ <strong>Zoom:</strong> Scroll wheel / 2-finger pinch</div>
         </div>
       </div>
 
