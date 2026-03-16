@@ -876,10 +876,7 @@ export function Shed3DRenderer({ config }: Shed3DRendererProps) {
     const animate = () => {
       animationId = requestAnimationFrame(animate);
 
-      // Auto-rotate slowly if not dragging
-      if (!isDragging) {
-        cameraRotation.theta -= 0.002;
-      }
+      // Removed auto-rotation
 
       camera.position.x = cameraDistance * Math.sin(cameraRotation.phi) * Math.cos(cameraRotation.theta);
       camera.position.y = cameraDistance * Math.cos(cameraRotation.phi);
