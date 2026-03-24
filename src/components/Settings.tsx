@@ -701,6 +701,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
   };
 
   const canManageSettings = user.role === 'super_admin' || user.role === 'admin';
+  const canManageModuleDefaults = user.role === 'admin';
   const isSuperAdmin = user.role === 'super_admin';
   const canAccessSecurity = canView('security', user.role);
 
@@ -775,7 +776,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
             <TabsTrigger value="profile" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Profile</TabsTrigger>
             <TabsTrigger value="notifications" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Notifications</TabsTrigger>
             {canManageSettings && <TabsTrigger value="organization" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Organization</TabsTrigger>}
-            {isSuperAdmin && <TabsTrigger value="module-settings" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Module Defaults</TabsTrigger>}
+            {canManageModuleDefaults && <TabsTrigger value="module-settings" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Module Defaults</TabsTrigger>}
             {canAccessSecurity && <TabsTrigger value="permissions" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Permissions</TabsTrigger>}
             {canManageSettings && <TabsTrigger value="diagnostics" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Diagnostics</TabsTrigger>}
             <TabsTrigger value="appearance" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Appearance</TabsTrigger>
@@ -1087,7 +1088,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
           </TabsContent>
         )}
 
-        {isSuperAdmin && (
+        {canManageModuleDefaults && (
           <TabsContent value="module-settings" className="space-y-4">
             <div className="mb-4">
               <h2 className="text-2xl font-bold flex items-center gap-2">
@@ -1099,7 +1100,7 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
               </p>
             </div>
 
-            {(user.role === 'super_admin' || user.role === 'admin') && (
+            {canManageModuleDefaults && (
               <div className="space-y-4">
                 <Tabs defaultValue="deals" className="w-full">
                   <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 mb-2">
