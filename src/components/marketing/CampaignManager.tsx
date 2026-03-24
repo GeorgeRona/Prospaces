@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Badge } from '../ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
-import { Plus, Mail, MessageSquare, Facebook, Instagram, MoreVertical, Edit, Pause, Play, Copy, Trash2, BarChart, Send, Globe, ExternalLink, ChevronDown } from 'lucide-react';
+import { Plus, Mail, MessageSquare, MoreVertical, Edit, Pause, Play, Copy, Trash2, BarChart, Send, Globe, ExternalLink, ChevronDown, Share2 } from 'lucide-react';
 import { campaignsAPI } from '../../utils/api';
 import { toast } from 'sonner@2.0.3';
 import { copyToClipboard } from '../../utils/clipboard';
@@ -329,9 +329,9 @@ export function CampaignManager({ user }: CampaignManagerProps) {
       case 'sms':
         return <MessageSquare className="h-4 w-4" />;
       case 'facebook':
-        return <Facebook className="h-4 w-4" />;
+        return <Share2 className="h-4 w-4" />;
       case 'instagram':
-        return <Instagram className="h-4 w-4" />;
+        return <Share2 className="h-4 w-4" />;
       case 'portal':
         return <Globe className="h-4 w-4" />;
       default:
@@ -571,11 +571,11 @@ export function CampaignManager({ user }: CampaignManagerProps) {
                     <Label>Platforms</Label>
                     <div className="flex gap-2">
                       <Button variant="outline" size="sm" className="flex items-center gap-2">
-                        <Facebook className="h-4 w-4" />
+                        <Share2 className="h-4 w-4" />
                         Facebook
                       </Button>
                       <Button variant="outline" size="sm" className="flex items-center gap-2">
-                        <Instagram className="h-4 w-4" />
+                        <Share2 className="h-4 w-4" />
                         Instagram
                       </Button>
                     </div>

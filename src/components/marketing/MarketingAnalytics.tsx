@@ -14,9 +14,7 @@ import {
   PieChart,
   Activity,
   MessageSquare,
-  Facebook,
-  Instagram,
-  Linkedin,
+  Share2,
   Globe
 } from 'lucide-react';
 import type { User } from '../../App';
@@ -248,7 +246,7 @@ export function MarketingAnalytics({ user }: MarketingAnalyticsProps) {
                         <td className="py-3 px-4 text-sm text-gray-900 flex items-center gap-2">
                           {channel.channel === 'Email' && <Mail className="h-4 w-4 text-gray-500" />}
                           {channel.channel === 'Sms' && <MessageSquare className="h-4 w-4 text-gray-500" />}
-                          {channel.channel === 'Facebook' && <Facebook className="h-4 w-4 text-gray-500" />}
+                          {channel.channel === 'Facebook' && <Share2 className="h-4 w-4 text-gray-500" />}
                           {channel.channel === 'Customer Portal' && <Globe className="h-4 w-4 text-gray-500" />}
                           {channel.channel}
                         </td>
