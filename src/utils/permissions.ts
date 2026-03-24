@@ -46,7 +46,7 @@ export const ALL_MODULES = [
   'documents', 'team-dashboard', 'reports', 'project-wizards', 'admin', 'kitchen-planner'
 ];
 
-export const ALL_ROLES: UserRole[] = ['super_admin', 'admin', 'director', 'manager', 'marketing', 'designer', 'standard_user'];
+export const ALL_ROLES: UserRole[] = ['super_admin', 'admin', 'director', 'manager', 'marketing', 'designer', 'contributor', 'standard_user'];
 
 /**
  * Get the canonical default permission for a given module + role.
@@ -133,6 +133,22 @@ export function getDefaultPermission(module: string, role: UserRole): Permission
     }
     // All other modules are hidden by default (admin can enable them)
     return { visible: false, add: false, change: false, delete: false };
+  }
+
+  if (role === 'contributor') {
+    // Contributor role: Can view and contribute to core CRM modules
+    // Cannot access admin-only areas
+    if (module === 'tenants' || module === 'security' || module === 'users' || module === 'import-export') {
+      return { visible: false, add: false, change: false, delete: false };
+    }
+    if (module === 'settings') {
+      return { visible: true, add: false, change: true, delete: false };
+    }
+    if (module === 'admin' || module === 'team-dashboard') {
+      return { visible: false, add: false, change: false, delete: false };
+    }
+    // Contributors can view and add/change core CRM data but not delete
+    return { visible: true, add: true, change: true, delete: false };
   }
 
   // standard_user — only personal data access
