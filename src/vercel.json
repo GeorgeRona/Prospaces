@@ -1,4 +1,6 @@
 {
+  "buildCommand": "npm install && vite build",
+  "outputDirectory": "build",
   "headers": [
     {
       "source": "/favicon.(ico|svg|png)",

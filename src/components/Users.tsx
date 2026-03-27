@@ -939,6 +939,7 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="standard_user">Standard User</SelectItem>
+                          <SelectItem value="contributor">Contributor</SelectItem>
                           <SelectItem value="marketing">Marketing</SelectItem>
                           <SelectItem value="designer">Designer</SelectItem>
                           <SelectItem value="manager">Manager</SelectItem>
@@ -951,6 +952,7 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
                       </Select>
                       <p className="text-xs text-gray-500 mt-1">
                         {newUser.role === 'standard_user' && 'Can manage only their own data'}
+                        {newUser.role === 'contributor' && 'Can view and contribute to core CRM modules. Cannot delete records or access admin areas.'}
                         {newUser.role === 'marketing' && 'Full access to marketing and campaigns, limited access to contacts'}
                         {newUser.role === 'designer' && 'Access to Project Wizards and design tools. Admins can enable additional modules.'}
                         {newUser.role === 'manager' && 'Can manage data of users they oversee'}
@@ -1282,6 +1284,7 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="standard_user">Standard User</SelectItem>
+                      <SelectItem value="contributor">Contributor</SelectItem>
                       <SelectItem value="marketing">Marketing</SelectItem>
                       <SelectItem value="designer">Designer</SelectItem>
                       <SelectItem value="manager">Manager</SelectItem>
@@ -1294,6 +1297,7 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
                   </Select>
                   <p className="text-xs text-gray-500 mt-1">
                     {editUser.role === 'standard_user' && 'Can manage only their own data'}
+                    {editUser.role === 'contributor' && 'Can view and contribute to core CRM modules. Cannot delete records or access admin areas.'}
                     {editUser.role === 'marketing' && 'Full access to marketing and campaigns, limited access to contacts'}
                     {editUser.role === 'designer' && 'Access to Project Wizards and design tools. Admins can enable additional modules.'}
                     {editUser.role === 'manager' && 'Can manage data of users they oversee'}
