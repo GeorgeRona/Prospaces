@@ -125,7 +125,7 @@ export function InventoryCombobox({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between h-auto min-h-[40px] py-2 text-black"
+          className="w-full justify-between h-auto min-h-[40px] py-2 text-black bg-white"
         >
           <div className="flex flex-col items-start text-left flex-1 min-w-0">
             {value === 'none' ? (
@@ -185,7 +185,7 @@ export function InventoryCombobox({
                   : "Search by name, SKU..."}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8 text-black"
+                className="pl-8 text-black bg-white"
               />
             </div>
             {debouncedSearch && (

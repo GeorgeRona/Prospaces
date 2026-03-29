@@ -486,7 +486,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                 Deck Planner
               </h3>
               <Select value={selectedDeckType} onValueChange={(value: any) => setSelectedDeckType(value)}>
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-[180px] bg-white">
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -780,7 +780,7 @@ export function ProjectWizardSettings({ organizationId, onSave }: ProjectWizardS
                 Finishing Planner
               </h3>
               <Select value={selectedFinishingType} onValueChange={(value: any) => setSelectedFinishingType(value)}>
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-[180px] bg-white">
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
