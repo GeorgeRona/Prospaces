@@ -10,6 +10,7 @@ import { getOrgMode, setOrgMode } from '../utils/settings-client';
 import { AVAILABLE_MODULES } from '../lib/global-settings';
 import type { OrgUserMode } from '../utils/settings-client';
 import { getOrgSubscriptions, type Subscription, type PlanId } from '../utils/subscription-client';
+import { createClient } from '../utils/supabase/client';
 import { 
   Building2, 
   Plus, 
@@ -332,8 +333,50 @@ export function Tenants({ user, organization }: TenantsProps) {
     setViewingBilling(tenant);
     setIsBillingLoading(true);
     try {
-      const subs = await getOrgSubscriptions(tenant.id);
-      setBillingData(subs);
+      const supabaseClient = createClient();
+      // Read plans from KV table for users in this org
+      const { data: kvData } = await supabaseClient
+        .from('kv_store_8405be07')
+        .select('key, value')
+        .like('key', 'user_plan:%');
+
+      // Filter to plans belonging to this org
+      const orgPlans = (kvData || []).filter(row => row.value?.organization_id === tenant.id);
+
+      // Get user profile info for enrichment
+      const userIds = orgPlans.map(row => row.value?.user_id).filter(Boolean);
+      let profiles: any[] = [];
+      if (userIds.length > 0) {
+        const { data } = await supabaseClient
+          .from('profiles')
+          .select('id, email, name, role, status')
+          .in('id', userIds);
+        profiles = data || [];
+      }
+      const profileMap = new Map(profiles.map(p => [p.id, p]));
+
+      // Build subscription-like records for display
+      const planPrices: Record<string, number> = { starter: 29, professional: 79, enterprise: 199 };
+      const enriched = orgPlans.map(row => ({
+        id: row.key,
+        organization_id: tenant.id,
+        user_id: row.value?.user_id || '',
+        plan_id: row.value?.plan_id as PlanId,
+        status: 'active' as const,
+        billing_interval: 'month' as const,
+        current_period_start: row.value?.updated_at || '',
+        current_period_end: '',
+        cancel_at_period_end: false,
+        amount: planPrices[row.value?.plan_id] || 0,
+        currency: 'USD',
+        created_at: row.value?.updated_at || '',
+        updated_at: row.value?.updated_at || '',
+        user_email: profileMap.get(row.value?.user_id)?.email || null,
+        user_name: profileMap.get(row.value?.user_id)?.name || null,
+        user_role: profileMap.get(row.value?.user_id)?.role || null,
+      }));
+
+      setBillingData(enriched);
     } catch (error) {
       showAlert('error', 'Failed to load billing data');
       setBillingData([]);

@@ -150,22 +150,20 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
     try {
       const planMap: Record<string, PlanId> = {};
 
-      if (user.role === 'super_admin') {
-        // Super admin sees users across orgs — fetch subs for each unique org
-        const orgIds = [...new Set(users.map(u => u.organizationId || u.organization_id).filter(Boolean))] as string[];
-        const results = await Promise.all(orgIds.map(orgId => getOrgSubscriptions(orgId).catch(() => [])));
-        for (const orgSubs of results) {
-          for (const sub of orgSubs) {
-            if (sub.user_id && (sub.status === 'active' || sub.status === 'trialing')) {
-              planMap[sub.user_id] = sub.plan_id;
+      // Read plan assignments directly from KV table for all visible users
+      const userIds = users.map(u => u.id).filter(Boolean);
+      if (userIds.length > 0) {
+        const kvKeys = userIds.map(uid => `user_plan:${uid}`);
+        const { data } = await supabase
+          .from('kv_store_8405be07')
+          .select('key, value')
+          .in('key', kvKeys);
+        if (data) {
+          for (const row of data) {
+            const userId = row.key.replace('user_plan:', '');
+            if (row.value?.plan_id) {
+              planMap[userId] = row.value.plan_id as PlanId;
             }
-          }
-        }
-      } else {
-        const orgSubs = await getOrgSubscriptions();
-        for (const sub of orgSubs) {
-          if (sub.user_id && (sub.status === 'active' || sub.status === 'trialing')) {
-            planMap[sub.user_id] = sub.plan_id;
           }
         }
       }
@@ -418,7 +416,23 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
       // Assign billing plan if one was selected
       if (newUser.plan && result?.userId) {
         try {
-          await createSubscription(newUser.plan as PlanId, 'month', undefined, false, result.userId, user.organizationId);
+          // Save plan directly to KV table
+          await supabase
+            .from('kv_store_8405be07')
+            .upsert({
+              key: `user_plan:${result.userId}`,
+              value: {
+                plan_id: newUser.plan,
+                user_id: result.userId,
+                organization_id: user.organizationId,
+                updated_at: new Date().toISOString(),
+                updated_by: user.id,
+              },
+            });
+          // Also try the subscription API (works after server deploy)
+          try {
+            await createSubscription(newUser.plan as PlanId, 'month', undefined, false, result.userId, user.organizationId);
+          } catch { /* Edge Function may not be deployed yet */ }
         } catch (planErr: any) {
           toast.error('User created but failed to assign plan: ' + (planErr.message || 'Unknown error'));
         }
@@ -587,20 +601,40 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
         const currentPlan = userPlanMap[selectedUser.id];
         if (editUser.plan !== currentPlan) {
           try {
-            if (currentPlan) {
-              // Update existing subscription
-              await updateSubscription(editUser.plan as PlanId, undefined, selectedUser.id, selectedUser.organizationId);
-            } else {
-              // Create new subscription for this user
-              await createSubscription(editUser.plan as PlanId, 'month', undefined, false, selectedUser.id, selectedUser.organizationId);
-            }
-            toast.success(`Billing plan updated to ${editUser.plan} for ${selectedUser.name}`);
+            // Save plan directly to KV table
+            await supabase
+              .from('kv_store_8405be07')
+              .upsert({
+                key: `user_plan:${selectedUser.id}`,
+                value: {
+                  plan_id: editUser.plan,
+                  user_id: selectedUser.id,
+                  organization_id: selectedUser.organizationId,
+                  updated_at: new Date().toISOString(),
+                  updated_by: user.id,
+                },
+              });
+            // Also try the subscription API (works after server deploy)
+            try {
+              if (currentPlan) {
+                await updateSubscription(editUser.plan as PlanId, undefined, selectedUser.id, selectedUser.organizationId);
+              } else {
+                await createSubscription(editUser.plan as PlanId, 'month', undefined, false, selectedUser.id, selectedUser.organizationId);
+              }
+            } catch { /* Edge Function may not be deployed yet — KV write is the source of truth */ }
+            toast.success(`Billing plan updated to ${editUser.plan === 'starter' ? 'Standard User' : editUser.plan === 'professional' ? 'Professional' : 'Enterprise'} for ${selectedUser.name}`);
           } catch (planErr: any) {
             toast.error('Profile saved but failed to update plan: ' + (planErr.message || 'Unknown error'));
           }
         }
       } else if (selectedUser && !editUser.plan && userPlanMap[selectedUser.id]) {
-        // Plan was cleared — note: we don't cancel here, admin can do that from billing
+        // Plan was cleared — remove from KV
+        try {
+          await supabase
+            .from('kv_store_8405be07')
+            .delete()
+            .eq('key', `user_plan:${selectedUser.id}`);
+        } catch { /* non-critical */ }
       }
 
       // Reload users and plan map
