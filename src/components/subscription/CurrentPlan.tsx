@@ -14,7 +14,6 @@ import {
   Zap,
   Crown,
   Building2,
-  Users,
 } from 'lucide-react';
 import {
   formatCurrency,
@@ -37,7 +36,7 @@ interface CurrentPlanProps {
 
 const PLAN_DETAILS: Record<PlanId, { name: string; icon: typeof Zap; color: string; bgColor: string }> = {
   starter: {
-    name: 'Starter',
+    name: 'Standard User',
     icon: Zap,
     color: 'text-orange-600',
     bgColor: 'bg-orange-100',
@@ -149,11 +148,6 @@ export function CurrentPlan({ subscription, paymentMethod, isAdmin, actionLoadin
                 </CardTitle>
                 <p className="text-sm text-slate-500 mt-0.5">
                   {formatCurrency(subscription.amount)}/{subscription.billing_interval === 'year' ? 'year' : 'month'}
-                  {subscription.seat_count && subscription.price_per_seat ? (
-                    <span className="ml-1 text-slate-400">
-                      ({subscription.seat_count} seat{subscription.seat_count !== 1 ? 's' : ''} &times; {formatCurrency(subscription.price_per_seat)}/seat)
-                    </span>
-                  ) : null}
                 </p>
               </div>
             </div>
@@ -203,21 +197,6 @@ export function CurrentPlan({ subscription, paymentMethod, isAdmin, actionLoadin
                 <p className="text-xs text-slate-400">{daysLeft} day{daysLeft !== 1 ? 's' : ''} left</p>
               </div>
             </div>
-
-            {subscription.seat_count != null && (
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50">
-              <Users className="h-5 w-5 text-slate-400" />
-              <div>
-                <p className="text-xs text-slate-500 uppercase tracking-wider">Active Seats</p>
-                <p className="text-sm font-medium text-slate-900">
-                  {subscription.seat_count} user{subscription.seat_count !== 1 ? 's' : ''}
-                </p>
-                {subscription.price_per_seat != null && (
-                  <p className="text-xs text-slate-400">{formatCurrency(subscription.price_per_seat)}/seat/{subscription.billing_interval === 'year' ? 'yr' : 'mo'}</p>
-                )}
-              </div>
-            </div>
-            )}
 
             <div className="flex items-center gap-3 p-3 rounded-lg bg-slate-50">
               <CreditCard className="h-5 w-5 text-slate-400" />

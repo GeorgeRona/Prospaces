@@ -30,7 +30,7 @@ interface DashboardBillingWidgetProps {
 
 const PLAN_CONFIG: Record<PlanId, { name: string; icon: typeof Zap; color: string; bg: string; border: string }> = {
   starter: {
-    name: 'Starter',
+    name: 'Standard User',
     icon: Zap,
     color: 'text-orange-600',
     bg: 'bg-orange-50',

@@ -31,7 +31,7 @@ import { getServerHeaders } from '../utils/server-headers';
 import { toast } from 'sonner@2.0.3';
 import { useDebounce } from '../utils/useDebounce';
 import { projectId, publicAnonKey } from '../utils/supabase/info';
-import { adjustSeats } from '../utils/subscription-client';
+import { createSubscription, updateSubscription, getOrgSubscriptions, type PlanId } from '../utils/subscription-client';
 
 const supabase = createClient();
 
@@ -90,6 +90,7 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
   const canViewUsers = canView('users', user.role);
   const canManageUsers = canAdd('users', user.role) || canChange('users', user.role);
   const canManageAllUsers = canDelete('users', user.role) || (user.role === 'super_admin' || user.role === 'admin');
+  const isAdmin = user.role === 'admin' || user.role === 'super_admin';
 
   const [users, setUsers] = useState<OrgUser[]>([]);
 
@@ -98,6 +99,7 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
     email: '',
     role: 'standard_user' as UserRole,
     organizationId: user.organizationId,
+    plan: '' as PlanId | '',
   });
 
   const [editUser, setEditUser] = useState({
@@ -107,7 +109,11 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
     organizationId: '',
     status: 'active' as 'active' | 'invited' | 'inactive',
     managerId: '',
+    plan: '' as PlanId | '',
   });
+
+  // Track per-user plan assignments
+  const [userPlanMap, setUserPlanMap] = useState<Record<string, PlanId>>({});
 
   // Load users on mount
   useEffect(() => {
@@ -132,7 +138,41 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
     }
   }, [user.role]);
 
+  // Load user plans when users list changes
+  useEffect(() => {
+    if (users.length > 0) {
+      loadUserPlans();
+    }
+  }, [users]);
 
+  const loadUserPlans = async () => {
+    if (!['admin', 'super_admin'].includes(user.role)) return;
+    try {
+      const planMap: Record<string, PlanId> = {};
+
+      if (user.role === 'super_admin') {
+        // Super admin sees users across orgs — fetch subs for each unique org
+        const orgIds = [...new Set(users.map(u => u.organizationId || u.organization_id).filter(Boolean))] as string[];
+        const results = await Promise.all(orgIds.map(orgId => getOrgSubscriptions(orgId).catch(() => [])));
+        for (const orgSubs of results) {
+          for (const sub of orgSubs) {
+            if (sub.user_id && (sub.status === 'active' || sub.status === 'trialing')) {
+              planMap[sub.user_id] = sub.plan_id;
+            }
+          }
+        }
+      } else {
+        const orgSubs = await getOrgSubscriptions();
+        for (const sub of orgSubs) {
+          if (sub.user_id && (sub.status === 'active' || sub.status === 'trialing')) {
+            planMap[sub.user_id] = sub.plan_id;
+          }
+        }
+      }
+
+      setUserPlanMap(planMap);
+    } catch { /* non-critical */ }
+  };
 
   const loadUsers = async () => {
     setIsLoadingUsers(true);
@@ -374,12 +414,22 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
       
       // Call API to invite user (now creates a real Supabase Auth account)
       const result = await usersAPI.invite(inviteData);
+
+      // Assign billing plan if one was selected
+      if (newUser.plan && result?.userId) {
+        try {
+          await createSubscription(newUser.plan as PlanId, 'month', undefined, false, result.userId, user.organizationId);
+        } catch (planErr: any) {
+          toast.error('User created but failed to assign plan: ' + (planErr.message || 'Unknown error'));
+        }
+      }
       
-      // Reload users to show the newly invited user
+      // Reload users and plan map
       await loadUsers();
+      await loadUserPlans();
       
       // Reset form and close dialog
-      setNewUser({ name: '', email: '', role: 'standard_user', organizationId: user.organizationId });
+      setNewUser({ name: '', email: '', role: 'standard_user', organizationId: user.organizationId, plan: '' });
       setIsAddDialogOpen(false);
       
       // Show the credentials dialog so admin can share the temp password
@@ -426,12 +476,6 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
     try {
       await usersAPI.delete(id);
       await loadUsers(); // Reload users after deletion
-      // Adjust billing seat count after removing a user
-      adjustSeats().then(sub => {
-        if (sub) {
-          toast.info(`Billing updated: ${sub.seat_count} active seat${sub.seat_count !== 1 ? 's' : ''}`);
-        }
-      }).catch(() => {});
     } catch (error) {
       alert('Failed to remove user. Please try again.');
     }
@@ -453,6 +497,7 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
       organizationId: orgUser.organizationId,
       status: orgUser.status,
       managerId: orgUser.managerId || '',
+      plan: userPlanMap[orgUser.id] || '',
     });
     setIsEditDialogOpen(true);
   };
@@ -539,17 +584,30 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
 
       toast.success('User updated successfully!');
 
-      // Reload users to show the updated user
-      await loadUsers();
-
-      // If the user's status changed (activated/deactivated), adjust billing seats
-      if (selectedUser && editUser.status !== selectedUser.status) {
-        adjustSeats().then(sub => {
-          if (sub) {
-            toast.info(`Billing updated: ${sub.seat_count} active seat${sub.seat_count !== 1 ? 's' : ''}`);
+      // Handle plan change if admin changed the billing plan
+      if (selectedUser && editUser.plan) {
+        const currentPlan = userPlanMap[selectedUser.id];
+        if (editUser.plan !== currentPlan) {
+          try {
+            if (currentPlan) {
+              // Update existing subscription
+              await updateSubscription(editUser.plan as PlanId, undefined, selectedUser.id, selectedUser.organizationId);
+            } else {
+              // Create new subscription for this user
+              await createSubscription(editUser.plan as PlanId, 'month', undefined, false, selectedUser.id, selectedUser.organizationId);
+            }
+            toast.success(`Billing plan updated to ${editUser.plan} for ${selectedUser.name}`);
+          } catch (planErr: any) {
+            toast.error('Profile saved but failed to update plan: ' + (planErr.message || 'Unknown error'));
           }
-        }).catch(() => {});
+        }
+      } else if (selectedUser && !editUser.plan && userPlanMap[selectedUser.id]) {
+        // Plan was cleared — note: we don't cancel here, admin can do that from billing
       }
+
+      // Reload users and plan map
+      await loadUsers();
+      await loadUserPlans();
 
       // Close dialog
       setIsEditDialogOpen(false);
@@ -960,6 +1018,27 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
                       </p>
                     </div>
 
+                    {/* Billing Plan selector */}
+                    {isAdmin && (
+                    <div className="space-y-2">
+                      <Label htmlFor="plan">Billing Plan</Label>
+                      <Select value={newUser.plan || 'none'} onValueChange={(value) => setNewUser({ ...newUser, plan: value === 'none' ? '' : value as PlanId })}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a plan" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No Plan (Free)</SelectItem>
+                          <SelectItem value="starter">Standard User — $29/mo</SelectItem>
+                          <SelectItem value="professional">Professional — $79/mo</SelectItem>
+                          <SelectItem value="enterprise">Enterprise — $199/mo</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-gray-500">
+                        Assign a billing plan to this user. Each user can have a different plan level.
+                      </p>
+                    </div>
+                    )}
+
                     <div className="space-y-2 pt-2 border-t">
                       <Label htmlFor="inviteMethodOverride">Delivery Method</Label>
                       <Select value={inviteMethod} onValueChange={(value: 'email' | 'manual') => setInviteMethod(value)}>
@@ -1109,6 +1188,7 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
                           <th className="text-left py-3 px-4 text-sm text-gray-600">Organization</th>
                         )}
                         <th className="text-left py-3 px-4 text-sm text-gray-600">Role</th>
+                        <th className="text-left py-3 px-4 text-sm text-gray-600">Plan</th>
                         <th className="text-left py-3 px-4 text-sm text-gray-600">Status</th>
                         <th className="text-left py-3 px-4 text-sm text-gray-600">Last Login</th>
                       </tr>
@@ -1174,6 +1254,22 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
                             <span className={`inline-block px-2 py-1 text-xs rounded ${getRoleColor(orgUser.role)}`}>
                               {orgUser.role.replace('_', ' ').toUpperCase()}
                             </span>
+                          </td>
+                          <td className="py-3 px-4">
+                            {userPlanMap[orgUser.id] ? (
+                              <span className={`inline-block px-2 py-1 text-xs rounded ${
+                                userPlanMap[orgUser.id] === 'enterprise' ? 'bg-purple-100 text-purple-700' :
+                                userPlanMap[orgUser.id] === 'professional' ? 'bg-blue-100 text-blue-700' :
+                                'bg-orange-100 text-orange-700'
+                              }`}>
+                                {userPlanMap[orgUser.id] === 'starter' ? 'Standard User' :
+                                 userPlanMap[orgUser.id] === 'professional' ? 'Professional' :
+                                 userPlanMap[orgUser.id] === 'enterprise' ? 'Enterprise' :
+                                 userPlanMap[orgUser.id]}
+                              </span>
+                            ) : (
+                              <span className="inline-block px-2 py-1 text-xs rounded bg-gray-100 text-gray-500">Free</span>
+                            )}
                           </td>
                           <td className="py-3 px-4">
                             <span className={`inline-block px-2 py-1 text-xs rounded ${getStatusColor(orgUser.status)}`}>
@@ -1320,6 +1416,28 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
                     {editUser.status === 'inactive' && 'User account is temporarily disabled'}
                   </p>
                 </div>
+
+                {/* Billing Plan selector */}
+                {isAdmin && (
+                <div className="space-y-2">
+                  <Label htmlFor="editPlan">Billing Plan</Label>
+                  <Select value={editUser.plan || 'none'} onValueChange={(value) => setEditUser({ ...editUser, plan: value === 'none' ? '' : value as PlanId })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a plan" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No Plan (Free)</SelectItem>
+                      <SelectItem value="starter">Standard User — $29/mo</SelectItem>
+                      <SelectItem value="professional">Professional — $79/mo</SelectItem>
+                      <SelectItem value="enterprise">Enterprise — $199/mo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-gray-500">
+                    Change this user's billing plan. Each user can have a different plan level.
+                  </p>
+                </div>
+                )}
+
                 <div className="space-y-2">
                   <Label htmlFor="manager">Manager (Optional)</Label>
                   <Select value={editUser.managerId || 'none'} onValueChange={(value) => setEditUser({ ...editUser, managerId: value === 'none' ? '' : value })}>

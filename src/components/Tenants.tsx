@@ -9,6 +9,7 @@ import { OrganizationModuleManager } from './OrganizationModuleManager';
 import { getOrgMode, setOrgMode } from '../utils/settings-client';
 import { AVAILABLE_MODULES } from '../lib/global-settings';
 import type { OrgUserMode } from '../utils/settings-client';
+import { getOrgSubscriptions, type Subscription, type PlanId } from '../utils/subscription-client';
 import { 
   Building2, 
   Plus, 
@@ -22,7 +23,11 @@ import {
   Lock,
   X,
   CheckCircle2,
-  Image as ImageIcon
+  Image as ImageIcon,
+  CreditCard,
+  ArrowLeft,
+  DollarSign,
+  Loader2
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
@@ -95,6 +100,9 @@ export function Tenants({ user, organization }: TenantsProps) {
   const [isDeleting, setIsDeleting] = useState<string | null>(null); // Track which org is being deleted
   const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [viewingAgreement, setViewingAgreement] = useState<Tenant | null>(null);
+  const [viewingBilling, setViewingBilling] = useState<Tenant | null>(null);
+  const [billingData, setBillingData] = useState<(Subscription & { user_email?: string; user_name?: string; user_role?: string })[]>([]);
+  const [isBillingLoading, setIsBillingLoading] = useState(false);
 
   // Compute all available modules dynamically based on all tenants and defaults
   const availableModules = useMemo(() => {
@@ -320,11 +328,43 @@ export function Tenants({ user, organization }: TenantsProps) {
     setFormData({ ...formData, logo: '' });
   };
 
+  const handleViewBilling = async (tenant: Tenant) => {
+    setViewingBilling(tenant);
+    setIsBillingLoading(true);
+    try {
+      const subs = await getOrgSubscriptions(tenant.id);
+      setBillingData(subs);
+    } catch (error) {
+      showAlert('error', 'Failed to load billing data');
+      setBillingData([]);
+    } finally {
+      setIsBillingLoading(false);
+    }
+  };
+
+  const getPlanDisplayName = (planId: string) => {
+    const names: Record<string, string> = {
+      starter: 'Standard User',
+      professional: 'Professional',
+      enterprise: 'Enterprise',
+    };
+    return names[planId] || planId;
+  };
+
+  const getPlanPrice = (planId: string, interval: string = 'month') => {
+    const prices: Record<string, { month: number; year: number }> = {
+      starter: { month: 29, year: 290 },
+      professional: { month: 79, year: 790 },
+      enterprise: { month: 199, year: 1990 },
+    };
+    return prices[planId]?.[interval as 'month' | 'year'] || 0;
+  };
+
   const getPlanFeatures = (plan: string): string[] => {
     const features: Record<string, string[]> = {
       free: ['Basic features', 'Email support'],
       starter: ['Core CRM (Contacts, Deals, Tasks)', 'Email integration', 'Basic reports', 'Community support'],
-      professional: ['Everything in Starter', 'Marketing automation', 'Inventory management', 'Document management', 'Project Wizards (3D planners)', 'Advanced reports & analytics', 'Customer portal', 'Email support'],
+      professional: ['Everything in Standard User', 'Marketing automation', 'Inventory management', 'Document management', 'Project Wizards (3D planners)', 'Advanced reports & analytics', 'Customer portal', 'Email support'],
       enterprise: ['Everything in Professional', 'Dedicated account manager', 'Custom integrations', 'SSO / SAML support', 'Audit log', 'Priority support (24/7)', 'API access', 'Custom onboarding'],
     };
     return features[plan] || [];
@@ -397,6 +437,175 @@ export function Tenants({ user, organization }: TenantsProps) {
         organization={orgData} 
         onBack={() => setViewingAgreement(null)}
       />
+    );
+  }
+
+  // If viewing billing, show billing breakdown
+  if (viewingBilling) {
+    const activeSubs = billingData.filter(s => s.status === 'active' || s.status === 'trialing');
+    const totalMonthly = activeSubs.reduce((sum, s) => {
+      if (s.billing_interval === 'year') return sum + (s.amount / 12);
+      return sum + s.amount;
+    }, 0);
+    const totalAnnual = totalMonthly * 12;
+
+    return (
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="sm" onClick={() => { setViewingBilling(null); setBillingData([]); }}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Organizations
+          </Button>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {viewingBilling.logo && (
+            <img src={viewingBilling.logo} alt="" className="h-10 w-10 rounded-lg object-contain border border-gray-200 bg-white p-1" />
+          )}
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">{viewingBilling.name}</h2>
+            <p className="text-sm text-gray-500">Billing Breakdown</p>
+          </div>
+          <Badge className={getPlanColor(viewingBilling.plan)}>{getPlanDisplayName(viewingBilling.plan)}</Badge>
+          <Badge className={getStatusColor(viewingBilling.status)}>{viewingBilling.status}</Badge>
+        </div>
+
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-2 mb-1">
+                <UsersIcon className="h-4 w-4 text-gray-400" />
+                <p className="text-xs text-gray-500">Active Plans</p>
+              </div>
+              <p className="text-2xl font-bold text-gray-900">{activeSubs.length}</p>
+              <p className="text-xs text-gray-500 mt-1">of {billingData.length} total</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-2 mb-1">
+                <DollarSign className="h-4 w-4 text-green-500" />
+                <p className="text-xs text-gray-500">Monthly Revenue</p>
+              </div>
+              <p className="text-2xl font-bold text-gray-900">${totalMonthly.toFixed(2)}</p>
+              <p className="text-xs text-gray-500 mt-1">effective monthly</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-2 mb-1">
+                <DollarSign className="h-4 w-4 text-blue-500" />
+                <p className="text-xs text-gray-500">Annual Revenue</p>
+              </div>
+              <p className="text-2xl font-bold text-gray-900">${totalAnnual.toFixed(2)}</p>
+              <p className="text-xs text-gray-500 mt-1">projected yearly</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-2 mb-1">
+                <CreditCard className="h-4 w-4 text-purple-500" />
+                <p className="text-xs text-gray-500">Org Plan</p>
+              </div>
+              <p className="text-2xl font-bold text-gray-900">{getPlanDisplayName(viewingBilling.plan)}</p>
+              {viewingBilling.customPlanPrice && (
+                <p className="text-xs text-amber-600 mt-1">Custom: ${viewingBilling.customPlanPrice}/mo</p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Subscriptions Table */}
+        <Card>
+          <CardContent className="pt-6">
+            <h3 className="text-sm font-medium text-gray-900 mb-4">Active Billing Plans by User</h3>
+            {isBillingLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                <span className="ml-2 text-sm text-gray-500">Loading billing data...</span>
+              </div>
+            ) : billingData.length === 0 ? (
+              <div className="text-center py-12">
+                <CreditCard className="h-8 w-8 text-gray-300 mx-auto mb-3" />
+                <p className="text-sm text-gray-500">No individual billing plans found for this organization.</p>
+                <p className="text-xs text-gray-400 mt-1">Users in this organization have not been assigned individual plans yet.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">User</th>
+                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">Role</th>
+                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">Plan</th>
+                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">Status</th>
+                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">Billing</th>
+                      <th className="text-right py-3 px-4 text-xs font-medium text-gray-500 uppercase">Amount</th>
+                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">Period End</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {billingData.map((sub) => (
+                      <tr key={sub.id} className="hover:bg-gray-50">
+                        <td className="py-3 px-4">
+                          <div>
+                            <p className="font-medium text-gray-900">{sub.user_name || 'Unknown'}</p>
+                            <p className="text-xs text-gray-500">{sub.user_email || '—'}</p>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="text-xs capitalize text-gray-600">{sub.user_role?.replace('_', ' ') || '—'}</span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <Badge className={getPlanColor(sub.plan_id)}>{getPlanDisplayName(sub.plan_id)}</Badge>
+                        </td>
+                        <td className="py-3 px-4">
+                          <Badge className={
+                            sub.status === 'active' ? 'bg-green-100 text-green-700 border-green-200' :
+                            sub.status === 'trialing' ? 'bg-blue-100 text-blue-700 border-blue-200' :
+                            sub.status === 'past_due' ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                            'bg-gray-100 text-gray-700 border-gray-200'
+                          }>
+                            {sub.status}
+                          </Badge>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="text-xs text-gray-600 capitalize">{sub.billing_interval}ly</span>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <span className="font-medium text-gray-900">${sub.amount.toFixed(2)}</span>
+                          <span className="text-xs text-gray-500">/{sub.billing_interval === 'year' ? 'yr' : 'mo'}</span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="text-xs text-gray-600">
+                            {sub.current_period_end ? new Date(sub.current_period_end).toLocaleDateString() : '—'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  {activeSubs.length > 0 && (
+                    <tfoot>
+                      <tr className="border-t-2 border-gray-200 bg-gray-50">
+                        <td colSpan={5} className="py-3 px-4 text-sm font-medium text-gray-700">
+                          Total ({activeSubs.length} active)
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <span className="font-bold text-gray-900">${totalMonthly.toFixed(2)}</span>
+                          <span className="text-xs text-gray-500">/mo</span>
+                        </td>
+                        <td className="py-3 px-4"></td>
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
@@ -594,6 +803,10 @@ export function Tenants({ user, organization }: TenantsProps) {
                               View Agreement
                             </DropdownMenuItem>
                           )}
+                          <DropdownMenuItem onClick={() => handleViewBilling(tenant)} disabled={isDeleting === tenant.id}>
+                            <CreditCard className="h-4 w-4 mr-2" />
+                            View Billing
+                          </DropdownMenuItem>
                           {canChange('tenants', user.role) && (
                             <DropdownMenuItem onClick={() => handleOpenDialog(tenant)} disabled={isDeleting === tenant.id}>
                               <Edit className="h-4 w-4 mr-2" />
@@ -807,7 +1020,7 @@ export function Tenants({ user, organization }: TenantsProps) {
                       </SelectItem>
                       <SelectItem value="starter">
                         <div className="flex flex-col">
-                          <span>Starter — $29/mo</span>
+                          <span>Standard User — $29/mo</span>
                           <span className="text-xs text-gray-500">Core CRM, email integration, basic reports</span>
                         </div>
                       </SelectItem>

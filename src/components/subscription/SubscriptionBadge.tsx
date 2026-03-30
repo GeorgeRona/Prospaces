@@ -17,7 +17,7 @@ interface SubscriptionBadgeProps {
 
 const PLAN_CONFIG: Record<PlanId, { name: string; icon: typeof Zap; gradient: string; text: string; badge: string }> = {
   starter: {
-    name: 'Starter',
+    name: 'Standard User',
     icon: Zap,
     gradient: 'from-orange-500 to-amber-500',
     text: 'text-orange-700',

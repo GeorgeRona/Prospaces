@@ -28,7 +28,7 @@ const FALLBACK_PLANS: {
 }[] = [
   {
     id: 'starter',
-    name: 'Starter',
+    name: 'Standard User',
     description: 'Perfect for small teams getting started with CRM',
     price: 29,
     priceAnnual: 290,
@@ -49,7 +49,7 @@ const FALLBACK_PLANS: {
     icon: Crown,
     popular: true,
     features: [
-      'Everything in Starter',
+      'Everything in Standard User',
       'Marketing automation',
       'Inventory management',
       'Document management',

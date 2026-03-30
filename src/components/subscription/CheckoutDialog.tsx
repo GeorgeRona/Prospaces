@@ -32,7 +32,7 @@ interface CheckoutDialogProps {
 }
 
 const PLAN_INFO_DEFAULTS: Record<PlanId, { name: string; price: number; priceAnnual: number; icon: typeof Zap; color: string }> = {
-  starter: { name: 'Starter', price: 29, priceAnnual: 290, icon: Zap, color: 'text-orange-600' },
+  starter: { name: 'Standard User', price: 29, priceAnnual: 290, icon: Zap, color: 'text-orange-600' },
   professional: { name: 'Professional', price: 79, priceAnnual: 790, icon: Crown, color: 'text-blue-600' },
   enterprise: { name: 'Enterprise', price: 199, priceAnnual: 1990, icon: Building2, color: 'text-purple-600' },
 };
