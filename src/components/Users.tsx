@@ -150,26 +150,25 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
     try {
       const planMap: Record<string, PlanId> = {};
 
-      // Read plan assignments directly from KV table for all visible users
+      // Read billing_plan directly from profiles table
       const userIds = users.map(u => u.id).filter(Boolean);
       if (userIds.length > 0) {
-        const kvKeys = userIds.map(uid => `user_plan:${uid}`);
         const { data } = await supabase
-          .from('kv_store_8405be07')
-          .select('key, value')
-          .in('key', kvKeys);
+          .from('profiles')
+          .select('id, billing_plan')
+          .in('id', userIds)
+          .not('billing_plan', 'is', null);
         if (data) {
           for (const row of data) {
-            const userId = row.key.replace('user_plan:', '');
-            if (row.value?.plan_id) {
-              planMap[userId] = row.value.plan_id as PlanId;
+            if (row.billing_plan) {
+              planMap[row.id] = row.billing_plan as PlanId;
             }
           }
         }
       }
 
       setUserPlanMap(planMap);
-    } catch { /* non-critical */ }
+    } catch { /* non-critical — billing_plan column may not exist yet */ }
   };
 
   const loadUsers = async () => {
@@ -416,19 +415,14 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
       // Assign billing plan if one was selected
       if (newUser.plan && result?.userId) {
         try {
-          // Save plan directly to KV table
+          // Save billing_plan directly on the profiles table
           await supabase
-            .from('kv_store_8405be07')
-            .upsert({
-              key: `user_plan:${result.userId}`,
-              value: {
-                plan_id: newUser.plan,
-                user_id: result.userId,
-                organization_id: user.organizationId,
-                updated_at: new Date().toISOString(),
-                updated_by: user.id,
-              },
-            });
+            .from('profiles')
+            .update({
+              billing_plan: newUser.plan,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', result.userId);
           // Also try the subscription API (works after server deploy)
           try {
             await createSubscription(newUser.plan as PlanId, 'month', undefined, false, result.userId, user.organizationId);
@@ -601,19 +595,17 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
         const currentPlan = userPlanMap[selectedUser.id];
         if (editUser.plan !== currentPlan) {
           try {
-            // Save plan directly to KV table
-            await supabase
-              .from('kv_store_8405be07')
-              .upsert({
-                key: `user_plan:${selectedUser.id}`,
-                value: {
-                  plan_id: editUser.plan,
-                  user_id: selectedUser.id,
-                  organization_id: selectedUser.organizationId,
-                  updated_at: new Date().toISOString(),
-                  updated_by: user.id,
-                },
-              });
+            // Save billing_plan directly on the profiles table
+            const { error: planError } = await supabase
+              .from('profiles')
+              .update({
+                billing_plan: editUser.plan,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', selectedUser.id);
+            if (planError) {
+              throw planError;
+            }
             // Also try the subscription API (works after server deploy)
             try {
               if (currentPlan) {
@@ -621,19 +613,19 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
               } else {
                 await createSubscription(editUser.plan as PlanId, 'month', undefined, false, selectedUser.id, selectedUser.organizationId);
               }
-            } catch { /* Edge Function may not be deployed yet — KV write is the source of truth */ }
+            } catch { /* Edge Function may not be deployed yet */ }
             toast.success(`Billing plan updated to ${editUser.plan === 'starter' ? 'Standard User' : editUser.plan === 'professional' ? 'Professional' : 'Enterprise'} for ${selectedUser.name}`);
           } catch (planErr: any) {
             toast.error('Profile saved but failed to update plan: ' + (planErr.message || 'Unknown error'));
           }
         }
       } else if (selectedUser && !editUser.plan && userPlanMap[selectedUser.id]) {
-        // Plan was cleared — remove from KV
+        // Plan was cleared — set to null
         try {
           await supabase
-            .from('kv_store_8405be07')
-            .delete()
-            .eq('key', `user_plan:${selectedUser.id}`);
+            .from('profiles')
+            .update({ billing_plan: null, updated_at: new Date().toISOString() })
+            .eq('id', selectedUser.id);
         } catch { /* non-critical */ }
       }
 

@@ -28,7 +28,9 @@ import {
   CreditCard,
   ArrowLeft,
   DollarSign,
-  Loader2
+  Loader2,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
@@ -104,6 +106,8 @@ export function Tenants({ user, organization }: TenantsProps) {
   const [viewingBilling, setViewingBilling] = useState<Tenant | null>(null);
   const [billingData, setBillingData] = useState<(Subscription & { user_email?: string; user_name?: string; user_role?: string })[]>([]);
   const [isBillingLoading, setIsBillingLoading] = useState(false);
+  const [billingPage, setBillingPage] = useState(1);
+  const billingPerPage = 10;
 
   // Compute all available modules dynamically based on all tenants and defaults
   const availableModules = useMemo(() => {
@@ -332,49 +336,38 @@ export function Tenants({ user, organization }: TenantsProps) {
   const handleViewBilling = async (tenant: Tenant) => {
     setViewingBilling(tenant);
     setIsBillingLoading(true);
+    setBillingPage(1);
     try {
       const supabaseClient = createClient();
-      // Read plans from KV table for users in this org
-      const { data: kvData } = await supabaseClient
-        .from('kv_store_8405be07')
-        .select('key, value')
-        .like('key', 'user_plan:%');
-
-      // Filter to plans belonging to this org
-      const orgPlans = (kvData || []).filter(row => row.value?.organization_id === tenant.id);
-
-      // Get user profile info for enrichment
-      const userIds = orgPlans.map(row => row.value?.user_id).filter(Boolean);
-      let profiles: any[] = [];
-      if (userIds.length > 0) {
-        const { data } = await supabaseClient
-          .from('profiles')
-          .select('id, email, name, role, status')
-          .in('id', userIds);
-        profiles = data || [];
-      }
-      const profileMap = new Map(profiles.map(p => [p.id, p]));
+      // Read all profiles for users in this org (including free/null billing_plan)
+      const { data: profiles } = await supabaseClient
+        .from('profiles')
+        .select('id, email, name, role, status, billing_plan, updated_at')
+        .eq('organization_id', tenant.id);
 
       // Build subscription-like records for display
       const planPrices: Record<string, number> = { starter: 29, professional: 79, enterprise: 199 };
-      const enriched = orgPlans.map(row => ({
-        id: row.key,
-        organization_id: tenant.id,
-        user_id: row.value?.user_id || '',
-        plan_id: row.value?.plan_id as PlanId,
-        status: 'active' as const,
-        billing_interval: 'month' as const,
-        current_period_start: row.value?.updated_at || '',
-        current_period_end: '',
-        cancel_at_period_end: false,
-        amount: planPrices[row.value?.plan_id] || 0,
-        currency: 'USD',
-        created_at: row.value?.updated_at || '',
-        updated_at: row.value?.updated_at || '',
-        user_email: profileMap.get(row.value?.user_id)?.email || null,
-        user_name: profileMap.get(row.value?.user_id)?.name || null,
-        user_role: profileMap.get(row.value?.user_id)?.role || null,
-      }));
+      const enriched = (profiles || []).map(p => {
+        const plan = p.billing_plan || 'free';
+        return {
+          id: `plan:${p.id}`,
+          organization_id: tenant.id,
+          user_id: p.id,
+          plan_id: plan as PlanId,
+          status: (plan === 'free' ? 'free' : 'active') as string,
+          billing_interval: 'month' as const,
+          current_period_start: p.updated_at || '',
+          current_period_end: '',
+          cancel_at_period_end: false,
+          amount: planPrices[plan] || 0,
+          currency: 'USD',
+          created_at: p.updated_at || '',
+          updated_at: p.updated_at || '',
+          user_email: p.email || null,
+          user_name: p.name || null,
+          user_role: p.role || null,
+        };
+      });
 
       setBillingData(enriched);
     } catch (error) {
@@ -387,6 +380,7 @@ export function Tenants({ user, organization }: TenantsProps) {
 
   const getPlanDisplayName = (planId: string) => {
     const names: Record<string, string> = {
+      free: 'Free',
       starter: 'Standard User',
       professional: 'Professional',
       enterprise: 'Enterprise',
@@ -486,7 +480,11 @@ export function Tenants({ user, organization }: TenantsProps) {
   // If viewing billing, show billing breakdown
   if (viewingBilling) {
     const activeSubs = billingData.filter(s => s.status === 'active' || s.status === 'trialing');
-    const totalMonthly = activeSubs.reduce((sum, s) => {
+    const paidSubs = billingData.filter(s => s.plan_id !== 'free' && (s.status === 'active' || s.status === 'trialing'));
+    const freeSubs = billingData.filter(s => s.plan_id === 'free' || s.status === 'free');
+    const totalPages = Math.ceil(billingData.length / billingPerPage);
+    const paginatedData = billingData.slice((billingPage - 1) * billingPerPage, billingPage * billingPerPage);
+    const totalMonthly = paidSubs.reduce((sum, s) => {
       if (s.billing_interval === 'year') return sum + (s.amount / 12);
       return sum + s.amount;
     }, 0);
@@ -522,8 +520,8 @@ export function Tenants({ user, organization }: TenantsProps) {
                 <UsersIcon className="h-4 w-4 text-gray-400" />
                 <p className="text-xs text-gray-500">Active Plans</p>
               </div>
-              <p className="text-2xl font-bold text-gray-900">{activeSubs.length}</p>
-              <p className="text-xs text-gray-500 mt-1">of {billingData.length} total</p>
+              <p className="text-2xl font-bold text-gray-900">{paidSubs.length}</p>
+              <p className="text-xs text-gray-500 mt-1">of {billingData.length} total ({freeSubs.length} free)</p>
             </CardContent>
           </Card>
           <Card>
@@ -563,7 +561,7 @@ export function Tenants({ user, organization }: TenantsProps) {
         {/* Subscriptions Table */}
         <Card>
           <CardContent className="pt-6">
-            <h3 className="text-sm font-medium text-gray-900 mb-4">Active Billing Plans by User</h3>
+            <h3 className="text-sm font-medium text-gray-900 mb-4">Billing Plans by User</h3>
             {isBillingLoading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
@@ -590,7 +588,7 @@ export function Tenants({ user, organization }: TenantsProps) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {billingData.map((sub) => (
+                    {paginatedData.map((sub) => (
                       <tr key={sub.id} className="hover:bg-gray-50">
                         <td className="py-3 px-4">
                           <div>
@@ -609,6 +607,7 @@ export function Tenants({ user, organization }: TenantsProps) {
                             sub.status === 'active' ? 'bg-green-100 text-green-700 border-green-200' :
                             sub.status === 'trialing' ? 'bg-blue-100 text-blue-700 border-blue-200' :
                             sub.status === 'past_due' ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                            sub.status === 'free' ? 'bg-gray-100 text-gray-500 border-gray-200' :
                             'bg-gray-100 text-gray-700 border-gray-200'
                           }>
                             {sub.status}
@@ -618,8 +617,14 @@ export function Tenants({ user, organization }: TenantsProps) {
                           <span className="text-xs text-gray-600 capitalize">{sub.billing_interval}ly</span>
                         </td>
                         <td className="py-3 px-4 text-right">
-                          <span className="font-medium text-gray-900">${sub.amount.toFixed(2)}</span>
-                          <span className="text-xs text-gray-500">/{sub.billing_interval === 'year' ? 'yr' : 'mo'}</span>
+                          {sub.amount > 0 ? (
+                            <>
+                              <span className="font-medium text-gray-900">${sub.amount.toFixed(2)}</span>
+                              <span className="text-xs text-gray-500">/{sub.billing_interval === 'year' ? 'yr' : 'mo'}</span>
+                            </>
+                          ) : (
+                            <span className="text-xs text-gray-400">$0.00</span>
+                          )}
                         </td>
                         <td className="py-3 px-4">
                           <span className="text-xs text-gray-600">
@@ -629,11 +634,11 @@ export function Tenants({ user, organization }: TenantsProps) {
                       </tr>
                     ))}
                   </tbody>
-                  {activeSubs.length > 0 && (
+                  {billingData.length > 0 && (
                     <tfoot>
                       <tr className="border-t-2 border-gray-200 bg-gray-50">
                         <td colSpan={5} className="py-3 px-4 text-sm font-medium text-gray-700">
-                          Total ({activeSubs.length} active)
+                          Total ({paidSubs.length} paid, {freeSubs.length} free)
                         </td>
                         <td className="py-3 px-4 text-right">
                           <span className="font-bold text-gray-900">${totalMonthly.toFixed(2)}</span>
@@ -644,6 +649,42 @@ export function Tenants({ user, organization }: TenantsProps) {
                     </tfoot>
                   )}
                 </table>
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between border-t border-gray-200 px-4 py-3 mt-2">
+                    <p className="text-xs text-gray-500">
+                      Showing {(billingPage - 1) * billingPerPage + 1}–{Math.min(billingPage * billingPerPage, billingData.length)} of {billingData.length}
+                    </p>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={billingPage <= 1}
+                        onClick={() => setBillingPage(p => p - 1)}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                        <Button
+                          key={page}
+                          variant={page === billingPage ? 'default' : 'outline'}
+                          size="sm"
+                          className="min-w-[32px]"
+                          onClick={() => setBillingPage(page)}
+                        >
+                          {page}
+                        </Button>
+                      ))}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={billingPage >= totalPages}
+                        onClick={() => setBillingPage(p => p + 1)}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
