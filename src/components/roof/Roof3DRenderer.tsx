@@ -1673,55 +1673,55 @@ export function Roof3DRenderer({ config }: Roof3DRendererProps) {
   return (
     <div className="w-full h-full bg-gradient-to-br from-sky-100 to-cyan-200 rounded-lg overflow-hidden relative">
       {/* Instructions overlay */}
-      <div className="absolute top-4 left-4 z-10 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-3 text-sm">
-        <div className="font-semibold text-slate-900 mb-1">🎮 3D Controls:</div>
-        <div className="space-y-0.5 text-slate-700">
+      <div className="absolute top-4 left-4 z-10 bg-background/90 backdrop-blur-sm rounded-lg shadow-lg p-3 text-sm">
+        <div className="font-semibold text-foreground mb-1">🎮 3D Controls:</div>
+        <div className="space-y-0.5 text-foreground">
           <div>🖱️ <strong>Rotate:</strong> Click + drag / Swipe</div>
           <div>🔍 <strong>Zoom:</strong> Scroll / Pinch</div>
         </div>
       </div>
 
       {/* Stats overlay */}
-      <div className="absolute top-4 right-4 z-10 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-3">
+      <div className="absolute top-4 right-4 z-10 bg-background/90 backdrop-blur-sm rounded-lg shadow-lg p-3">
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>
-            <div className="text-xs text-slate-600">Building</div>
-            <div className="font-bold text-slate-900">{config.width}' × {config.length}'</div>
+            <div className="text-xs text-muted-foreground">Building</div>
+            <div className="font-bold text-foreground">{config.width}' × {config.length}'</div>
           </div>
           <div>
-            <div className="text-xs text-slate-600">Pitch</div>
-            <div className="font-bold text-slate-900">{config.pitch}</div>
+            <div className="text-xs text-muted-foreground">Pitch</div>
+            <div className="font-bold text-foreground">{config.pitch}</div>
           </div>
           <div>
-            <div className="text-xs text-slate-600">Style</div>
-            <div className="font-bold text-slate-900">{config.style}</div>
+            <div className="text-xs text-muted-foreground">Style</div>
+            <div className="font-bold text-foreground">{config.style}</div>
           </div>
           <div>
-            <div className="text-xs text-slate-600">Material</div>
-            <div className="font-bold text-slate-900">{config.shingleType}</div>
+            <div className="text-xs text-muted-foreground">Material</div>
+            <div className="font-bold text-foreground">{config.shingleType}</div>
           </div>
           {config.style === 'l-shaped' && config.lShapeConfig && (
             <div className="col-span-2">
-              <div className="text-xs text-slate-600">Wing</div>
-              <div className="font-bold text-slate-900">{config.lShapeConfig.wingLength}' x {config.lShapeConfig.wingWidth}' ({config.lShapeConfig.wingPosition.replace('-', ' ')})</div>
+              <div className="text-xs text-muted-foreground">Wing</div>
+              <div className="font-bold text-foreground">{config.lShapeConfig.wingLength}' x {config.lShapeConfig.wingWidth}' ({config.lShapeConfig.wingPosition.replace('-', ' ')})</div>
             </div>
           )}
           {config.style === 't-shaped' && config.tShapeConfig && (
             <div className="col-span-2">
-              <div className="text-xs text-slate-600">Wing</div>
-              <div className="font-bold text-slate-900">{config.tShapeConfig.wingLength}' x {config.tShapeConfig.wingWidth}' ({config.tShapeConfig.wingSide})</div>
+              <div className="text-xs text-muted-foreground">Wing</div>
+              <div className="font-bold text-foreground">{config.tShapeConfig.wingLength}' x {config.tShapeConfig.wingWidth}' ({config.tShapeConfig.wingSide})</div>
             </div>
           )}
           {config.style === 'u-shaped' && config.uShapeConfig && (
             <div className="col-span-2">
-              <div className="text-xs text-slate-600">Wings (x2)</div>
-              <div className="font-bold text-slate-900">{config.uShapeConfig.wingLength}' x {config.uShapeConfig.wingWidth}' ({config.uShapeConfig.wingSide})</div>
+              <div className="text-xs text-muted-foreground">Wings (x2)</div>
+              <div className="font-bold text-foreground">{config.uShapeConfig.wingLength}' x {config.uShapeConfig.wingWidth}' ({config.uShapeConfig.wingSide})</div>
             </div>
           )}
           {config.hasDormers && (config.dormers || []).length > 0 && (
             <div>
-              <div className="text-xs text-slate-600">Dormers</div>
-              <div className="font-bold text-slate-900">{(config.dormers || []).length}</div>
+              <div className="text-xs text-muted-foreground">Dormers</div>
+              <div className="font-bold text-foreground">{(config.dormers || []).length}</div>
             </div>
           )}
         </div>

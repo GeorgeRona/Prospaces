@@ -725,8 +725,8 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
       case 'director': return 'bg-indigo-100 text-indigo-700';
       case 'manager': return 'bg-green-100 text-green-700';
       case 'marketing': return 'bg-amber-100 text-amber-700';
-      case 'standard_user': return 'bg-gray-100 text-gray-700';
-      default: return 'bg-gray-100 text-gray-700';
+      case 'standard_user': return 'bg-muted text-foreground';
+      default: return 'bg-muted text-foreground';
     }
   };
 
@@ -735,7 +735,7 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
       case 'active': return 'bg-green-100 text-green-700';
       case 'invited': return 'bg-yellow-100 text-yellow-700';
       case 'inactive': return 'bg-red-100 text-red-700';
-      default: return 'bg-gray-100 text-gray-700';
+      default: return 'bg-muted text-foreground';
     }
   };
 
@@ -836,10 +836,10 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
                   <Building2 className="h-6 w-6 text-white" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Current Organization</h3>
+                  <h3 className="text-lg font-semibold text-foreground mb-2">Current Organization</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
-                      <p className="text-xs text-gray-600 mb-1">Organization Name</p>
+                      <p className="text-xs text-muted-foreground mb-1">Organization Name</p>
                       {isEditingOrgName ? (
                         <div className="flex items-center gap-2">
                           <Input
@@ -868,7 +868,7 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-8 w-8 p-0 text-gray-500 hover:text-gray-700"
+                            className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
                             onClick={() => setIsEditingOrgName(false)}
                           >
                             <X className="h-4 w-4" />
@@ -876,12 +876,12 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
                         </div>
                       ) : (
                         <div className="flex items-center gap-2">
-                          <p className="font-medium text-gray-900">{displayOrgName}</p>
+                          <p className="font-medium text-foreground">{displayOrgName}</p>
                           {(user.role === 'admin' || user.role === 'super_admin') && (
                             <Button
                               size="sm"
                               variant="ghost"
-                              className="h-6 w-6 p-0 text-gray-400 hover:text-blue-600"
+                              className="h-6 w-6 p-0 text-muted-foreground hover:text-blue-600"
                               onClick={() => {
                                 setEditOrgName(organization?.name || '');
                                 setIsEditingOrgName(true);
@@ -895,8 +895,8 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
                       )}
                     </div>
                     <div>
-                      <p className="text-xs text-gray-600 mb-1">Organization ID</p>
-                      <p className="font-mono text-sm text-gray-900 bg-white px-2 py-1 rounded border border-gray-200 inline-block">
+                      <p className="text-xs text-muted-foreground mb-1">Organization ID</p>
+                      <p className="font-mono text-sm text-foreground bg-background px-2 py-1 rounded border border-border inline-block">
                         {user.organizationId}
                       </p>
                     </div>
@@ -949,7 +949,7 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
                     Invite User
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="bg-white">
+                <DialogContent className="bg-background">
                   <DialogHeader>
                     <DialogTitle>Invite New User</DialogTitle>
                     <DialogDescription>
@@ -1007,7 +1007,7 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
                             ))}
                           </SelectContent>
                         </Select>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-muted-foreground">
                           Select which organization this user will belong to
                         </p>
                       </div>
@@ -1031,7 +1031,7 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
                           )}
                         </SelectContent>
                       </Select>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         {newUser.role === 'standard_user' && 'Can manage only their own data'}
                         {newUser.role === 'marketing' && 'Full access to marketing and campaigns, limited access to contacts'}
                         {newUser.role === 'designer' && 'Access to Project Wizards and design tools. Admins can enable additional modules.'}
@@ -1057,7 +1057,7 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
                           <SelectItem value="enterprise">Enterprise — $199/mo</SelectItem>
                         </SelectContent>
                       </Select>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-muted-foreground">
                         Assign a billing plan to this user. Each user can have a different plan level.
                       </p>
                     </div>
@@ -1074,7 +1074,7 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
                           <SelectItem value="manual">Generate Temporary Password</SelectItem>
                         </SelectContent>
                       </Select>
-                      <p className="text-[11px] text-gray-500">
+                      <p className="text-[11px] text-muted-foreground">
                         {inviteMethod === 'email' ? 'Requires SMTP setup in Supabase Auth.' : 'You will need to manually share the temporary password.'}
                       </p>
                     </div>
@@ -1111,11 +1111,11 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
                     </p>
                     <div className="space-y-1">
                       {missingUsersResult.missing.map((u: any) => (
-                        <div key={u.id} className="flex items-center justify-between bg-white rounded px-3 py-2 text-sm border border-amber-200">
+                        <div key={u.id} className="flex items-center justify-between bg-background rounded px-3 py-2 text-sm border border-amber-200">
                           <div>
                             <span className="font-medium">{u.name}</span>
-                            <span className="text-gray-500 ml-2">{u.email}</span>
-                            <span className="text-xs text-gray-400 ml-2">({u.role})</span>
+                            <span className="text-muted-foreground ml-2">{u.email}</span>
+                            <span className="text-xs text-muted-foreground ml-2">({u.role})</span>
                           </div>
                         </div>
                       ))}
@@ -1130,10 +1130,10 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
                     </p>
                     <div className="space-y-1">
                       {missingUsersResult.wrongOrg.map((u: any) => (
-                        <div key={u.id} className="flex items-center justify-between bg-white rounded px-3 py-2 text-sm border border-amber-200">
+                        <div key={u.id} className="flex items-center justify-between bg-background rounded px-3 py-2 text-sm border border-amber-200">
                           <div>
                             <span className="font-medium">{u.name}</span>
-                            <span className="text-gray-500 ml-2">{u.email}</span>
+                            <span className="text-muted-foreground ml-2">{u.email}</span>
                             <span className="text-xs text-red-500 ml-2">(org: {u.currentOrg?.slice(0,8)}...)</span>
                           </div>
                         </div>
@@ -1160,7 +1160,7 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
           <Card>
             <CardHeader>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search users by name, email, role, or status..."
                   value={searchQuery}
@@ -1183,16 +1183,16 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
                   <div className="flex items-center justify-center py-12">
                     <div className="text-center space-y-3">
                       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                      <p className="text-gray-600">Loading users...</p>
+                      <p className="text-muted-foreground">Loading users...</p>
                     </div>
                   </div>
                 ) : filteredUsers.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <div className="h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
-                      <UserPlus className="h-8 w-8 text-gray-400" />
+                    <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                      <UserPlus className="h-8 w-8 text-muted-foreground" />
                     </div>
-                    <h3 className="text-lg text-gray-900 mb-2">No users found</h3>
-                    <p className="text-gray-600 mb-4">
+                    <h3 className="text-lg text-foreground mb-2">No users found</h3>
+                    <p className="text-muted-foreground mb-4">
                       {searchQuery ? 'Try adjusting your search query' : 'Get started by inviting your first team member'}
                     </p>
                     {!searchQuery && canManageUsers && (
@@ -1205,21 +1205,21 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
                 ) : (
                   <table className="w-full">
                     <thead>
-                      <tr className="border-b border-gray-200">
-                        <th className="text-left py-3 px-4 text-sm text-gray-600">Actions</th>
-                        <th className="text-left py-3 px-4 text-sm text-gray-600">User</th>
+                      <tr className="border-b border-border">
+                        <th className="text-left py-3 px-4 text-sm text-muted-foreground">Actions</th>
+                        <th className="text-left py-3 px-4 text-sm text-muted-foreground">User</th>
                         {(user.role === 'super_admin' || user.role === 'admin') && (
-                          <th className="text-left py-3 px-4 text-sm text-gray-600">Organization</th>
+                          <th className="text-left py-3 px-4 text-sm text-muted-foreground">Organization</th>
                         )}
-                        <th className="text-left py-3 px-4 text-sm text-gray-600">Role</th>
-                        <th className="text-left py-3 px-4 text-sm text-gray-600">Plan</th>
-                        <th className="text-left py-3 px-4 text-sm text-gray-600">Status</th>
-                        <th className="text-left py-3 px-4 text-sm text-gray-600">Last Login</th>
+                        <th className="text-left py-3 px-4 text-sm text-muted-foreground">Role</th>
+                        <th className="text-left py-3 px-4 text-sm text-muted-foreground">Plan</th>
+                        <th className="text-left py-3 px-4 text-sm text-muted-foreground">Status</th>
+                        <th className="text-left py-3 px-4 text-sm text-muted-foreground">Last Login</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredUsers.map((orgUser) => (
-                        <tr key={orgUser.id} className="border-b border-gray-100 hover:bg-gray-50">
+                        <tr key={orgUser.id} className="border-b border-border hover:bg-muted">
                           {canManageUsers && (
                           <td className="py-3 px-4">
                             <DropdownMenu>
@@ -1257,18 +1257,18 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
                                 {orgUser.name.charAt(0)}
                               </div>
                               <div>
-                                <p className="text-sm text-gray-900">{orgUser.name}</p>
-                                <p className="text-xs text-gray-500">{orgUser.email}</p>
+                                <p className="text-sm text-foreground">{orgUser.name}</p>
+                                <p className="text-xs text-muted-foreground">{orgUser.email}</p>
                               </div>
                             </div>
                           </td>
                           {(user.role === 'super_admin' || user.role === 'admin') && (
                             <td className="py-3 px-4">
                               <div className="flex flex-col">
-                                <span className="text-sm text-gray-900">
+                                <span className="text-sm text-foreground">
                                   {getOrgName(orgUser.organizationId)}
                                 </span>
-                                <span className="text-xs text-gray-400 font-mono">
+                                <span className="text-xs text-muted-foreground font-mono">
                                   ID: {orgUser.organizationId}
                                 </span>
                               </div>
@@ -1292,7 +1292,7 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
                                  userPlanMap[orgUser.id]}
                               </span>
                             ) : (
-                              <span className="inline-block px-2 py-1 text-xs rounded bg-gray-100 text-gray-500">Free</span>
+                              <span className="inline-block px-2 py-1 text-xs rounded bg-muted text-muted-foreground">Free</span>
                             )}
                           </td>
                           <td className="py-3 px-4">
@@ -1301,7 +1301,7 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
                             </span>
                           </td>
                           <td className="py-3 px-4">
-                            <span className="text-sm text-gray-600">{formatDate(orgUser.lastLogin)}</span>
+                            <span className="text-sm text-muted-foreground">{formatDate(orgUser.lastLogin)}</span>
                           </td>
                         </tr>
                       ))}
@@ -1314,7 +1314,7 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
 
           {/* Edit User Dialog */}
           <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-            <DialogContent className="max-h-[90vh] overflow-hidden flex flex-col bg-white">
+            <DialogContent className="max-h-[90vh] overflow-hidden flex flex-col bg-background">
               <DialogHeader>
                 <DialogTitle>Edit User</DialogTitle>
                 <DialogDescription>
@@ -1387,7 +1387,7 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
                         </AlertDescription>
                       </Alert>
                     ) : (
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-muted-foreground">
                         Select which organization this user will belong to
                       </p>
                     )}
@@ -1412,7 +1412,7 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
                       )}
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     {editUser.role === 'standard_user' && 'Can manage only their own data'}
                     {editUser.role === 'marketing' && 'Full access to marketing and campaigns, limited access to contacts'}
                     {editUser.role === 'designer' && 'Access to Project Wizards and design tools. Admins can enable additional modules.'}
@@ -1434,7 +1434,7 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
                       <SelectItem value="inactive">Inactive</SelectItem>
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     {editUser.status === 'active' && 'User has full access to the system'}
                     {editUser.status === 'invited' && 'User has been invited but not yet accepted'}
                     {editUser.status === 'inactive' && 'User account is temporarily disabled'}
@@ -1456,7 +1456,7 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
                       <SelectItem value="enterprise">Enterprise — $199/mo</SelectItem>
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-muted-foreground">
                     Change this user's billing plan. Each user can have a different plan level.
                   </p>
                 </div>
@@ -1482,7 +1482,7 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     {managers.length === 0 
                       ? 'No active managers available. Assign a Manager role to a user first.' 
                       : 'Assign a manager who will oversee this user'}
@@ -1503,7 +1503,7 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
 
           {/* Reset Password Dialog */}
           <Dialog open={isResetPasswordDialogOpen} onOpenChange={setIsResetPasswordDialogOpen}>
-            <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-hidden flex flex-col bg-white">
+            <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-hidden flex flex-col bg-background">
               <DialogHeader>
                 <DialogTitle>🔐 Password Generated</DialogTitle>
                 <DialogDescription>
@@ -1553,7 +1553,7 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
                     </h5>
                     <div className="text-sm text-blue-900 space-y-2 ml-8">
                       <p>Send this temporary password to <strong>{resetPasswordUser?.email}</strong>:</p>
-                      <div className="bg-white border border-blue-300 rounded p-3">
+                      <div className="bg-background border border-blue-300 rounded p-3">
                         <p className="font-mono text-lg font-bold text-blue-900">{newPassword}</p>
                       </div>
                       <p className="text-xs text-blue-700 mt-2">⚠️ They will be required to change this password on first login.</p>
@@ -1578,12 +1578,12 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
                   </details>
 
                   {/* Method 3: Email (when available) */}
-                  <details className="bg-gray-100 border-2 border-gray-300 rounded-lg opacity-70">
-                    <summary className="p-4 cursor-pointer font-semibold text-gray-600 flex items-center gap-2">
+                  <details className="bg-muted border-2 border-border rounded-lg opacity-70">
+                    <summary className="p-4 cursor-pointer font-semibold text-muted-foreground flex items-center gap-2">
                       <span className="bg-gray-400 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs">3</span>
                       📧 Email Method (Not Available - Email Not Configured)
                     </summary>
-                    <div className="px-4 pb-4 text-sm text-gray-600 space-y-2 mt-2">
+                    <div className="px-4 pb-4 text-sm text-muted-foreground space-y-2 mt-2">
                       <p className="font-medium">Once email is configured in Supabase, you can:</p>
                       <ol className="list-decimal list-inside space-y-1 ml-4">
                         <li>Click "Reset Password" button</li>
@@ -1591,7 +1591,7 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
                         <li>User clicks link and enters the password you provide</li>
                         <li>Password is automatically set</li>
                       </ol>
-                      <p className="text-xs mt-2 italic bg-gray-200 p-2 rounded">
+                      <p className="text-xs mt-2 italic bg-muted p-2 rounded">
                         💡 To enable: Configure SMTP in Supabase Dashboard → Settings → Auth → Email Templates
                       </p>
                     </div>
@@ -1599,9 +1599,9 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
                 </div>
 
                 {/* User Information */}
-                <div className="bg-gray-100 border border-gray-300 rounded-lg p-3">
-                  <h5 className="font-semibold text-gray-900 mb-2 text-sm">👤 User Information</h5>
-                  <div className="text-sm text-gray-700 space-y-1">
+                <div className="bg-muted border border-border rounded-lg p-3">
+                  <h5 className="font-semibold text-foreground mb-2 text-sm">👤 User Information</h5>
+                  <div className="text-sm text-foreground space-y-1">
                     <div><strong>Name:</strong> {resetPasswordUser?.name}</div>
                     <div><strong>Email:</strong> {resetPasswordUser?.email}</div>
                     <div><strong>Role:</strong> {resetPasswordUser?.role}</div>
@@ -1636,7 +1636,7 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
 
           {/* Invite Credentials Dialog - shown after creating a new user account */}
           <Dialog open={isInviteCredentialsDialogOpen} onOpenChange={setIsInviteCredentialsDialogOpen}>
-            <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-hidden flex flex-col bg-white">
+            <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-hidden flex flex-col bg-background">
               <DialogHeader>
                 <DialogTitle>Account Created Successfully</DialogTitle>
                 <DialogDescription>

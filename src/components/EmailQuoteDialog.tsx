@@ -9,7 +9,7 @@ import { Loader2, Send } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import { createClient } from '../utils/supabase/client';
 import { emailAPI } from '../utils/api';
-import { projectId } from '../utils/supabase/info';
+import { buildServerFunctionUrl } from '../utils/server-function-url';
 
 interface EmailQuoteDialogProps {
   open: boolean;
@@ -151,7 +151,7 @@ export function EmailQuoteDialog({ open, onOpenChange, quote, orgSettings, onSuc
       const trackingLinkUrl = `${appUrl}/?view=redirect&url=${encodedTargetUrl}&id=${quoteId}&orgId=${orgId}&type=${type}${campaignIdParam}`;
       
       // 2. Tracking Pixel (Disabled for now as it requires auth headers which email clients can't send)
-      // const baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-8405be07`;
+      // const baseUrl = buildServerFunctionUrl();
       // const trackingPixelUrl = `${baseUrl}/track/open?id=${quoteId}&orgId=${orgId}&type=quote`;
       // const trackingPixel = `<img src="${trackingPixelUrl}" width="1" height="1" style="display:none; visibility:hidden;" alt="" />`;
       
@@ -175,10 +175,9 @@ export function EmailQuoteDialog({ open, onOpenChange, quote, orgSettings, onSuc
 
       // Use consolidated server send endpoint
       const { getServerHeaders } = await import('../utils/server-headers');
-      const { projectId: pid } = await import('../utils/supabase/info');
       const sendHeaders = await getServerHeaders();
       const sendRes = await fetch(
-        `https://${pid}.supabase.co/functions/v1/make-server-8405be07/email-send`,
+        buildServerFunctionUrl('/email-send'),
         {
           method: 'POST',
           headers: sendHeaders,
@@ -240,7 +239,7 @@ export function EmailQuoteDialog({ open, onOpenChange, quote, orgSettings, onSuc
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col bg-white">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col bg-background">
         <DialogHeader>
           <DialogTitle>Email Quote</DialogTitle>
           <DialogDescription>

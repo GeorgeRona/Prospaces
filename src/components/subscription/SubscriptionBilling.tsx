@@ -164,7 +164,7 @@ export function SubscriptionBilling({ user, planRefreshKey }: SubscriptionBillin
     return (
       <div className="flex items-center justify-center py-20">
         <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-        <span className="ml-3 text-slate-500">Loading subscription...</span>
+        <span className="ml-3 text-muted-foreground">Loading subscription...</span>
       </div>
     );
   }
@@ -257,16 +257,16 @@ export function SubscriptionBilling({ user, planRefreshKey }: SubscriptionBillin
             <Card>
               <CardContent className="p-6">
                 <h3 className="text-lg font-semibold mb-4">Team Subscriptions</h3>
-                <p className="text-sm text-slate-500 mb-4">
+                <p className="text-sm text-muted-foreground mb-4">
                   Each user in your organization can have their own plan level. Manage individual subscriptions below.
                 </p>
                 {orgSubscriptions.length === 0 ? (
-                  <p className="text-sm text-slate-400 py-4 text-center">No active user subscriptions yet.</p>
+                  <p className="text-sm text-muted-foreground py-4 text-center">No active user subscriptions yet.</p>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="border-b text-left text-slate-500">
+                        <tr className="border-b text-left text-muted-foreground">
                           <th className="pb-2 pr-4">User</th>
                           <th className="pb-2 pr-4">Plan</th>
                           <th className="pb-2 pr-4">Status</th>
@@ -280,7 +280,7 @@ export function SubscriptionBilling({ user, planRefreshKey }: SubscriptionBillin
                             <td className="py-3 pr-4">
                               <div>
                                 <p className="font-medium">{sub.user_name || 'Unknown'}</p>
-                                <p className="text-xs text-slate-400">{sub.user_email || sub.user_id}</p>
+                                <p className="text-xs text-muted-foreground">{sub.user_email || sub.user_id}</p>
                               </div>
                             </td>
                             <td className="py-3 pr-4">
@@ -293,7 +293,7 @@ export function SubscriptionBilling({ user, planRefreshKey }: SubscriptionBillin
                                   sub.status === 'active' ? 'bg-green-100 text-green-700' :
                                   sub.status === 'trialing' ? 'bg-blue-100 text-blue-700' :
                                   sub.status === 'canceled' ? 'bg-red-100 text-red-700' :
-                                  'bg-gray-100 text-gray-700'
+                                  'bg-muted text-foreground'
                                 }
                               >
                                 {sub.status}

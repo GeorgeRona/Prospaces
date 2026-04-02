@@ -409,21 +409,21 @@ export function Tenants({ user, organization }: TenantsProps) {
 
   const getPlanColor = (plan: string) => {
     const colors: Record<string, string> = {
-      free: 'bg-gray-100 text-gray-700 border-gray-200',
+      free: 'bg-muted text-foreground border-border',
       starter: 'bg-blue-100 text-blue-700 border-blue-200',
       professional: 'bg-purple-100 text-purple-700 border-purple-200',
       enterprise: 'bg-amber-100 text-amber-700 border-amber-200',
     };
-    return colors[plan] || 'bg-gray-100 text-gray-700 border-gray-200';
+    return colors[plan] || 'bg-muted text-foreground border-border';
   };
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
       active: 'bg-green-100 text-green-700 border-green-200',
-      inactive: 'bg-gray-100 text-gray-700 border-gray-200',
+      inactive: 'bg-muted text-foreground border-border',
       suspended: 'bg-red-100 text-red-700 border-red-200',
     };
-    return colors[status] || 'bg-gray-100 text-gray-700 border-gray-200';
+    return colors[status] || 'bg-muted text-foreground border-border';
   };
 
   const filteredTenants = tenants.filter(tenant => {
@@ -502,11 +502,11 @@ export function Tenants({ user, organization }: TenantsProps) {
 
         <div className="flex items-center gap-3">
           {viewingBilling.logo && (
-            <img src={viewingBilling.logo} alt="" className="h-10 w-10 rounded-lg object-contain border border-gray-200 bg-white p-1" />
+            <img src={viewingBilling.logo} alt="" className="h-10 w-10 rounded-lg object-contain border border-border bg-background p-1" />
           )}
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">{viewingBilling.name}</h2>
-            <p className="text-sm text-gray-500">Billing Breakdown</p>
+            <h2 className="text-xl font-semibold text-foreground">{viewingBilling.name}</h2>
+            <p className="text-sm text-muted-foreground">Billing Breakdown</p>
           </div>
           <Badge className={getPlanColor(viewingBilling.plan)}>{getPlanDisplayName(viewingBilling.plan)}</Badge>
           <Badge className={getStatusColor(viewingBilling.status)}>{viewingBilling.status}</Badge>
@@ -517,40 +517,40 @@ export function Tenants({ user, organization }: TenantsProps) {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-2 mb-1">
-                <UsersIcon className="h-4 w-4 text-gray-400" />
-                <p className="text-xs text-gray-500">Active Plans</p>
+                <UsersIcon className="h-4 w-4 text-muted-foreground" />
+                <p className="text-xs text-muted-foreground">Active Plans</p>
               </div>
-              <p className="text-2xl font-bold text-gray-900">{paidSubs.length}</p>
-              <p className="text-xs text-gray-500 mt-1">of {billingData.length} total ({freeSubs.length} free)</p>
+              <p className="text-2xl font-bold text-foreground">{paidSubs.length}</p>
+              <p className="text-xs text-muted-foreground mt-1">of {billingData.length} total ({freeSubs.length} free)</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-2 mb-1">
                 <DollarSign className="h-4 w-4 text-green-500" />
-                <p className="text-xs text-gray-500">Monthly Revenue</p>
+                <p className="text-xs text-muted-foreground">Monthly Revenue</p>
               </div>
-              <p className="text-2xl font-bold text-gray-900">${totalMonthly.toFixed(2)}</p>
-              <p className="text-xs text-gray-500 mt-1">effective monthly</p>
+              <p className="text-2xl font-bold text-foreground">${totalMonthly.toFixed(2)}</p>
+              <p className="text-xs text-muted-foreground mt-1">effective monthly</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-2 mb-1">
                 <DollarSign className="h-4 w-4 text-blue-500" />
-                <p className="text-xs text-gray-500">Annual Revenue</p>
+                <p className="text-xs text-muted-foreground">Annual Revenue</p>
               </div>
-              <p className="text-2xl font-bold text-gray-900">${totalAnnual.toFixed(2)}</p>
-              <p className="text-xs text-gray-500 mt-1">projected yearly</p>
+              <p className="text-2xl font-bold text-foreground">${totalAnnual.toFixed(2)}</p>
+              <p className="text-xs text-muted-foreground mt-1">projected yearly</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-2 mb-1">
                 <CreditCard className="h-4 w-4 text-purple-500" />
-                <p className="text-xs text-gray-500">Org Plan</p>
+                <p className="text-xs text-muted-foreground">Org Plan</p>
               </div>
-              <p className="text-2xl font-bold text-gray-900">{getPlanDisplayName(viewingBilling.plan)}</p>
+              <p className="text-2xl font-bold text-foreground">{getPlanDisplayName(viewingBilling.plan)}</p>
               {viewingBilling.customPlanPrice && (
                 <p className="text-xs text-amber-600 mt-1">Custom: ${viewingBilling.customPlanPrice}/mo</p>
               )}
@@ -561,43 +561,43 @@ export function Tenants({ user, organization }: TenantsProps) {
         {/* Subscriptions Table */}
         <Card>
           <CardContent className="pt-6">
-            <h3 className="text-sm font-medium text-gray-900 mb-4">Billing Plans by User</h3>
+            <h3 className="text-sm font-medium text-foreground mb-4">Billing Plans by User</h3>
             {isBillingLoading ? (
               <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
-                <span className="ml-2 text-sm text-gray-500">Loading billing data...</span>
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                <span className="ml-2 text-sm text-muted-foreground">Loading billing data...</span>
               </div>
             ) : billingData.length === 0 ? (
               <div className="text-center py-12">
                 <CreditCard className="h-8 w-8 text-gray-300 mx-auto mb-3" />
-                <p className="text-sm text-gray-500">No individual billing plans found for this organization.</p>
-                <p className="text-xs text-gray-400 mt-1">Users in this organization have not been assigned individual plans yet.</p>
+                <p className="text-sm text-muted-foreground">No individual billing plans found for this organization.</p>
+                <p className="text-xs text-muted-foreground mt-1">Users in this organization have not been assigned individual plans yet.</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">User</th>
-                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">Role</th>
-                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">Plan</th>
-                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">Status</th>
-                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">Billing</th>
-                      <th className="text-right py-3 px-4 text-xs font-medium text-gray-500 uppercase">Amount</th>
-                      <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase">Period End</th>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-3 px-4 text-xs font-medium text-muted-foreground uppercase">User</th>
+                      <th className="text-left py-3 px-4 text-xs font-medium text-muted-foreground uppercase">Role</th>
+                      <th className="text-left py-3 px-4 text-xs font-medium text-muted-foreground uppercase">Plan</th>
+                      <th className="text-left py-3 px-4 text-xs font-medium text-muted-foreground uppercase">Status</th>
+                      <th className="text-left py-3 px-4 text-xs font-medium text-muted-foreground uppercase">Billing</th>
+                      <th className="text-right py-3 px-4 text-xs font-medium text-muted-foreground uppercase">Amount</th>
+                      <th className="text-left py-3 px-4 text-xs font-medium text-muted-foreground uppercase">Period End</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody className="divide-y divide-border">
                     {paginatedData.map((sub) => (
-                      <tr key={sub.id} className="hover:bg-gray-50">
+                      <tr key={sub.id} className="hover:bg-muted">
                         <td className="py-3 px-4">
                           <div>
-                            <p className="font-medium text-gray-900">{sub.user_name || 'Unknown'}</p>
-                            <p className="text-xs text-gray-500">{sub.user_email || '—'}</p>
+                            <p className="font-medium text-foreground">{sub.user_name || 'Unknown'}</p>
+                            <p className="text-xs text-muted-foreground">{sub.user_email || '—'}</p>
                           </div>
                         </td>
                         <td className="py-3 px-4">
-                          <span className="text-xs capitalize text-gray-600">{sub.user_role?.replace('_', ' ') || '—'}</span>
+                          <span className="text-xs capitalize text-muted-foreground">{sub.user_role?.replace('_', ' ') || '—'}</span>
                         </td>
                         <td className="py-3 px-4">
                           <Badge className={getPlanColor(sub.plan_id)}>{getPlanDisplayName(sub.plan_id)}</Badge>
@@ -607,27 +607,27 @@ export function Tenants({ user, organization }: TenantsProps) {
                             sub.status === 'active' ? 'bg-green-100 text-green-700 border-green-200' :
                             sub.status === 'trialing' ? 'bg-blue-100 text-blue-700 border-blue-200' :
                             sub.status === 'past_due' ? 'bg-amber-100 text-amber-700 border-amber-200' :
-                            sub.status === 'free' ? 'bg-gray-100 text-gray-500 border-gray-200' :
-                            'bg-gray-100 text-gray-700 border-gray-200'
+                            sub.status === 'free' ? 'bg-muted text-muted-foreground border-border' :
+                            'bg-muted text-foreground border-border'
                           }>
                             {sub.status}
                           </Badge>
                         </td>
                         <td className="py-3 px-4">
-                          <span className="text-xs text-gray-600 capitalize">{sub.billing_interval}ly</span>
+                          <span className="text-xs text-muted-foreground capitalize">{sub.billing_interval}ly</span>
                         </td>
                         <td className="py-3 px-4 text-right">
                           {sub.amount > 0 ? (
                             <>
-                              <span className="font-medium text-gray-900">${sub.amount.toFixed(2)}</span>
-                              <span className="text-xs text-gray-500">/{sub.billing_interval === 'year' ? 'yr' : 'mo'}</span>
+                              <span className="font-medium text-foreground">${sub.amount.toFixed(2)}</span>
+                              <span className="text-xs text-muted-foreground">/{sub.billing_interval === 'year' ? 'yr' : 'mo'}</span>
                             </>
                           ) : (
-                            <span className="text-xs text-gray-400">$0.00</span>
+                            <span className="text-xs text-muted-foreground">$0.00</span>
                           )}
                         </td>
                         <td className="py-3 px-4">
-                          <span className="text-xs text-gray-600">
+                          <span className="text-xs text-muted-foreground">
                             {sub.current_period_end ? new Date(sub.current_period_end).toLocaleDateString() : '—'}
                           </span>
                         </td>
@@ -636,13 +636,13 @@ export function Tenants({ user, organization }: TenantsProps) {
                   </tbody>
                   {billingData.length > 0 && (
                     <tfoot>
-                      <tr className="border-t-2 border-gray-200 bg-gray-50">
-                        <td colSpan={5} className="py-3 px-4 text-sm font-medium text-gray-700">
+                      <tr className="border-t-2 border-border bg-muted">
+                        <td colSpan={5} className="py-3 px-4 text-sm font-medium text-foreground">
                           Total ({paidSubs.length} paid, {freeSubs.length} free)
                         </td>
                         <td className="py-3 px-4 text-right">
-                          <span className="font-bold text-gray-900">${totalMonthly.toFixed(2)}</span>
-                          <span className="text-xs text-gray-500">/mo</span>
+                          <span className="font-bold text-foreground">${totalMonthly.toFixed(2)}</span>
+                          <span className="text-xs text-muted-foreground">/mo</span>
                         </td>
                         <td className="py-3 px-4"></td>
                       </tr>
@@ -650,8 +650,8 @@ export function Tenants({ user, organization }: TenantsProps) {
                   )}
                 </table>
                 {totalPages > 1 && (
-                  <div className="flex items-center justify-between border-t border-gray-200 px-4 py-3 mt-2">
-                    <p className="text-xs text-gray-500">
+                  <div className="flex items-center justify-between border-t border-border px-4 py-3 mt-2">
+                    <p className="text-xs text-muted-foreground">
                       Showing {(billingPage - 1) * billingPerPage + 1}–{Math.min(billingPage * billingPerPage, billingData.length)} of {billingData.length}
                     </p>
                     <div className="flex items-center gap-1">
@@ -729,8 +729,8 @@ export function Tenants({ user, organization }: TenantsProps) {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Organizations</p>
-                <p className="text-2xl text-gray-900 mt-1">{stats.total}</p>
+                <p className="text-sm text-muted-foreground">Total Organizations</p>
+                <p className="text-2xl text-foreground mt-1">{stats.total}</p>
               </div>
               <Building2 className="h-8 w-8 text-purple-600" />
             </div>
@@ -740,8 +740,8 @@ export function Tenants({ user, organization }: TenantsProps) {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Active Organizations</p>
-                <p className="text-2xl text-gray-900 mt-1">{stats.active}</p>
+                <p className="text-sm text-muted-foreground">Active Organizations</p>
+                <p className="text-2xl text-foreground mt-1">{stats.active}</p>
               </div>
               <CheckCircle2 className="h-8 w-8 text-green-600" />
             </div>
@@ -751,8 +751,8 @@ export function Tenants({ user, organization }: TenantsProps) {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Users</p>
-                <p className="text-2xl text-gray-900 mt-1">{stats.totalUsers}</p>
+                <p className="text-sm text-muted-foreground">Total Users</p>
+                <p className="text-2xl text-foreground mt-1">{stats.totalUsers}</p>
               </div>
               <UsersIcon className="h-8 w-8 text-blue-600" />
             </div>
@@ -762,8 +762,8 @@ export function Tenants({ user, organization }: TenantsProps) {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Contacts</p>
-                <p className="text-2xl text-gray-900 mt-1">{stats.totalContacts.toLocaleString()}</p>
+                <p className="text-sm text-muted-foreground">Total Contacts</p>
+                <p className="text-2xl text-foreground mt-1">{stats.totalContacts.toLocaleString()}</p>
               </div>
               <FileText className="h-8 w-8 text-orange-600" />
             </div>
@@ -779,7 +779,7 @@ export function Tenants({ user, organization }: TenantsProps) {
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search organizations..."
                   value={searchQuery}
@@ -807,7 +807,7 @@ export function Tenants({ user, organization }: TenantsProps) {
       <div className="grid grid-cols-1 gap-4">
         {isLoading ? (
           <Card>
-            <CardContent className="py-12 text-center text-gray-500">
+            <CardContent className="py-12 text-center text-muted-foreground">
               Loading organizations...
             </CardContent>
           </Card>
@@ -815,7 +815,7 @@ export function Tenants({ user, organization }: TenantsProps) {
           <Card>
             <CardContent className="py-12 text-center">
               <Building2 className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-              <p className="text-gray-500">No organizations found</p>
+              <p className="text-muted-foreground">No organizations found</p>
               {canAdd('tenants', user.role) && (
                 <Button className="mt-4" onClick={() => handleOpenDialog()}>
                   <Plus className="h-4 w-4 mr-2" />
@@ -834,7 +834,7 @@ export function Tenants({ user, organization }: TenantsProps) {
                     <div className="flex items-start justify-between">
                       <div className="flex items-start gap-3">
                         {tenant.logo ? (
-                          <div className="h-12 w-12 rounded-lg border border-gray-200 bg-white flex items-center justify-center overflow-hidden">
+                          <div className="h-12 w-12 rounded-lg border border-border bg-background flex items-center justify-center overflow-hidden">
                             <img 
                               src={tenant.logo} 
                               alt={`${tenant.name} logo`} 
@@ -848,7 +848,7 @@ export function Tenants({ user, organization }: TenantsProps) {
                         )}
                         <div>
                           <div className="flex items-center gap-2">
-                            <h3 className="text-lg text-gray-900">{tenant.name}</h3>
+                            <h3 className="text-lg text-foreground">{tenant.name}</h3>
                             <Badge variant="outline" className={getStatusColor(tenant.status)}>
                               {tenant.status}
                             </Badge>
@@ -862,16 +862,16 @@ export function Tenants({ user, organization }: TenantsProps) {
                             )}
                           </div>
                           {tenant.domain && (
-                            <p className="text-sm text-gray-600 mt-1">{tenant.domain}</p>
+                            <p className="text-sm text-muted-foreground mt-1">{tenant.domain}</p>
                           )}
                           {tenant.billingEmail && (
-                            <p className="text-sm text-gray-600">{tenant.billingEmail}</p>
+                            <p className="text-sm text-muted-foreground">{tenant.billingEmail}</p>
                           )}
                         </div>
                       </div>
                       <DropdownMenu>
                         <DropdownMenuTrigger
-                          className="inline-flex items-center justify-center rounded-md text-sm ring-offset-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-gray-100 hover:text-gray-900 h-9 w-9"
+                          className="inline-flex items-center justify-center rounded-md text-sm ring-offset-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-muted hover:text-foreground h-9 w-9"
                           disabled={isDeleting === tenant.id}
                         >
                           {isDeleting === tenant.id ? (
@@ -913,26 +913,26 @@ export function Tenants({ user, organization }: TenantsProps) {
 
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4">
                       <div>
-                        <p className="text-xs text-gray-500">Users</p>
-                        <p className="text-sm text-gray-900 mt-1">
+                        <p className="text-xs text-muted-foreground">Users</p>
+                        <p className="text-sm text-foreground mt-1">
                           {tenant.userCount}
                         </p>
                       </div>
                       <div>
-                        <p className="text-xs text-gray-500">Contacts</p>
-                        <p className="text-sm text-gray-900 mt-1">
+                        <p className="text-xs text-muted-foreground">Contacts</p>
+                        <p className="text-sm text-foreground mt-1">
                           {(tenant.contactsCount || 0).toLocaleString()}
                         </p>
                       </div>
                       <div>
-                        <p className="text-xs text-gray-500">Created</p>
-                        <p className="text-sm text-gray-900 mt-1">
+                        <p className="text-xs text-muted-foreground">Created</p>
+                        <p className="text-sm text-foreground mt-1">
                           {new Date(tenant.createdAt).toLocaleDateString()}
                         </p>
                       </div>
                       <div>
-                        <p className="text-xs text-gray-500">Updated</p>
-                        <p className="text-sm text-gray-900 mt-1">
+                        <p className="text-xs text-muted-foreground">Updated</p>
+                        <p className="text-sm text-foreground mt-1">
                           {new Date(tenant.updatedAt).toLocaleDateString()}
                         </p>
                       </div>
@@ -940,7 +940,7 @@ export function Tenants({ user, organization }: TenantsProps) {
 
                     {tenant.features && tenant.features.length > 0 && (
                       <div className="mt-4">
-                        <p className="text-xs text-gray-500 mb-2">Plan Features:</p>
+                        <p className="text-xs text-muted-foreground mb-2">Plan Features:</p>
                         <div className="flex flex-wrap gap-2">
                           {tenant.features.map((feature, index) => (
                             <Badge key={index} variant="secondary" className="text-xs">
@@ -960,7 +960,7 @@ export function Tenants({ user, organization }: TenantsProps) {
 
       {/* Create/Edit Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-background">
           <DialogHeader>
             <DialogTitle>{editingTenant ? 'Edit Organization' : 'Create New Organization'}</DialogTitle>
             <DialogDescription>
@@ -971,7 +971,7 @@ export function Tenants({ user, organization }: TenantsProps) {
           <div className="space-y-6">
             {/* Basic Information */}
             <div className="space-y-4">
-              <h3 className="text-sm text-gray-900">Basic Information</h3>
+              <h3 className="text-sm text-foreground">Basic Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <Label>Organization Name *</Label>
@@ -1019,7 +1019,7 @@ export function Tenants({ user, organization }: TenantsProps) {
 
             {/* Logo Upload */}
             <div className="space-y-4">
-              <h3 className="text-sm text-gray-900">Organization Logo</h3>
+              <h3 className="text-sm text-foreground">Organization Logo</h3>
               <div>
                 <Label>Upload Logo</Label>
                 <div className="mt-2">
@@ -1028,10 +1028,10 @@ export function Tenants({ user, organization }: TenantsProps) {
                       <img 
                         src={formData.logo} 
                         alt="Organization logo" 
-                        className="h-20 w-20 object-contain rounded-lg border border-gray-200 bg-white p-2"
+                        className="h-20 w-20 object-contain rounded-lg border border-border bg-background p-2"
                       />
                       <div className="flex-1">
-                        <p className="text-sm text-gray-600 mb-2">Logo uploaded successfully</p>
+                        <p className="text-sm text-muted-foreground mb-2">Logo uploaded successfully</p>
                         <Button 
                           variant="outline" 
                           size="sm"
@@ -1044,7 +1044,7 @@ export function Tenants({ user, organization }: TenantsProps) {
                       </div>
                     </div>
                   ) : (
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
+                    <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
                       <input
                         type="file"
                         id="logo-upload"
@@ -1054,18 +1054,18 @@ export function Tenants({ user, organization }: TenantsProps) {
                       />
                       <label htmlFor="logo-upload" className="cursor-pointer">
                         <div className="flex flex-col items-center">
-                          <ImageIcon className="h-12 w-12 text-gray-400 mb-3" />
-                          <p className="text-sm text-gray-600 mb-1">
+                          <ImageIcon className="h-12 w-12 text-muted-foreground mb-3" />
+                          <p className="text-sm text-muted-foreground mb-1">
                             Click to upload or drag and drop
                           </p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-muted-foreground">
                             PNG, JPG, GIF up to 2MB
                           </p>
                         </div>
                       </label>
                     </div>
                   )}
-                  <p className="text-xs text-gray-500 mt-2">
+                  <p className="text-xs text-muted-foreground mt-2">
                     This logo will be displayed on the organization pages
                   </p>
                 </div>
@@ -1074,7 +1074,7 @@ export function Tenants({ user, organization }: TenantsProps) {
 
             {/* Subscription */}
             <div className="space-y-4">
-              <h3 className="text-sm text-gray-900">Subscription & Features</h3>
+              <h3 className="text-sm text-foreground">Subscription & Features</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <Label>Status</Label>
@@ -1099,25 +1099,25 @@ export function Tenants({ user, organization }: TenantsProps) {
                       <SelectItem value="free">
                         <div className="flex flex-col">
                           <span>Free</span>
-                          <span className="text-xs text-gray-500">Basic features, email support</span>
+                          <span className="text-xs text-muted-foreground">Basic features, email support</span>
                         </div>
                       </SelectItem>
                       <SelectItem value="starter">
                         <div className="flex flex-col">
                           <span>Standard User — $29/mo</span>
-                          <span className="text-xs text-gray-500">Core CRM, email integration, basic reports</span>
+                          <span className="text-xs text-muted-foreground">Core CRM, email integration, basic reports</span>
                         </div>
                       </SelectItem>
                       <SelectItem value="professional">
                         <div className="flex flex-col">
                           <span>Professional — $79/mo</span>
-                          <span className="text-xs text-gray-500">Marketing, inventory, 3D planners, advanced reports</span>
+                          <span className="text-xs text-muted-foreground">Marketing, inventory, 3D planners, advanced reports</span>
                         </div>
                       </SelectItem>
                       <SelectItem value="enterprise">
                         <div className="flex flex-col">
                           <span>Enterprise — $199/mo</span>
-                          <span className="text-xs text-gray-500">SSO, API access, custom integrations, 24/7 support</span>
+                          <span className="text-xs text-muted-foreground">SSO, API access, custom integrations, 24/7 support</span>
                         </div>
                       </SelectItem>
                     </SelectContent>
@@ -1126,7 +1126,7 @@ export function Tenants({ user, organization }: TenantsProps) {
                 <div>
                   <Label>Custom Plan Price</Label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
                     <Input
                       type="number"
                       min="0"
@@ -1137,7 +1137,7 @@ export function Tenants({ user, organization }: TenantsProps) {
                       className="pl-7"
                     />
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     Override the default plan price for this customer (per month)
                   </p>
                 </div>
@@ -1146,7 +1146,7 @@ export function Tenants({ user, organization }: TenantsProps) {
 
             {/* Dynamic Modules Access */}
             <div className="space-y-4">
-              <h3 className="text-sm text-gray-900">Modules Access</h3>
+              <h3 className="text-sm text-foreground">Modules Access</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {availableModules.map(key => {
                   const moduleDef = AVAILABLE_MODULES.find(m => m.id === key);
@@ -1168,8 +1168,8 @@ export function Tenants({ user, organization }: TenantsProps) {
 
             {/* User Mode */}
             <div className="space-y-4">
-              <h3 className="text-sm text-gray-900">User Mode</h3>
-              <div className="flex items-center justify-between p-4 rounded-lg border bg-gray-50/50">
+              <h3 className="text-sm text-foreground">User Mode</h3>
+              <div className="flex items-center justify-between p-4 rounded-lg border bg-muted/50">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <Label className="text-sm font-medium">
@@ -1178,12 +1178,12 @@ export function Tenants({ user, organization }: TenantsProps) {
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                       formData.user_mode === 'multi'
                         ? 'bg-blue-100 text-blue-800'
-                        : 'bg-gray-100 text-gray-800'
+                        : 'bg-muted text-foreground'
                     }`}>
                       {formData.user_mode === 'multi' ? 'Team' : 'Solo'}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-muted-foreground">
                     {formData.user_mode === 'single'
                       ? 'Solo workspace — team management features are hidden'
                       : 'Team workspace — roles, permissions, and user management enabled'}
@@ -1197,8 +1197,8 @@ export function Tenants({ user, organization }: TenantsProps) {
             </div>
 
             {/* Plan Features Preview */}
-            <div className="bg-gray-50 rounded-lg p-4">
-              <p className="text-sm text-gray-700 mb-2">Plan Features:</p>
+            <div className="bg-muted rounded-lg p-4">
+              <p className="text-sm text-foreground mb-2">Plan Features:</p>
               <div className="flex flex-wrap gap-2">
                 {getPlanFeatures(formData.plan).map((feature, index) => (
                   <Badge key={index} variant="secondary" className="text-xs">

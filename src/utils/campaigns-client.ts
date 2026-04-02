@@ -2,6 +2,7 @@ import { createClient } from './supabase/client';
 import { ensureUserProfile } from './ensure-profile';
 import { projectId } from './supabase/info';
 import { getServerHeaders } from './server-headers';
+import { buildServerFunctionUrl } from './server-function-url';
 
 const PG_COLUMNS = [
   'id', 'name', 'description', 'type', 'status', 'start_date', 'end_date', 
@@ -10,13 +11,50 @@ const PG_COLUMNS = [
 
 function unpackCampaign(c: any) {
   if (!c) return c;
-  let meta = {};
-  if (c.description && c.description.startsWith('{')) {
-    try {
-      meta = JSON.parse(c.description);
-    } catch(e) {}
+  let meta: Record<string, any> = {};
+  if (typeof c.description === 'string') {
+    const description = c.description.trim();
+    if (description.startsWith('{')) {
+      try {
+        meta = JSON.parse(description);
+      } catch(e) {}
+    }
+  } else if (c.description && typeof c.description === 'object') {
+    meta = c.description;
   }
-  return { ...meta, ...c }; // Postgres columns take precedence, but meta provides the rest
+
+  // Prefer concrete Postgres values, but keep non-zero metadata metrics when
+  // top-level fields are null/undefined or stale zeros.
+  const merged: Record<string, any> = { ...meta, ...c };
+
+  const toNumberIfNumeric = (value: any): number | null => {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) return null;
+      const n = Number(trimmed);
+      if (Number.isFinite(n)) return n;
+    }
+    return null;
+  };
+
+  for (const [key, metaValue] of Object.entries(meta)) {
+    const pgValue = c[key];
+
+    if (pgValue === null || pgValue === undefined) {
+      merged[key] = metaValue;
+      continue;
+    }
+
+    const pgNumeric = toNumberIfNumeric(pgValue);
+    const metaNumeric = toNumberIfNumeric(metaValue);
+
+    if (pgNumeric !== null && metaNumeric !== null && pgNumeric === 0 && metaNumeric !== 0) {
+      merged[key] = metaValue;
+    }
+  }
+
+  return merged;
 }
 
 function packCampaignData(newData: any, existingData: any = {}) {
@@ -205,7 +243,7 @@ export async function sendCampaignClient(id: string) {
     const profile = await ensureUserProfile(session.user.id);
     
     const headers = await getServerHeaders();
-    const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-8405be07/campaigns/${id}/send`, {
+    const response = await fetch(buildServerFunctionUrl(`/campaigns/${id}/send`), {
       method: 'POST',
       headers,
     });

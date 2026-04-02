@@ -329,7 +329,7 @@ export function ProjectQuoteGenerator({
               </SelectContent>
             </Select>
             {contacts.length === 0 && !isLoading && (
-              <p className="text-xs text-slate-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 No contacts found. Create a contact first.
               </p>
             )}
@@ -338,7 +338,7 @@ export function ProjectQuoteGenerator({
           {/* Customer Price Level Override */}
           {selectedContact && (
             <div>
-              <Label htmlFor="priceLevel" className="text-sm mb-1.5 block text-slate-600">
+              <Label htmlFor="priceLevel" className="text-sm mb-1.5 block text-muted-foreground">
                 Customer Pricing Tier (Override for Quote)
               </Label>
               <Select value={customerPriceLevel} onValueChange={setCustomerPriceLevel}>
@@ -372,14 +372,14 @@ export function ProjectQuoteGenerator({
         {/* Materials Summary */}
         <div>
           <Label className="text-sm mb-1.5 block">Materials ({materials.length} items)</Label>
-          <div className="h-9 flex items-center text-xs text-slate-600 bg-slate-50 rounded-md px-3 border">
+          <div className="h-9 flex items-center text-xs text-muted-foreground bg-muted rounded-md px-3 border">
             {materials.length > 0 ? (
               <span className="truncate">
                 {materials.slice(0, 2).map(m => m.description || m.name || m.item || 'Material').join(', ')}
                 {materials.length > 2 && ` +${materials.length - 2} more`}
               </span>
             ) : (
-              <span className="text-slate-400">No materials</span>
+              <span className="text-muted-foreground">No materials</span>
             )}
           </div>
         </div>
@@ -388,23 +388,23 @@ export function ProjectQuoteGenerator({
         {selectedContact && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-1.5">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-700">Subtotal:</span>
-              <span className="text-slate-900">${totalCost.toFixed(2)}</span>
+              <span className="text-foreground">Subtotal:</span>
+              <span className="text-foreground">${totalCost.toFixed(2)}</span>
             </div>
             {taxRate > 0 && (
               <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-600">Tax ({taxRate}%):</span>
-                <span className="text-slate-700">${taxAmount.toFixed(2)}</span>
+                <span className="text-muted-foreground">Tax ({taxRate}%):</span>
+                <span className="text-foreground">${taxAmount.toFixed(2)}</span>
               </div>
             )}
             {taxRate2 > 0 && (
               <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-600">Tax 2 ({taxRate2}%):</span>
-                <span className="text-slate-700">${taxAmount2.toFixed(2)}</span>
+                <span className="text-muted-foreground">Tax 2 ({taxRate2}%):</span>
+                <span className="text-foreground">${taxAmount2.toFixed(2)}</span>
               </div>
             )}
             <div className="flex items-center justify-between border-t border-blue-300 pt-2">
-              <span className="text-slate-900 font-medium">Total (incl. tax):</span>
+              <span className="text-foreground font-medium">Total (incl. tax):</span>
               <span className="text-blue-900 font-semibold">${quoteTotalWithTax.toFixed(2)}</span>
             </div>
             {totalCost === 0 && (
@@ -435,7 +435,7 @@ export function ProjectQuoteGenerator({
             id="createAsDeal" 
             checked={createAsDeal} 
             onChange={(e) => setCreateAsDeal(e.target.checked)} 
-            className="w-4 h-4 rounded border-gray-300"
+            className="w-4 h-4 rounded border-border"
           />
           <Label htmlFor="createAsDeal" className="text-sm font-normal cursor-pointer">
             Track as active Deal in Pipeline

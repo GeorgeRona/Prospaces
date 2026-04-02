@@ -638,32 +638,32 @@ export function Garage3DRenderer({ config }: Garage3DRendererProps) {
   return (
     <div className="w-full h-full bg-gradient-to-br from-blue-100 to-indigo-200 rounded-lg overflow-hidden relative">
       {/* Instructions overlay */}
-      <div className="absolute top-4 left-4 z-10 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-3 text-sm">
-        <div className="font-semibold text-slate-900 mb-1">🎮 3D Controls:</div>
-        <div className="space-y-0.5 text-slate-700">
+      <div className="absolute top-4 left-4 z-10 bg-background/90 backdrop-blur-sm rounded-lg shadow-lg p-3 text-sm">
+        <div className="font-semibold text-foreground mb-1">🎮 3D Controls:</div>
+        <div className="space-y-0.5 text-foreground">
           <div>🖱️ <strong>Rotate:</strong> Click + drag / Swipe</div>
           <div>🔍 <strong>Zoom:</strong> Scroll / Pinch</div>
         </div>
       </div>
 
       {/* Stats overlay */}
-      <div className="absolute top-4 right-4 z-10 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-3">
+      <div className="absolute top-4 right-4 z-10 bg-background/90 backdrop-blur-sm rounded-lg shadow-lg p-3">
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>
-            <div className="text-xs text-slate-600">Size</div>
-            <div className="font-bold text-slate-900">{config.width}' × {config.length}'</div>
+            <div className="text-xs text-muted-foreground">Size</div>
+            <div className="font-bold text-foreground">{config.width}' × {config.length}'</div>
           </div>
           <div>
-            <div className="text-xs text-slate-600">Bays</div>
-            <div className="font-bold text-slate-900">{config.bays}</div>
+            <div className="text-xs text-muted-foreground">Bays</div>
+            <div className="font-bold text-foreground">{config.bays}</div>
           </div>
           <div>
-            <div className="text-xs text-slate-600">Roof</div>
-            <div className="font-bold text-slate-900">{config.roofStyle}</div>
+            <div className="text-xs text-muted-foreground">Roof</div>
+            <div className="font-bold text-foreground">{config.roofStyle}</div>
           </div>
           <div>
-            <div className="text-xs text-slate-600">Doors</div>
-            <div className="font-bold text-slate-900">{config.doors.length}</div>
+            <div className="text-xs text-muted-foreground">Doors</div>
+            <div className="font-bold text-foreground">{config.doors.length}</div>
           </div>
         </div>
       </div>

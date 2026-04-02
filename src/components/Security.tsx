@@ -479,7 +479,7 @@ export function Security({ user }: SecurityProps) {
               <div className="flex flex-col sm:flex-row gap-4">
                 <div className="flex-1">
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       placeholder="Search modules..."
                       value={searchQuery}
@@ -512,34 +512,34 @@ export function Security({ user }: SecurityProps) {
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg flex items-center gap-2">
                     <span className="text-2xl">{module.icon}</span>
-                    <span className="text-gray-900">{module.name}</span>
+                    <span className="text-foreground">{module.name}</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-3">
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead>
-                        <tr className="border-b border-gray-200">
-                          <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 w-40">Role</th>
-                          <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 w-24">
+                        <tr className="border-b border-border">
+                          <th className="text-left py-3 px-4 text-sm font-semibold text-foreground w-40">Role</th>
+                          <th className="text-center py-3 px-4 text-sm font-semibold text-foreground w-24">
                             <div className="flex flex-col items-center gap-1">
                               <Lock className="h-4 w-4" />
                               <span>Visible</span>
                             </div>
                           </th>
-                          <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 w-24">
+                          <th className="text-center py-3 px-4 text-sm font-semibold text-foreground w-24">
                             <div className="flex flex-col items-center gap-1">
                               <span>➕</span>
                               <span>Add</span>
                             </div>
                           </th>
-                          <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 w-24">
+                          <th className="text-center py-3 px-4 text-sm font-semibold text-foreground w-24">
                             <div className="flex flex-col items-center gap-1">
                               <span>✏️</span>
                               <span>Change</span>
                             </div>
                           </th>
-                          <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 w-24">
+                          <th className="text-center py-3 px-4 text-sm font-semibold text-foreground w-24">
                             <div className="flex flex-col items-center gap-1">
                               <span>🗑️</span>
                               <span>Delete</span>
@@ -549,7 +549,7 @@ export function Security({ user }: SecurityProps) {
                       </thead>
                       <tbody>
                         {roles.map(role => (
-                          <tr key={role} className="border-b border-gray-100 hover:bg-gray-50">
+                          <tr key={role} className="border-b border-border hover:bg-muted">
                             <td className="py-3 px-4">
                               <div className="flex items-center gap-2">
                                 <Badge variant="outline" className={
@@ -558,12 +558,12 @@ export function Security({ user }: SecurityProps) {
                                   role === 'director' ? 'bg-orange-50 text-orange-700 border-orange-200' :
                                   role === 'manager' ? 'bg-purple-50 text-purple-700 border-purple-200' :
                                   role === 'marketing' ? 'bg-green-50 text-green-700 border-green-200' :
-                                  'bg-gray-50 text-gray-700 border-gray-200'
+                                  'bg-muted text-foreground border-border'
                                 }>
                                   {roleLabels[role]}
                                 </Badge>
                                 {role === 'super_admin' && (
-                                  <Badge variant="outline" className="text-xs bg-gray-100 text-gray-600">
+                                  <Badge variant="outline" className="text-xs bg-muted text-muted-foreground">
                                     Protected
                                   </Badge>
                                 )}
@@ -624,17 +624,17 @@ export function Security({ user }: SecurityProps) {
           <Card>
             <CardHeader>
               <CardTitle>Bulk Permission Updates</CardTitle>
-              <p className="text-sm text-gray-600 mt-1">
+              <p className="text-sm text-muted-foreground mt-1">
                 Quickly apply permissions across multiple modules or copy permissions between roles
               </p>
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Bulk Update by Role */}
               <div className="space-y-4">
-                <h3 className="text-sm text-gray-900">Update Permissions for All Modules</h3>
+                <h3 className="text-sm text-foreground">Update Permissions for All Modules</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {roles.filter(r => r !== 'super_admin').map(role => (
-                    <Card key={role} className="bg-gray-50">
+                    <Card key={role} className="bg-muted">
                       <CardContent className="pt-6">
                         <div className="flex items-center justify-between mb-4">
                           <Badge className={
@@ -642,7 +642,7 @@ export function Security({ user }: SecurityProps) {
                             role === 'director' ? 'bg-orange-100 text-orange-700' :
                             role === 'manager' ? 'bg-purple-100 text-purple-700' :
                             role === 'marketing' ? 'bg-green-100 text-green-700' :
-                            'bg-gray-100 text-gray-700'
+                            'bg-muted text-foreground'
                           }>
                             {roleLabels[role]}
                           </Badge>
@@ -693,12 +693,12 @@ export function Security({ user }: SecurityProps) {
 
               {/* Copy Permissions */}
               <div className="space-y-4">
-                <h3 className="text-sm text-gray-900">Copy Permissions Between Roles</h3>
+                <h3 className="text-sm text-foreground">Copy Permissions Between Roles</h3>
                 <Card className="bg-blue-50">
                   <CardContent className="pt-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <label className="text-sm text-gray-700">Copy From</label>
+                        <label className="text-sm text-foreground">Copy From</label>
                         <Select>
                           <SelectTrigger>
                             <SelectValue placeholder="Select role" />
@@ -713,7 +713,7 @@ export function Security({ user }: SecurityProps) {
                         </Select>
                       </div>
                       <div className="space-y-2">
-                        <label className="text-sm text-gray-700">Copy To</label>
+                        <label className="text-sm text-foreground">Copy To</label>
                         <Select>
                           <SelectTrigger>
                             <SelectValue placeholder="Select role" />

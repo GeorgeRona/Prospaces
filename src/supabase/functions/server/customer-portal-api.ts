@@ -115,7 +115,7 @@ export function customerPortalAPI(app: Hono) {
       // Track portal "Sent" metrics for creating an invite
       try {
         // Postgres
-        const { data: pgCamps } = await supabase.from('campaigns').select('id, description')
+        const { data: pgCamps } = await supabase.from('campaigns').select('id, description, opened_count, clicked_count')
           .eq('organization_id', orgId).eq('type', 'portal').order('created_at', { ascending: false }).limit(1);
           
         if (pgCamps && pgCamps.length > 0) {
@@ -126,7 +126,11 @@ export function customerPortalAPI(app: Hono) {
           }
           meta.sent_count = (meta.sent_count || 0) + 1;
           meta.audience_count = Math.max((meta.audience_count || 0), meta.sent_count);
-          await supabase.from('campaigns').update({ description: JSON.stringify(meta) }).eq('id', pgCamp.id);
+          await supabase.from('campaigns').update({
+            description: JSON.stringify(meta),
+            opened_count: (pgCamp.opened_count || 0) + 1,
+            clicked_count: (pgCamp.clicked_count || 0) + 1,
+          }).eq('id', pgCamp.id);
         } else {
           // Create default if none exists
           const meta = {
@@ -743,7 +747,7 @@ export function customerPortalAPI(app: Hono) {
 
         if (orgId) {
           // Update Postgres
-          const { data: pgCamps } = await supabase.from('campaigns').select('id, description').eq('organization_id', orgId).eq('type', 'portal').order('created_at', { ascending: false }).limit(1);
+          const { data: pgCamps } = await supabase.from('campaigns').select('id, description, converted_count, revenue').eq('organization_id', orgId).eq('type', 'portal').order('created_at', { ascending: false }).limit(1);
           if (pgCamps && pgCamps.length > 0) {
             const pgCamp = pgCamps[0];
             let meta: any = {};
@@ -752,7 +756,11 @@ export function customerPortalAPI(app: Hono) {
             }
             meta.converted_count = (meta.converted_count || 0) + 1;
             meta.revenue = (meta.revenue || 0) + Number(quoteValue);
-            await supabase.from('campaigns').update({ description: JSON.stringify(meta) }).eq('id', pgCamp.id);
+            await supabase.from('campaigns').update({
+              description: JSON.stringify(meta),
+              converted_count: (pgCamp.converted_count || 0) + 1,
+              revenue: (Number(pgCamp.revenue) || 0) + Number(quoteValue),
+            }).eq('id', pgCamp.id);
             console.log(`[portal] Incremented converted_count for latest Postgres portal campaign ${pgCamp.id}`);
           }
           

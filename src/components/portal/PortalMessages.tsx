@@ -100,7 +100,7 @@ export function PortalMessages({ messages, onRefresh }: PortalMessagesProps) {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-lg">{selectedMessage.subject}</CardTitle>
-            <p className="text-xs text-slate-400">{formatDate(selectedMessage.createdAt)}</p>
+            <p className="text-xs text-muted-foreground">{formatDate(selectedMessage.createdAt)}</p>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -113,14 +113,14 @@ export function PortalMessages({ messages, onRefresh }: PortalMessagesProps) {
                     className={`max-w-[80%] rounded-2xl p-3 ${
                       post.from === 'customer'
                         ? 'bg-blue-600 text-white rounded-br-md'
-                        : 'bg-slate-100 text-slate-900 rounded-bl-md'
+                        : 'bg-muted text-foreground rounded-bl-md'
                     }`}
                   >
                     {post.from !== 'customer' && post.senderName && (
-                      <p className="text-xs font-medium text-slate-500 mb-1">{post.senderName}</p>
+                      <p className="text-xs font-medium text-muted-foreground mb-1">{post.senderName}</p>
                     )}
                     <p className="text-sm whitespace-pre-wrap">{post.body}</p>
-                    <p className={`text-xs mt-1 ${post.from === 'customer' ? 'text-blue-200' : 'text-slate-400'}`}>
+                    <p className={`text-xs mt-1 ${post.from === 'customer' ? 'text-blue-200' : 'text-muted-foreground'}`}>
                       {formatDate(post.createdAt)}
                     </p>
                   </div>
@@ -137,8 +137,8 @@ export function PortalMessages({ messages, onRefresh }: PortalMessagesProps) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-slate-900">Messages</h2>
-          <p className="text-slate-500 text-sm mt-1">Communicate with your service provider</p>
+          <h2 className="text-xl font-bold text-foreground">Messages</h2>
+          <p className="text-muted-foreground text-sm mt-1">Communicate with your service provider</p>
         </div>
         <Button onClick={() => setShowNewMessage(true)} className="gap-2">
           <Plus className="h-4 w-4" />
@@ -150,8 +150,8 @@ export function PortalMessages({ messages, onRefresh }: PortalMessagesProps) {
         <Card>
           <CardContent className="py-12 text-center">
             <MessageSquare className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-            <h3 className="text-lg font-medium text-slate-700">No messages yet</h3>
-            <p className="text-sm text-slate-400 mt-1">
+            <h3 className="text-lg font-medium text-foreground">No messages yet</h3>
+            <p className="text-sm text-muted-foreground mt-1">
               Send a message to your service provider to get started.
             </p>
             <Button onClick={() => setShowNewMessage(true)} className="mt-4 gap-2">
@@ -188,10 +188,10 @@ export function PortalMessages({ messages, onRefresh }: PortalMessagesProps) {
                         )}
                       </div>
                       <div className="min-w-0">
-                        <p className={`text-sm truncate ${isUnread ? 'font-bold text-slate-900' : 'font-medium text-slate-700'}`}>
+                        <p className={`text-sm truncate ${isUnread ? 'font-bold text-foreground' : 'font-medium text-foreground'}`}>
                           {msg.subject}
                         </p>
-                        <p className="text-xs text-slate-500 truncate mt-0.5">{previewText}</p>
+                        <p className="text-xs text-muted-foreground truncate mt-0.5">{previewText}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
@@ -203,7 +203,7 @@ export function PortalMessages({ messages, onRefresh }: PortalMessagesProps) {
                           {msg.replies.length + 1}
                         </Badge>
                       )}
-                      <span className="text-xs text-slate-400">
+                      <span className="text-xs text-muted-foreground">
                         {formatDate(latestReply?.createdAt || msg.createdAt)}
                       </span>
                     </div>
@@ -217,7 +217,7 @@ export function PortalMessages({ messages, onRefresh }: PortalMessagesProps) {
 
       {/* New Message Dialog */}
       <Dialog open={showNewMessage} onOpenChange={setShowNewMessage}>
-        <DialogContent className="bg-white max-w-lg">
+        <DialogContent className="bg-background max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Mail className="h-5 w-5" />

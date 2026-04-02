@@ -241,8 +241,8 @@ export function PermissionsManager({ userRole }: PermissionsManagerProps) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl text-gray-900 mb-2">Role Permissions Management</h2>
-        <p className="text-gray-600">
+        <h2 className="text-2xl text-foreground mb-2">Role Permissions Management</h2>
+        <p className="text-muted-foreground">
           Configure what each role can access and modify in the system. Changes are saved to the database. {/* Updated to include Opportunities module */}
         </p>
       </div>
@@ -276,7 +276,7 @@ export function PermissionsManager({ userRole }: PermissionsManagerProps) {
                     <div className="flex items-center justify-center py-12">
                       <div className="text-center space-y-3">
                         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                        <p className="text-gray-600">Loading permissions...</p>
+                        <p className="text-muted-foreground">Loading permissions...</p>
                       </div>
                     </div>
                   ) : (
@@ -293,7 +293,7 @@ export function PermissionsManager({ userRole }: PermissionsManagerProps) {
                       <div className="overflow-x-auto">
                         <table className="w-full">
                           <thead>
-                            <tr className="border-b border-gray-200 dark:border-gray-700">
+                            <tr className="border-b border-border dark:border-gray-700">
                               <th className="text-left py-3 px-4 text-sm text-muted-foreground">Module</th>
                               <th className="text-center py-3 px-4 text-sm text-muted-foreground">Visible</th>
                               <th className="text-center py-3 px-4 text-sm text-muted-foreground">Add</th>
@@ -307,7 +307,7 @@ export function PermissionsManager({ userRole }: PermissionsManagerProps) {
                               if (!perm) return null;
 
                               return (
-                                <tr key={module.id} className="border-b border-gray-100 hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800">
+                                <tr key={module.id} className="border-b border-border hover:bg-muted dark:border-gray-800 dark:hover:bg-gray-800">
                                   <td className="py-3 px-4">
                                     <div>
                                       <p className="text-sm text-foreground">{module.name}</p>

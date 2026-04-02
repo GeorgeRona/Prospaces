@@ -21,6 +21,7 @@ import {
   Upload,
   Target,
   Folder,
+  Layers,
   UsersRound,
   BarChart3,
   Sparkles,
@@ -116,6 +117,7 @@ export function Navigation({
   // Base navigation items with submenu structure
   const baseNavItems = user.role !== 'super_admin' ? [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'main-panels', label: 'Main Panels', icon: Layers },
     // Only show AI Suggestions if enabled for the organization
     ...(organization?.ai_suggestions_enabled ? [{ id: 'ai-suggestions', label: 'AI Suggestions', icon: Sparkles }] : []),
     { id: 'contacts', label: 'Contacts', icon: Users },
@@ -134,27 +136,6 @@ export function Navigation({
     },
     // Only show Documents if enabled for the organization
     ...(organization?.documents_enabled !== false ? [{ id: 'documents', label: 'Documents', icon: Folder }] : []),
-    // Only show Marketing if enabled for the organization
-    ...(organization?.marketing_enabled !== false ? [{ id: 'marketing', label: 'Marketing', icon: TrendingUp }] : []),
-    // Only show Inventory if enabled for the organization
-    ...(organization?.inventory_enabled !== false ? [{ id: 'inventory', label: 'Inventory', icon: Package }] : []),
-    // Only show Project Wizards if enabled for the organization
-    ...(organization?.project_wizards_enabled !== false ? [{ 
-      id: 'project-wizards', 
-      label: 'Project Wizards', 
-      icon: Wand2,
-      hasSubmenu: true,
-      submenu: [
-        // Hide Finishing Planner from non-admins while in development
-        ...(['admin', 'super_admin'].includes(user.role) ? [{ id: 'interior-finishing', label: 'Finishing Planner', icon: Brush }] : []),
-        ...(canView('kitchen-planner', user.role) ? [{ id: 'kitchen-planner', label: 'Kitchen Planner', icon: ChefHat }] : []),
-        { id: 'deck-planner', label: 'Deck Planner', icon: Hammer },
-        { id: 'garage-planner', label: 'Garage Planner', icon: Warehouse },
-        { id: 'shed-planner', label: 'Shed Planner', icon: Home },
-        { id: 'roof-planner', label: 'Roof Planner', icon: Triangle },
-      ]
-    }] : []),
-    { id: 'reports', label: 'Reports', icon: BarChart3 },
   ] : [];
 
   // Manager/Admin specific items (team dashboard - hidden from SUPER_ADMIN)
@@ -212,28 +193,14 @@ export function Navigation({
     return submenuItems;
   };
 
-  // Admin menu with submenu — show if canView('admin') OR if the submenu has any items
-  const adminSubmenuItems = buildAdminSubmenu();
-  const adminNavItems = adminSubmenuItems.length > 0
-    ? [{
-        id: 'admin',
-        label: 'Admin',
-        icon: UserCog,
-        hasSubmenu: true,
-        submenu: adminSubmenuItems
-      }]
-    : (canView('settings', user.role)
-        ? [{ id: 'settings', label: 'Settings', icon: Settings }]
-        : []);
-
   // Combine and filter based on permissions
   const navItems = [
     ...baseNavItems,
     ...managerNavItems,
-    ...adminNavItems,
   ].filter(item => {
     // Admin parent menu: show if it has submenu items (already filtered above)
     if (item.id === 'admin') return true;
+    if (item.id === 'main-panels') return true;
     // Settings standalone: always show if it got here (already filtered above)
     if (item.id === 'settings') return true;
     // Everything else: check canView
@@ -343,7 +310,7 @@ export function Navigation({
                       e.stopPropagation();
                       toggleSubmenu(item.id);
                     }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-white/10 transition-colors"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-background/10 transition-colors"
                     aria-label={isExpanded ? 'Collapse submenu' : 'Expand submenu'}
                   >
                     {isExpanded ? (
@@ -454,18 +421,18 @@ export function Navigation({
           borderColor: theme.colors.border
         }}
       >
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between gap-2 px-3 py-3">
+          <div className="flex min-w-0 items-center gap-2">
             <Logo size="sm" />
-            <span className="font-semibold">ProSpaces CRM</span>
+            <span className="truncate font-semibold">ProSpaces CRM</span>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5">
             {/* AI Suggestions Icon */}
             {suggestions.length > 0 && (
               <Button
                 variant="ghost"
                 size="sm"
-                className="relative p-1.5 rounded-full hover:bg-white/10 transition-colors"
+                className="relative p-1.5 rounded-full hover:bg-background/10 transition-colors"
                 onClick={() => handleNavClick('ai-suggestions')}
                 title={`${suggestions.length} AI Suggestions`}
               >
@@ -481,7 +448,7 @@ export function Navigation({
               <Button
                 variant="ghost"
                 size="sm"
-                className="relative p-1.5 rounded-full hover:bg-white/10 transition-colors"
+                className="relative hidden rounded-full p-1.5 transition-colors hover:bg-background/10 sm:inline-flex"
                 onClick={() => handleNavClick('bids')}
                 title={`${unreadBidsCount} Deal Updates`}
               >
@@ -497,7 +464,7 @@ export function Navigation({
               <Button
                 variant="ghost"
                 size="sm"
-                className="relative p-1.5 rounded-full hover:bg-white/10 transition-colors"
+                className="relative hidden rounded-full p-1.5 transition-colors hover:bg-background/10 sm:inline-flex"
                 onClick={() => handleNavClick('tasks')}
                 title={`${taskCount} Pending Tasks`}
               >
@@ -513,7 +480,7 @@ export function Navigation({
               <Button
                 variant="ghost"
                 size="sm"
-                className="relative p-1.5 rounded-full hover:bg-white/10 transition-colors"
+                className="relative hidden rounded-full p-1.5 transition-colors hover:bg-background/10 sm:inline-flex"
                 onClick={() => handleNavClick('appointments')}
                 title={`${appointmentCount} Upcoming Appointments`}
               >
@@ -529,7 +496,7 @@ export function Navigation({
               <Button
                 variant="ghost"
                 size="sm"
-                className="relative p-1.5 rounded-full hover:bg-white/10 transition-colors"
+                className="relative p-1.5 rounded-full hover:bg-background/10 transition-colors"
                 onClick={() => handleNavClick('email')}
                 title={`${unreadCount} Unread Emails`}
               >
@@ -553,7 +520,7 @@ export function Navigation({
                 <DropdownMenuLabel>
                   <div>
                     <p className="font-medium">{user.full_name || user.email || 'User'}</p>
-                    <p className="text-xs text-gray-500 font-normal mt-1">{user.email || 'No email'}</p>
+                    <p className="text-xs text-muted-foreground font-normal mt-1">{user.email || 'No email'}</p>
                   </div>
                 </DropdownMenuLabel>
                 {organization && (
@@ -561,11 +528,11 @@ export function Navigation({
                     <DropdownMenuSeparator />
                     <DropdownMenuLabel>
                       <div className="flex items-center gap-2">
-                        <div className="h-6 w-6 rounded bg-gray-200 flex items-center justify-center">
-                          <Building2 className="h-4 w-4 text-gray-600" />
+                        <div className="h-6 w-6 rounded bg-muted flex items-center justify-center">
+                          <Building2 className="h-4 w-4 text-muted-foreground" />
                         </div>
                         <div>
-                          <p className="text-xs text-gray-500 font-normal">Organization</p>
+                          <p className="text-xs text-muted-foreground font-normal">Organization</p>
                           <p className="text-sm font-medium">{organization.name}</p>
                         </div>
                       </div>
@@ -591,6 +558,7 @@ export function Navigation({
             <Button
               variant="ghost"
               size="sm"
+              className="rounded-full p-1.5"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             >
               {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -669,15 +637,15 @@ export function Navigation({
       {isMobileMenuOpen && (
         <div className="lg:hidden fixed inset-0 z-40 bg-gray-900 bg-opacity-50" onClick={() => setIsMobileMenuOpen(false)}>
           <div 
-            className="fixed inset-y-0 left-0 w-64"
+            className="fixed inset-y-0 left-0 w-[88vw] max-w-72"
             style={{
               background: theme.colors.navBackground,
               color: theme.colors.navText
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex flex-col h-full pt-16 pb-4">
-              <nav className="flex-1 px-2 space-y-1 mt-4">
+            <div className="flex h-full flex-col overflow-y-auto pb-4 pt-16">
+              <nav className="mt-4 flex-1 space-y-1 px-2">
                 {navItems.map((item) => renderNavItem(item))}
               </nav>
 
@@ -872,7 +840,7 @@ export function Navigation({
                 <DropdownMenuLabel>
                   <div>
                     <p className="font-medium text-white">{user.full_name || user.email || 'User'}</p>
-                    <p className="text-xs text-gray-400 font-normal mt-1">{user.email || 'No email'}</p>
+                    <p className="text-xs text-muted-foreground font-normal mt-1">{user.email || 'No email'}</p>
                   </div>
                 </DropdownMenuLabel>
                 {organization && (
@@ -881,10 +849,10 @@ export function Navigation({
                     <DropdownMenuLabel>
                       <div className="flex items-center gap-2">
                         <div className="h-6 w-6 rounded bg-[#1E1E1E] flex items-center justify-center">
-                          <Building2 className="h-4 w-4 text-gray-400" />
+                          <Building2 className="h-4 w-4 text-muted-foreground" />
                         </div>
                         <div>
-                          <p className="text-xs text-gray-400 font-normal">Organization</p>
+                          <p className="text-xs text-muted-foreground font-normal">Organization</p>
                           <p className="text-sm font-medium text-white">{organization.name}</p>
                         </div>
                       </div>

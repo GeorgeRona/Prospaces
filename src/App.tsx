@@ -2,6 +2,7 @@ import React, { useState, useEffect, Suspense, useCallback, lazy } from 'react';
 import { createBrowserRouter, RouterProvider } from 'react-router';
 import { Navigation } from './components/Navigation';
 import { LandingPage } from './components/LandingPage';
+import { SpaceChooser } from './components/SpaceChooser';
 import { Login } from './components/Login';
 import { MemberLogin } from './components/MemberLogin';
 // ── Eagerly loaded (always needed on auth'd shell) ──
@@ -27,6 +28,7 @@ import { Toaster } from './components/ui/sonner';
 import ErrorBoundary from './components/ErrorBoundary';
 import { createClient } from './utils/supabase/client';
 import { initializePermissions } from './utils/permissions';
+import { getTheme } from './utils/themes';
 import type { Session, User as SupabaseUser } from '@supabase/supabase-js';
 
 // ── Code-split: lazy-loaded page modules (only fetched when navigated to) ──
@@ -36,6 +38,7 @@ const lazyNamed = <T extends Record<string, any>>(
 ) => lazy(() => factory().then((m) => ({ default: m[name] as React.ComponentType<any> })));
 
 const Dashboard = lazyNamed(() => import('./components/Dashboard'), 'Dashboard');
+const MainPanels = lazyNamed(() => import('./components/MainPanels'), 'MainPanels');
 const Contacts = lazyNamed(() => import('./components/Contacts'), 'Contacts');
 const Tasks = lazyNamed(() => import('./components/Tasks'), 'Tasks');
 const Appointments = lazyNamed(() => import('./components/Appointments'), 'Appointments');
@@ -238,6 +241,34 @@ export function AppContent() {
   });
   const [showChangePassword, setShowChangePassword] = useState(false);
 
+  // Landing + Enter ProSpaces should always use default light visual tokens,
+  // independent of each user's selected theme.
+  useEffect(() => {
+    const isThemeIsolatedPublicPage = (!session || !user) && (currentView === 'landing' || currentView === 'space-chooser');
+    if (!isThemeIsolatedPublicPage) return;
+
+    const light = getTheme('light');
+    const root = document.documentElement;
+    root.classList.remove('dark');
+    root.style.setProperty('--color-background', light.colors.background);
+    root.style.setProperty('--color-background-secondary', light.colors.backgroundSecondary);
+    root.style.setProperty('--color-background-tertiary', light.colors.backgroundTertiary);
+    root.style.setProperty('--color-text', light.colors.text);
+    root.style.setProperty('--color-text-secondary', light.colors.textSecondary);
+    root.style.setProperty('--color-text-muted', light.colors.textMuted);
+    root.style.setProperty('--color-primary', light.colors.primary);
+    root.style.setProperty('--color-primary-hover', light.colors.primaryHover);
+    root.style.setProperty('--color-primary-text', light.colors.primaryText);
+    root.style.setProperty('--color-border', light.colors.border);
+    root.style.setProperty('--color-card', light.colors.card);
+    root.style.setProperty('--color-nav-background', light.colors.navBackground);
+    root.style.setProperty('--color-nav-text', light.colors.navText);
+    root.style.setProperty('--color-nav-hover', light.colors.navHover);
+    root.style.setProperty('--color-nav-active', light.colors.navActive);
+    root.style.setProperty('--color-topbar-background', light.colors.topBarBackground);
+    root.style.setProperty('--color-topbar-text', light.colors.topBarText);
+  }, [session, user, currentView]);
+
   // Stable callback references to prevent unnecessary child re-renders
   const handleToggleSidebar = useCallback(() => {
     setIsSidebarCollapsed(prev => !prev);
@@ -407,7 +438,7 @@ export function AppContent() {
           if (savedView) {
             setCurrentView(savedView);
           } else {
-            setCurrentView(profile.role === 'super_admin' ? 'tenants' : 'dashboard');
+            setCurrentView(profile.role === 'super_admin' ? 'tenants' : 'main-panels');
           }
         }
 
@@ -471,28 +502,36 @@ export function AppContent() {
     }
     
     setUser(user);
-    setCurrentView('dashboard');
+    setCurrentView('main-panels');
   };
 
   if (!session || !user) {
     return (
       <ErrorBoundary>
-        <ThemeProvider userId={user?.id}>
-          <Toaster />
-          {currentView === 'member-login' ? (
-            <MemberLogin
-              onLogin={handleMemberLogin}
-              onBack={() => setCurrentView('landing')}
-            />
-          ) : currentView === 'login' ? (
-            <Login 
-              onBack={() => setCurrentView('landing')} 
-              onLogin={handleMemberLogin} 
-            />
-          ) : (
-            <LandingPage onGetStarted={() => setCurrentView('login')} onMemberLogin={() => setCurrentView('member-login')} />
-          )}
-        </ThemeProvider>
+        <Toaster />
+        {currentView === 'member-login' ? (
+          <MemberLogin
+            onLogin={handleMemberLogin}
+            onBack={() => setCurrentView('space-chooser')}
+          />
+        ) : currentView === 'login' ? (
+          <Login 
+            onBack={() => setCurrentView('space-chooser')} 
+            onLogin={handleMemberLogin} 
+          />
+        ) : currentView === 'space-chooser' ? (
+          <SpaceChooser
+            onSelectSalesSpace={() => setCurrentView('member-login')}
+            onSelectDesignSpace={() => { window.location.href = '/project-wizards.html'; }}
+            onSelectMarketingSpace={() => { window.location.href = '/marketing.html'; }}
+            onSelectInsightsSpace={() => { window.location.href = '/insights.html'; }}
+            onSelectInventorySpace={() => { window.location.href = '/inventory.html'; }}
+            onSelectITSpace={() => { window.location.href = '/it.html'; }}
+            onBack={() => setCurrentView('landing')}
+          />
+        ) : (
+          <LandingPage onGetStarted={() => setCurrentView('space-chooser')} onMemberLogin={() => setCurrentView('member-login')} />
+        )}
       </ErrorBoundary>
     );
   }
@@ -523,6 +562,7 @@ export function AppContent() {
 
             <div className="pt-14 sm:pt-16 lg:pt-0">
               <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
+              {currentView === 'main-panels' && <MainPanels user={user} organization={organization} onNavigate={setCurrentView} />}
               {currentView === 'dashboard' && <Dashboard user={user} organization={organization} onNavigate={setCurrentView} />}
               {currentView === 'ai-suggestions' && <AITaskSuggestions user={user} onNavigate={setCurrentView} />}
               {currentView === 'contacts' && <Contacts user={user} />}

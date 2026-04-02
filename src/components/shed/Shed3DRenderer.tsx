@@ -929,32 +929,32 @@ export function Shed3DRenderer({ config }: Shed3DRendererProps) {
   return (
     <div className="w-full h-full bg-gradient-to-br from-green-100 to-emerald-200 rounded-lg overflow-hidden relative">
       {/* Instructions overlay */}
-      <div className="absolute top-4 left-4 z-10 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-3 text-sm">
-        <div className="font-semibold text-slate-900 mb-1">🎮 3D Controls:</div>
-        <div className="space-y-0.5 text-slate-700">
+      <div className="absolute top-4 left-4 z-10 bg-background/90 backdrop-blur-sm rounded-lg shadow-lg p-3 text-sm">
+        <div className="font-semibold text-foreground mb-1">🎮 3D Controls:</div>
+        <div className="space-y-0.5 text-foreground">
           <div>🖱️ <strong>Rotate:</strong> Click + drag / Swipe</div>
           <div>🔍 <strong>Zoom:</strong> Scroll / Pinch</div>
         </div>
       </div>
 
       {/* Stats overlay */}
-      <div className="absolute top-4 right-4 z-10 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg p-3">
+      <div className="absolute top-4 right-4 z-10 bg-background/90 backdrop-blur-sm rounded-lg shadow-lg p-3">
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>
-            <div className="text-xs text-slate-600">Size</div>
-            <div className="font-bold text-slate-900">{config.width}' × {config.length}'</div>
+            <div className="text-xs text-muted-foreground">Size</div>
+            <div className="font-bold text-foreground">{config.width}' × {config.length}'</div>
           </div>
           <div>
-            <div className="text-xs text-slate-600">Style</div>
-            <div className="font-bold text-slate-900">{config.style}</div>
+            <div className="text-xs text-muted-foreground">Style</div>
+            <div className="font-bold text-foreground">{config.style}</div>
           </div>
           <div>
-            <div className="text-xs text-slate-600">Windows</div>
-            <div className="font-bold text-slate-900">{config.windows.length}</div>
+            <div className="text-xs text-muted-foreground">Windows</div>
+            <div className="font-bold text-foreground">{config.windows.length}</div>
           </div>
           <div>
-            <div className="text-xs text-slate-600">Door</div>
-            <div className="font-bold text-slate-900">{config.doorType}</div>
+            <div className="text-xs text-muted-foreground">Door</div>
+            <div className="font-bold text-foreground">{config.doorType}</div>
           </div>
         </div>
       </div>
