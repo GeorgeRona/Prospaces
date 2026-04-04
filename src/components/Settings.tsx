@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner@2.0.3';
-import { Security } from './Security';
 import { ThemeSelector } from './ThemeSelector';
 import { ProjectWizardSettings } from './ProjectWizardSettings';
 import { DataDiagnostic } from './DataDiagnostic';
@@ -43,7 +42,6 @@ import {
 } from 'lucide-react';
 import type { User } from '../App';
 import { PermissionGate } from './PermissionGate';
-import { canView } from '../utils/permissions';
 import { tenantsAPI, settingsAPI } from '../utils/api';
 import { DEFAULT_PRICE_TIER_LABELS, type PriceTierLabels, getPriceTierLabel, getActivePriceLevels, AVAILABLE_MODULES } from '../lib/global-settings';
 
@@ -702,7 +700,6 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
 
   const canManageSettings = user.role === 'super_admin' || user.role === 'admin';
   const isSuperAdmin = user.role === 'super_admin';
-  const canAccessSecurity = canView('security', user.role);
 
   // Show loading spinner while settings are being fetched
   if (isLoading) {
@@ -776,7 +773,6 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
             <TabsTrigger value="notifications" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Notifications</TabsTrigger>
             {canManageSettings && <TabsTrigger value="organization" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Organization</TabsTrigger>}
             {canManageSettings && <TabsTrigger value="module-settings" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Module Defaults</TabsTrigger>}
-            {canAccessSecurity && <TabsTrigger value="permissions" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Permissions</TabsTrigger>}
             {canManageSettings && <TabsTrigger value="diagnostics" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Diagnostics</TabsTrigger>}
             <TabsTrigger value="appearance" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Appearance</TabsTrigger>
             {(userMode === 'single' || canManageSettings) && <TabsTrigger value="billing" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Billing</TabsTrigger>}
@@ -1400,12 +1396,6 @@ export function Settings({ user, organization, onUserUpdate, onOrganizationUpdat
                 </div>
               </div>
             )}
-          </TabsContent>
-        )}
-
-        {canAccessSecurity && (
-          <TabsContent value="permissions" className="space-y-4">
-            <Security user={user} />
           </TabsContent>
         )}
 

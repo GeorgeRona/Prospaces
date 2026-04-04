@@ -6,7 +6,7 @@ import { ThemeProvider } from './components/ThemeProvider';
 import { Toaster } from './components/ui/sonner';
 import ErrorBoundary from './components/ErrorBoundary';
 import { createClient } from './utils/supabase/client';
-import { initializePermissions } from './utils/permissions';
+import { canAccessSpace, initializePermissions } from './utils/permissions';
 import type { User, UserRole } from './App';
 import type { Session } from '@supabase/supabase-js';
 import { DesktopOnlyAccess } from './components/DesktopOnlyAccess';
@@ -77,25 +77,19 @@ function MarketingApp() {
         .single() as { data: any };
 
       if (profile) {
-        const allowedRoles: UserRole[] = [
-          'super_admin',
-          'admin',
-          'director',
-          'manager',
-          'marketing',
-        ];
-        if (!allowedRoles.includes(profile.role as UserRole)) {
-          setUser(null);
-          setAccessDeniedMessage('You are signed in, but your role does not currently have access to Marketing Space. Please choose another space or contact your administrator if you need access.');
-          setLoading(false);
-          return;
-        }
-
         if (profile.organization_id) {
           localStorage.setItem('currentOrgId', profile.organization_id);
         }
 
         await initializePermissions(profile.role);
+
+        if (!canAccessSpace('marketing', profile.role as UserRole, 'view')) {
+          setUser(null);
+          setAccessDeniedMessage('You are signed in, but your account does not currently have access to Marketing Space. Please choose another space or contact your administrator if you need access.');
+          setLoading(false);
+          return;
+        }
+
         setAccessDeniedMessage(null);
 
         setUser({

@@ -118,7 +118,7 @@ export function ITSpaceInfo({ onBack, onEnterSpace }: ITSpaceInfoProps) {
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div className="rounded-lg bg-slate-50 p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Access Governance</p>
-                <p className="mt-1 text-sm text-slate-700">Provision roles and permissions so every user gets the right access, no more and no less.</p>
+                <p className="mt-1 text-sm text-slate-700">Provision roles and space access so every user gets the right access, no more and no less.</p>
               </div>
               <div className="rounded-lg bg-slate-50 p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Security Oversight</p>

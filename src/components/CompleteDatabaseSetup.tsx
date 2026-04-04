@@ -471,7 +471,7 @@ ON CONFLICT (role, resource) DO UPDATE SET
           <AlertTriangle className="h-4 w-4 text-purple-600" />
           <AlertDescription className="text-purple-900">
             <strong>Database initialization needed.</strong> This comprehensive script will set up all tables, 
-            remove foreign key constraints, create organizations, and configure permissions.
+            remove foreign key constraints, create organizations, and configure access controls.
           </AlertDescription>
         </Alert>
 
@@ -485,7 +485,7 @@ ON CONFLICT (role, resource) DO UPDATE SET
             <li>✅ Sets up RLS (Row Level Security) policies</li>
             <li>✅ Creates default organization</li>
             <li>✅ Syncs existing auth users to profiles</li>
-            <li>✅ Inserts default role permissions</li>
+            <li>✅ Inserts default role space access</li>
           </ul>
         </div>
 

@@ -771,7 +771,7 @@ export function Users({ user, organization, onOrganizationUpdate }: UsersProps) 
         <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
           <TabsList className="inline-flex w-auto min-w-full md:grid md:w-full md:grid-cols-3">
             <TabsTrigger value="users" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">User Management</TabsTrigger>
-            <TabsTrigger value="permissions" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Role Permissions</TabsTrigger>
+            <TabsTrigger value="permissions" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">Space Access</TabsTrigger>
             <TabsTrigger value="recovery" className="whitespace-nowrap px-3 sm:px-4 text-xs sm:text-sm">User Recovery</TabsTrigger>
           </TabsList>
         </div>

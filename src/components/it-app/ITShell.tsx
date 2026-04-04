@@ -16,6 +16,7 @@ import {
   ChevronRight,
   PanelLeftClose,
   PanelLeftOpen,
+  ArrowLeft,
   User as UserIcon,
   Users as UsersIcon,
 } from 'lucide-react';
@@ -136,6 +137,10 @@ export function ITShell({ user, accessToken, onLogout }: ITShellProps) {
   const handleNavigate = useCallback((view: ITView) => {
     setCurrentView(view);
   }, []);
+
+  const handleBackToSpaces = () => {
+    window.location.href = '/?view=space-chooser';
+  };
 
   const handleLogout = async () => {
     try {
@@ -285,6 +290,25 @@ export function ITShell({ user, accessToken, onLogout }: ITShellProps) {
             )}
           </div>
           <button
+            onClick={handleBackToSpaces}
+            title={isCollapsed ? 'Back to Spaces' : undefined}
+            className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all ${
+              isCollapsed ? 'justify-center' : ''
+            }`}
+            style={{ color: theme.colors.textMuted }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = theme.isDark ? 'rgba(139,92,246,0.18)' : 'rgba(243,232,255,1)';
+              e.currentTarget.style.color = '#7C3AED';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+              e.currentTarget.style.color = theme.colors.textMuted;
+            }}
+          >
+            <ArrowLeft className="h-4 w-4 shrink-0" />
+            {!isCollapsed && <span className="text-sm">Back to Spaces</span>}
+          </button>
+          <button
             onClick={handleLogout}
             title={isCollapsed ? 'Sign out' : undefined}
             className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all ${
@@ -343,10 +367,10 @@ function HomeView({
 }) {
   const { theme } = useTheme();
   const cardMeta: Record<string, { description: string; gradient: string; shadow: string }> = {
-    contacts:        { description: 'View and manage shared CRM contacts inside IT Space while following the current role permissions.', gradient: 'from-sky-500 to-cyan-600',       shadow: 'shadow-sky-500/20' },
-    users:           { description: 'Manage user accounts, roles, permissions, and team member access across the platform.',         gradient: 'from-violet-500 to-indigo-600',  shadow: 'shadow-violet-500/20' },
-    tenants:         { description: 'Create and manage organizations, configure org-level settings, and control tenant access.',    gradient: 'from-indigo-500 to-blue-600',    shadow: 'shadow-indigo-500/20' },
-    security:        { description: 'Configure security policies, two-factor authentication, session controls, and IP whitelists.', gradient: 'from-purple-500 to-violet-600',  shadow: 'shadow-purple-500/20' },
+    contacts:        { description: 'View and manage shared CRM contacts inside IT Space while following the current space access rules.', gradient: 'from-sky-500 to-cyan-600',       shadow: 'shadow-sky-500/20' },
+    users:           { description: 'Manage user accounts, roles, space access, and team member access across the platform.',            gradient: 'from-violet-500 to-indigo-600',  shadow: 'shadow-violet-500/20' },
+    tenants:         { description: 'Create and manage organizations, configure org-level settings, and control tenant access.',        gradient: 'from-indigo-500 to-blue-600',    shadow: 'shadow-indigo-500/20' },
+    security:        { description: 'Configure space access, security policies, two-factor authentication, session controls, and IP whitelists.', gradient: 'from-purple-500 to-violet-600',  shadow: 'shadow-purple-500/20' },
     'audit-log':     { description: 'Review a complete audit trail of user actions, data changes, and system events.',              gradient: 'from-fuchsia-500 to-pink-600',   shadow: 'shadow-fuchsia-500/20' },
     settings:        { description: 'Global platform settings, custom fields, workflow automation, and system configuration.',       gradient: 'from-slate-500 to-gray-600',     shadow: 'shadow-slate-500/20' },
     'import-export': { description: 'Bulk import contacts, deals, and inventory. Export data in CSV and other formats.',            gradient: 'from-cyan-500 to-teal-600',      shadow: 'shadow-cyan-500/20' },

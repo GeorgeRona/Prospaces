@@ -13,6 +13,7 @@ import {
   LayoutDashboard,
   PanelLeftClose,
   PanelLeftOpen,
+  ArrowLeft,
   User as UserIcon,
   Users,
 } from 'lucide-react';
@@ -190,6 +191,10 @@ export function ProjectWizardsShell({ user, onLogout }: ProjectWizardsShellProps
     setCurrentView(view);
   }, []);
 
+  const handleBackToSpaces = () => {
+    window.location.href = '/?view=space-chooser';
+  };
+
   const handleLogout = async () => {
     try {
       const supabase = createClient();
@@ -302,6 +307,16 @@ export function ProjectWizardsShell({ user, onLogout }: ProjectWizardsShellProps
               </div>
             )}
           </div>
+          <button
+            onClick={handleBackToSpaces}
+            title={isCollapsed ? 'Back to Spaces' : undefined}
+            className={`w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-slate-500 hover:text-indigo-700 hover:bg-indigo-50 transition-all ${
+              isCollapsed ? 'justify-center' : ''
+            }`}
+          >
+            <ArrowLeft className="h-4 w-4 shrink-0" />
+            {!isCollapsed && <span className="text-sm">Back to Spaces</span>}
+          </button>
           <button
             onClick={handleLogout}
             title={isCollapsed ? 'Sign out' : undefined}

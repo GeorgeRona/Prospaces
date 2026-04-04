@@ -1186,7 +1186,7 @@ export function Tenants({ user, organization }: TenantsProps) {
                   <p className="text-xs text-muted-foreground">
                     {formData.user_mode === 'single'
                       ? 'Solo workspace — team management features are hidden'
-                      : 'Team workspace — roles, permissions, and user management enabled'}
+                      : 'Team workspace — roles, space access, and user management enabled'}
                   </p>
                 </div>
                 <Switch

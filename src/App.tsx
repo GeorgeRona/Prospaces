@@ -3,6 +3,7 @@ import { createBrowserRouter, RouterProvider } from 'react-router';
 import { Navigation } from './components/Navigation';
 import { LandingPage } from './components/LandingPage';
 import { SpaceChooser } from './components/SpaceChooser';
+import { SpaceAccessNotice } from './components/SpaceAccessNotice';
 import { Login } from './components/Login';
 import { MemberLogin } from './components/MemberLogin';
 // ── Eagerly loaded (always needed on auth'd shell) ──
@@ -27,7 +28,7 @@ import { LandingPageDiagnosticTest } from './components/marketing/LandingPageDia
 import { Toaster } from './components/ui/sonner';
 import ErrorBoundary from './components/ErrorBoundary';
 import { createClient } from './utils/supabase/client';
-import { initializePermissions } from './utils/permissions';
+import { canAccessSpace, initializePermissions } from './utils/permissions';
 import { getTheme } from './utils/themes';
 import type { Session, User as SupabaseUser } from '@supabase/supabase-js';
 
@@ -286,12 +287,19 @@ export function AppContent() {
     localStorage.setItem('prospaces_sidebar_collapsed', String(isSidebarCollapsed));
   }, [isSidebarCollapsed]);
 
-  // Check if URL indicates member-login on mount
+  // Check if URL indicates a specific entry view on mount
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const path = window.location.pathname;
-    if (urlParams.get('view') === 'member-login' || path === '/member-login') {
+    const requestedView = urlParams.get('view');
+
+    if (requestedView === 'member-login' || path === '/member-login') {
       setCurrentView('member-login');
+      return;
+    }
+
+    if (requestedView === 'space-chooser') {
+      setCurrentView('space-chooser');
     }
   }, []);
 
@@ -522,6 +530,22 @@ export function AppContent() {
         ) : (
           <LandingPage onGetStarted={() => setCurrentView('member-login')} onMemberLogin={() => setCurrentView('member-login')} />
         )}
+      </ErrorBoundary>
+    );
+  }
+
+  const canAccessSalesSpace = canAccessSpace('sales', user.role, 'view');
+
+  if (!canAccessSalesSpace && currentView !== 'space-chooser') {
+    return (
+      <ErrorBoundary>
+        <Toaster />
+        <SpaceAccessNotice
+          spaceName="Sales Space"
+          accentColorClass="bg-blue-600"
+          mode="access-denied"
+          message="You are signed in, but your account does not currently have access to Sales Space. Please choose another space or contact your administrator if you need access."
+        />
       </ErrorBoundary>
     );
   }

@@ -405,7 +405,7 @@ const TeamManagementMock = () => (
     </div>
     <div className="flex border-b border-border mb-6 shrink-0">
       <div className="px-6 py-3 border-b-2 border-blue-600 text-blue-600 font-bold">User Management</div>
-      <div className="px-6 py-3 text-muted-foreground font-medium">Role Permissions</div>
+      <div className="px-6 py-3 text-muted-foreground font-medium">Space Access</div>
       <div className="px-6 py-3 text-muted-foreground font-medium">User Recovery</div>
     </div>
     

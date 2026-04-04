@@ -230,6 +230,10 @@ export function Navigation({
     setIsMobileMenuOpen(false);
   };
 
+  const handleBackToSpaces = () => {
+    handleNavClick('space-chooser');
+  };
+
   // Render navigation item (with or without submenu)
   const renderNavItem = (item: any, isSubmenuItem = false) => {
     const Icon = item.icon;
@@ -540,6 +544,10 @@ export function Navigation({
                   </>
                 )}
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleBackToSpaces}>
+                  <Home className="mr-2 h-4 w-4" />
+                  Back to Spaces
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleNavClick('settings')}>
                   <User className="mr-2 h-4 w-4" />
                   Profile
@@ -824,6 +832,16 @@ export function Navigation({
               </div>
             )}
 
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBackToSpaces}
+              className="hidden sm:inline-flex items-center gap-2"
+            >
+              <Home className="h-4 w-4" />
+              Spaces
+            </Button>
+
             {/* Subscription Badge */}
             <SubscriptionBadge onClick={() => handleNavClick('subscription-billing')} />
 
@@ -860,6 +878,10 @@ export function Navigation({
                   </>
                 )}
                 <DropdownMenuSeparator className="bg-[#2E2E2E]" />
+                <DropdownMenuItem onClick={handleBackToSpaces} className="text-gray-200 focus:bg-[#1E1E1E] focus:text-white">
+                  <Home className="mr-2 h-4 w-4" />
+                  Back to Spaces
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleNavClick('settings')} className="text-gray-200 focus:bg-[#1E1E1E] focus:text-white">
                   <User className="mr-2 h-4 w-4" />
                   Profile

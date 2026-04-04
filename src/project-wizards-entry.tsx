@@ -6,7 +6,7 @@ import { ThemeProvider } from './components/ThemeProvider';
 import { Toaster } from './components/ui/sonner';
 import ErrorBoundary from './components/ErrorBoundary';
 import { createClient } from './utils/supabase/client';
-import { initializePermissions } from './utils/permissions';
+import { canAccessSpace, initializePermissions } from './utils/permissions';
 import type { User, UserRole } from './App';
 import type { Session } from '@supabase/supabase-js';
 import { DesktopOnlyAccess } from './components/DesktopOnlyAccess';
@@ -74,26 +74,19 @@ function ProjectWizardsApp() {
         .single() as { data: any };
 
       if (profile) {
-        // Check Project Wizards access
-        const allowedRoles: UserRole[] = [
-          'super_admin',
-          'admin',
-          'director',
-          'manager',
-          'designer',
-        ];
-        if (!allowedRoles.includes(profile.role as UserRole)) {
-          setUser(null);
-          setAccessDeniedMessage('You are signed in, but your role does not currently have access to Design Space. Please choose another space or contact your administrator if you need access.');
-          setLoading(false);
-          return;
-        }
-
         if (profile.organization_id) {
           localStorage.setItem('currentOrgId', profile.organization_id);
         }
 
         await initializePermissions(profile.role);
+
+        if (!canAccessSpace('design', profile.role as UserRole, 'view')) {
+          setUser(null);
+          setAccessDeniedMessage('You are signed in, but your account does not currently have access to Design Space. Please choose another space or contact your administrator if you need access.');
+          setLoading(false);
+          return;
+        }
+
         setAccessDeniedMessage(null);
 
         setUser({
