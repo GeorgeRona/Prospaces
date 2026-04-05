@@ -14,8 +14,6 @@ import {
   PieChart,
   Activity,
   MessageSquare,
-  Instagram,
-  Linkedin,
   Globe
 } from 'lucide-react';
 import type { User } from '../../App';
